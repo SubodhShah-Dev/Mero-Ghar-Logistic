@@ -56,57 +56,63 @@ let fCur = 1;
 const fTotal = 5;
 const fPW = { 1: '20%', 2: '40%', 3: '60%', 4: '80%', 5: '100%' };
 
-// Price configuration
+// ========== LOWER PRICES (matching the ranges shown in HTML) ==========
 const PRICES = {
 	vehicle: {
-		cargo_tempo: 2500,
-		tata_ace: 5000,
-		mini_truck_407: 10000,
-		large_truck: 20000,
+		cargo_tempo: 500, // matches "NPR 400-500"
+		tata_ace: 1000, // matches "NPR 800-1200"
+		mini_truck_407: 2000, // matches "NPR 1500-2000"
+		large_truck: 2500, // matches "NPR 2000+"
 		recommend: 0,
 	},
-	homeSize: { '1_room': 1, '2_bhk': 1.5, '3_bhk': 2, large_house: 2.5 },
-	addOns: { packing: 1500, disassembly: 1000, porter: 2000, insurance: 2500 },
+	homeSize: {
+		'1_room': 1,
+		'2_bhk': 1.2,
+		'3_bhk': 1.5,
+		large_house: 1.8,
+	},
+	addOns: {
+		packing: 500,
+		disassembly: 300,
+		porter: 500,
+		insurance: 800,
+	},
 };
+// =====================================================
 
-function calculateTotalPrice() {
-	let total = 0;
+function getSelectedVehiclePrice() {
 	const vehicleSelected = document.querySelector('input[name="veh"]:checked');
-	if (vehicleSelected) {
-		const vehicleCard = vehicleSelected
-			.closest('label')
-			?.querySelector('.v-card');
-		const vehicleTitle = vehicleCard?.querySelector('.font-semibold');
-		if (vehicleTitle) {
-			const text = vehicleTitle.innerText.toLowerCase();
-			if (text.includes('cargo tempo'))
-				total += PRICES.vehicle.cargo_tempo;
-			else if (text.includes('tata ace'))
-				total += PRICES.vehicle.tata_ace;
-			else if (text.includes('mini truck'))
-				total += PRICES.vehicle.mini_truck_407;
-			else if (text.includes('large truck'))
-				total += PRICES.vehicle.large_truck;
-		}
-	}
+	if (!vehicleSelected) return 0;
+	const vehicleCard = vehicleSelected
+		.closest('label')
+		?.querySelector('.v-card');
+	const vehicleTitle = vehicleCard?.querySelector('.font-semibold');
+	if (!vehicleTitle) return 0;
+	const text = vehicleTitle.innerText.toLowerCase();
+	if (text.includes('cargo tempo')) return PRICES.vehicle.cargo_tempo;
+	if (text.includes('tata ace')) return PRICES.vehicle.tata_ace;
+	if (text.includes('mini truck')) return PRICES.vehicle.mini_truck_407;
+	if (text.includes('large truck')) return PRICES.vehicle.large_truck;
+	return 0;
+}
+
+function getHomeSizeMultiplier() {
 	const homeSizeSelected = document.querySelector(
 		'input[name="hSize"]:checked',
 	);
-	if (homeSizeSelected) {
-		const label = homeSizeSelected
-			.closest('label')
-			?.querySelector('.chip-lbl');
-		if (label) {
-			const sizeText = label.innerText;
-			if (sizeText.includes('1 Room')) total *= PRICES.homeSize['1_room'];
-			else if (sizeText.includes('2 BHK'))
-				total *= PRICES.homeSize['2_bhk'];
-			else if (sizeText.includes('3 BHK'))
-				total *= PRICES.homeSize['3_bhk'];
-			else if (sizeText.includes('Large House'))
-				total *= PRICES.homeSize.large_house;
-		}
-	}
+	if (!homeSizeSelected) return 1;
+	const label = homeSizeSelected.closest('label')?.querySelector('.chip-lbl');
+	if (!label) return 1;
+	const text = label.innerText;
+	if (text.includes('1 Room')) return PRICES.homeSize['1_room'];
+	if (text.includes('2 BHK')) return PRICES.homeSize['2_bhk'];
+	if (text.includes('3 BHK')) return PRICES.homeSize['3_bhk'];
+	if (text.includes('Large House')) return PRICES.homeSize.large_house;
+	return 1;
+}
+
+function getAddOnsTotal() {
+	let total = 0;
 	document
 		.querySelectorAll('#fp3 input[type="checkbox"]:checked')
 		.forEach((cb) => {
@@ -124,16 +130,44 @@ function calculateTotalPrice() {
 					total += PRICES.addOns.insurance;
 			}
 		});
-	return Math.max(total, 500);
+	return total;
+}
+
+function calculateTotalPrice() {
+	const vehicleBase = getSelectedVehiclePrice();
+	const multiplier = getHomeSizeMultiplier();
+	const addOns = getAddOnsTotal();
+	let total = vehicleBase * multiplier + addOns;
+	return Math.max(total, 200);
 }
 
 function updatePriceDisplay() {
+	const vehicleBase = getSelectedVehiclePrice();
+	const multiplier = getHomeSizeMultiplier();
+	const addOns = getAddOnsTotal();
 	const total = calculateTotalPrice();
-	const priceDisplay = document.getElementById('total-price-display');
-	if (priceDisplay) priceDisplay.textContent = `रु ${total.toLocaleString()}`;
+
+	// Find the yellow price box in Panel 5
+	const priceBox = document.querySelector('#fp5 .bg-saffron-50');
+	if (priceBox) {
+		priceBox.innerHTML = `
+			<div class="space-y-1 text-sm">
+				<div class="flex justify-between"><span>🚛 Vehicle base:</span><span>रु ${vehicleBase.toLocaleString()}</span></div>
+				<div class="flex justify-between"><span>🏠 Home size factor:</span><span>${multiplier}x</span></div>
+				<div class="flex justify-between"><span>➕ Add‑on services:</span><span>रु ${addOns.toLocaleString()}</span></div>
+				<div class="border-t border-saffron-300 my-1"></div>
+				<div class="flex justify-between font-bold text-base"><span>💰 Total estimate:</span><span>रु ${total.toLocaleString()}</span></div>
+				<p class="text-xs text-gray-500 mt-2">* Final quote confirmed by coordinator</p>
+			</div>
+		`;
+	}
+
+	// Also update the old total display if it still exists somewhere (for safety)
+	const oldTotalSpan = document.getElementById('total-price-display');
+	if (oldTotalSpan) oldTotalSpan.textContent = `रु ${total.toLocaleString()}`;
 }
 
-// Validation rules (unchanged, kept as in original)
+// Validation rules (unchanged)
 const stepValidations = {
 	1: function () {
 		const puProv = document.getElementById('puProv')?.value;
@@ -285,7 +319,7 @@ function fGoTo(n) {
 		?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// ── SUBMIT FORM WITH PAYMENT HANDLING (FIXED) ──
+// ── SUBMIT FORM WITH PAYMENT HANDLING (unchanged) ──
 async function submitForm() {
 	if (!stepValidations[5]()) return;
 	try {
@@ -308,7 +342,6 @@ async function submitForm() {
 			alert(result.message || 'Failed to submit booking.');
 			return;
 		}
-		// If payment required, replace the whole booking container with the payment form
 		if (
 			result.payment_required &&
 			result.payment_data &&
@@ -320,7 +353,6 @@ async function submitForm() {
 			}
 			return;
 		}
-		// No payment (Cash on Delivery) – show confirmation
 		showSuccessMessage(result.booking_id);
 	} catch (error) {
 		console.error(error);
@@ -349,7 +381,7 @@ function showSuccessMessage(bookingId) {
 	localStorage.setItem('myBookings', JSON.stringify(bookings));
 }
 
-// ── COLLECT FORM DATA ──
+// ── COLLECT FORM DATA (unchanged) ──
 function collectFormData() {
 	const pickupCityInput = document.querySelectorAll(
 		'#fp1 input[type="text"]',
@@ -465,7 +497,6 @@ function collectFormData() {
 			if (txt.includes('Email')) preferredContact.push('email');
 		});
 
-	// Payment method – robust detection
 	const paymentSelected = document.querySelector('.pay-card.picked');
 	let paymentMethod = 'cash';
 	if (paymentSelected) {
@@ -476,7 +507,6 @@ function collectFormData() {
 		if (lower.includes('esewa')) paymentMethod = 'esewa';
 		else if (lower.includes('khalti')) paymentMethod = 'khalti';
 		else if (lower.includes('ime pay')) paymentMethod = 'imepay';
-		// else stays 'cash'
 	}
 	const howFoundSelect = document.querySelectorAll('#fp5 select')[1];
 	const specialNotesTextarea = document.querySelector('#fp4 textarea');
@@ -547,6 +577,7 @@ function pickPay(card) {
 		.forEach((c) => c.classList.remove('picked'));
 	card.classList.add('picked');
 }
+
 document.addEventListener('DOMContentLoaded', () => {
 	document
 		.querySelectorAll('label.item-chip input[type=radio]')
@@ -571,9 +602,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	document
 		.querySelectorAll('#fp3 input[type="checkbox"]')
 		.forEach((cb) => cb.addEventListener('change', updatePriceDisplay));
+	updatePriceDisplay();
 });
 
-// ── DISTRICTS ─────────────────────────────────────────
+// ── DISTRICTS (unchanged) ──
 const DISTRICTS = {
 	1: [
 		'Bhojpur',

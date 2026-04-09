@@ -1,6 +1,8 @@
 // ==================================================
 // VENDOR PORTAL - COMPLETE WORKING VERSION
 // FIXED: Earnings NaN, Comprehensive Jobs Table
+// FIXED: Jobs sorted by id DESC (newest first)
+// FIXED: Move Date simplified (YYYY-MM-DD)
 // ==================================================
 
 const BASEURL = 'http://localhost:5000';
@@ -390,13 +392,16 @@ function renderFleetList() {
 async function loadJobs() {
 	const result = await fetchAPI('/api/vendor/shipments');
 	if (result.ok && result.shipments) {
-		// Parse amount to number
-		jobs = result.shipments.map((job) => ({
-			...job,
-			final_quote:
-				parseFloat(String(job.final_quote).replace(/[^0-9.-]/g, '')) ||
-				0,
-		}));
+		// Parse amount and sort by id descending (newest first)
+		jobs = result.shipments
+			.map((job) => ({
+				...job,
+				final_quote:
+					parseFloat(
+						String(job.final_quote).replace(/[^0-9.-]/g, ''),
+					) || 0,
+			}))
+			.sort((a, b) => b.id - a.id);
 		renderJobsTable();
 		renderNewJobsList();
 		renderRecentCompletions();
@@ -463,15 +468,19 @@ function renderJobsTable() {
 				actionButtons = `<span class="text-[rgba(238,242,238,0.4)] text-xs">—</span>`;
 			}
 
+			const moveDateSimple = job.move_date
+				? job.move_date.split('T')[0]
+				: '—';
+
 			return `<tr class="border-b border-[rgba(255,255,255,0.05)]">
                     <td class="px-5 py-3 font-mono text-xs">${job.booking_id || `#MG-${job.id}`}</td>
                     <td class="px-5 py-3">${job.customer_name || '—'}</td>
                     <td class="px-5 py-3">${job.pickup_district || ''} → ${job.drop_district || ''}</td>
-                    <td class="px-5 py-3">${job.move_date || '—'}</td>
+                    <td class="px-5 py-3">${moveDateSimple}</td>
                     <td class="px-5 py-3">Rs ${(job.final_quote || 0).toLocaleString()}</td>
                     <td class="px-5 py-3"><span class="${statusClass}">${statusText}</span></td>
                     <td class="px-5 py-3"><div class="flex gap-2">${actionButtons}</div></td>
-                 </tr>`;
+                  </tr>`;
 		})
 		.join('');
 }
@@ -491,7 +500,6 @@ function setupJobFilters() {
 	});
 }
 
-// Backward compatibility for old renderJobs (used in some places)
 function renderJobs() {
 	renderJobsTable();
 }
@@ -569,13 +577,16 @@ function renderNewJobsList() {
 		return;
 	}
 	container.innerHTML = newJobs
-		.map(
-			(job) => `
+		.map((job) => {
+			const moveDateSimple = job.move_date
+				? job.move_date.split('T')[0]
+				: '—';
+			return `
         <div class="p-4 hover:bg-[rgba(248,192,106,0.05)]">
             <div class="flex justify-between items-start">
                 <div>
                     <div class="font-medium text-sm">${job.pickup_district} → ${job.drop_district}</div>
-                    <div class="text-xs text-[rgba(238,242,238,0.5)] mt-1">${job.customer_name} · ${job.move_date}</div>
+                    <div class="text-xs text-[rgba(238,242,238,0.5)] mt-1">${job.customer_name} · ${moveDateSimple}</div>
                 </div>
                 <div class="text-right">
                     <div class="text-[#f8c06a] font-semibold">Rs ${(job.final_quote || 0).toLocaleString()}</div>
@@ -583,8 +594,8 @@ function renderNewJobsList() {
                 </div>
             </div>
         </div>
-    `,
-		)
+    `;
+		})
 		.join('');
 }
 
@@ -599,7 +610,14 @@ function renderRecentCompletions() {
 			'<div class="p-4 text-center text-[rgba(238,242,238,0.5)]">No completed jobs</div>';
 		return;
 	}
-	container.innerHTML = `<div class="overflow-x-auto"><table class="w-full"><thead class="border-b border-[rgba(255,255,255,0.07)]"><tr class="text-left text-[10px] font-mono text-[rgba(238,242,238,0.28)] uppercase"><th class="px-5 py-3">Job ID</th><th class="px-5 py-3">Route</th><th class="px-5 py-3">Earned</th><th class="px-5 py-3">Date</th></tr></thead><tbody>${completedJobs.map((job) => `<tr class="border-b border-[rgba(255,255,255,0.05)]"><td class="px-5 py-3 text-sm font-mono">${job.booking_id}</td><td class="px-5 py-3 text-sm">${job.pickup_district} → ${job.drop_district}</td><td class="px-5 py-3 text-sm text-[#4caf7d]">+Rs ${(job.final_quote || 0).toLocaleString()}</td><td class="px-5 py-3 text-sm">${job.move_date}</td></tr>`).join('')}</tbody></table></div>`;
+	container.innerHTML = `<div class="overflow-x-auto"><table class="w-full"><thead class="border-b border-[rgba(255,255,255,0.07)]"><tr class="text-left text-[10px] font-mono text-[rgba(238,242,238,0.28)] uppercase"><th class="px-5 py-3">Job ID</th><th class="px-5 py-3">Route</th><th class="px-5 py-3">Earned</th><th class="px-5 py-3">Date</th></tr></thead><tbody>${completedJobs
+		.map((job) => {
+			const moveDateSimple = job.move_date
+				? job.move_date.split('T')[0]
+				: '—';
+			return `<tr class="border-b border-[rgba(255,255,255,0.05)]"><td class="px-5 py-3 text-sm font-mono">${job.booking_id}</td><td class="px-5 py-3 text-sm">${job.pickup_district} → ${job.drop_district}</td><td class="px-5 py-3 text-sm text-[#4caf7d]">+Rs ${(job.final_quote || 0).toLocaleString()}</td><td class="px-5 py-3 text-sm">${moveDateSimple}</td></tr>`;
+		})
+		.join('')}</tbody></table></div>`;
 }
 
 // ==================================================
@@ -785,10 +803,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 	if (!user) return;
 	await checkVendorProfile();
 	initializeToggleState();
-	setupJobFilters(); // Initialize job filter buttons
+	setupJobFilters();
 });
 
-// Expose global functions
 window.goPage = goPage;
 window.logout = logout;
 window.openAddVehicle = openAddVehicle;

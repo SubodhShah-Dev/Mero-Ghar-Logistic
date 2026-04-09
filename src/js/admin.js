@@ -1,8 +1,9 @@
 // ==================================================
-// ADMIN PANEL - COMPLETE WORKING VERSION (FIXED)
+// ADMIN PANEL - COMPLETE WORKING VERSION
+// FIXED: Pending shipments sorted by id DESC (newest first)
+// FIXED: Move Date simplified (YYYY-MM-DD)
 // ==================================================
 
-// ── CONFIGURATION ──
 const BASEURL = 'http://localhost:5000';
 let BOOKINGS = [];
 let CUSTOMERS = [];
@@ -82,56 +83,59 @@ async function fetchAPI(url, options = {}) {
 }
 
 // ==================================================
-// LOAD DATA (FIXED: status normalization + amount parsing)
+// LOAD DATA (with sorting by id DESC)
 // ==================================================
 
 async function loadBookings() {
 	const result = await fetchAPI('/api/shipment/all');
 	if (result.ok && result.shipments) {
-		BOOKINGS = result.shipments.map((shipment) => {
-			// ----- FIX NaN: parse amount safely -----
-			let rawAmount = shipment.final_quote;
-			if (rawAmount === undefined || rawAmount === null) rawAmount = 0;
-			if (typeof rawAmount === 'string') {
-				// Remove currency symbols, commas, letters (e.g., "Rs 5,000" → "5000")
-				rawAmount = rawAmount.replace(/[^0-9.-]/g, '');
-			}
-			const amountNum = parseFloat(rawAmount) || 0;
+		BOOKINGS = result.shipments
+			.map((shipment) => {
+				let rawAmount = shipment.final_quote;
+				if (rawAmount === undefined || rawAmount === null)
+					rawAmount = 0;
+				if (typeof rawAmount === 'string') {
+					rawAmount = rawAmount.replace(/[^0-9.-]/g, '');
+				}
+				const amountNum = parseFloat(rawAmount) || 0;
 
-			// ----- Normalize status display -----
-			let displayStatus = shipment.status || 'pending';
-			const statusMap = {
-				pending: 'Pending',
-				in_transit: 'In Transit',
-				delivered: 'Delivered',
-				cancelled: 'Cancelled',
-			};
-			displayStatus = statusMap[displayStatus] || displayStatus;
+				let displayStatus = shipment.status || 'pending';
+				const statusMap = {
+					pending: 'Pending',
+					in_transit: 'In Transit',
+					delivered: 'Delivered',
+					cancelled: 'Cancelled',
+				};
+				displayStatus = statusMap[displayStatus] || displayStatus;
 
-			return {
-				id: shipment.id,
-				booking_id: shipment.booking_id || `#MG-${shipment.id}`,
-				customer:
-					`${shipment.first_name || ''} ${shipment.last_name || ''}`.trim(),
-				route: `${shipment.pickup_district || ''} → ${shipment.drop_district || ''}`,
-				date: shipment.move_date
-					? new Date(shipment.move_date).toLocaleDateString('en-GB', {
-							day: 'numeric',
-							month: 'short',
-						})
-					: '—',
-				status: displayStatus,
-				amount: amountNum,
-				phone: shipment.mobile_number || '—',
-				full_route: `${shipment.pickup_city || ''}, ${shipment.pickup_district || ''} → ${shipment.drop_city || ''}, ${shipment.drop_district || ''}`,
-				move_date: shipment.move_date,
-				created_at: shipment.created_at,
-				approval_status: shipment.approval_status || 'pending',
-				assigned_vendor_id: shipment.assigned_vendor_id,
-				vendor_name: shipment.vendor_name || null,
-				raw_status: shipment.status,
-			};
-		});
+				return {
+					id: shipment.id,
+					booking_id: shipment.booking_id || `#MG-${shipment.id}`,
+					customer:
+						`${shipment.first_name || ''} ${shipment.last_name || ''}`.trim(),
+					route: `${shipment.pickup_district || ''} → ${shipment.drop_district || ''}`,
+					date: shipment.move_date
+						? new Date(shipment.move_date).toLocaleDateString(
+								'en-GB',
+								{
+									day: 'numeric',
+									month: 'short',
+								},
+							)
+						: '—',
+					status: displayStatus,
+					amount: amountNum,
+					phone: shipment.mobile_number || '—',
+					full_route: `${shipment.pickup_city || ''}, ${shipment.pickup_district || ''} → ${shipment.drop_city || ''}, ${shipment.drop_district || ''}`,
+					move_date: shipment.move_date,
+					created_at: shipment.created_at,
+					approval_status: shipment.approval_status || 'pending',
+					assigned_vendor_id: shipment.assigned_vendor_id,
+					vendor_name: shipment.vendor_name || null,
+					raw_status: shipment.status,
+				};
+			})
+			.sort((a, b) => b.id - a.id); // newest first
 		renderDashTable(dashFilter, '');
 		renderBookTable(bookFilter, '');
 		updateStats();
@@ -190,7 +194,8 @@ async function loadActiveVendors() {
 async function loadPendingShipments() {
 	const result = await fetchAPI('/api/admin/shipments/pending');
 	if (result.ok && result.shipments) {
-		PENDING_SHIPMENTS = result.shipments;
+		// Sort by id descending (newest first)
+		PENDING_SHIPMENTS = result.shipments.sort((a, b) => b.id - a.id);
 		renderApprovalTable(PENDING_SHIPMENTS);
 		const pendingCount = document.getElementById('pending-approval-count');
 		if (pendingCount) pendingCount.textContent = PENDING_SHIPMENTS.length;
@@ -200,7 +205,8 @@ async function loadPendingShipments() {
 async function loadShipmentsByStatus(status) {
 	const result = await fetchAPI(`/api/admin/shipments/status/${status}`);
 	if (result.ok && result.shipments) {
-		renderApprovalTable(result.shipments);
+		const sorted = result.shipments.sort((a, b) => b.id - a.id);
+		renderApprovalTable(sorted);
 	}
 }
 
@@ -289,6 +295,7 @@ function renderDashTable(filter, search) {
         <div class="rd-item"><div class="rd-lbl">Status</div><div class="rd-val">${r.status}</div></div>
         <div class="rd-item"><div class="rd-lbl">Approval</div><div class="rd-val">${pillHtml(r.approval_status)}</div></div>
         <div class="rd-item"><div class="rd-lbl">Amount</div><div class="rd-val">Rs ${(r.amount || 0).toLocaleString()}</div></div>
+        <div class="rd-item"><div class="rd-lbl">Move Date</div><div class="rd-val">${r.move_date || r.date ? (r.move_date || r.date).split('T')[0] : '—'}</div></div>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           <button class="btn-ghost btn-sm" onclick="event.stopPropagation();openEditStatusModal(${r.id})">Edit</button>
           <button class="btn btn-sm" onclick="event.stopPropagation();copyToClipboard('${r.booking_id}')">Copy ID</button>
@@ -324,7 +331,7 @@ function renderBookTable(filter, search) {
 		});
 	}
 	if (!data.length) {
-		tbody.innerHTML = `<td><td colspan="7" class="no-results">No bookings found</td></tr>`;
+		tbody.innerHTML = `<tr><td colspan="7" class="no-results">No bookings found</td></tr>`;
 		return;
 	}
 	tbody.innerHTML = data
@@ -345,7 +352,7 @@ function renderBookTable(filter, search) {
         <div class="rd-item"><div class="rd-lbl">Status</div><div class="rd-val">${r.status}</div></div>
         <div class="rd-item"><div class="rd-lbl">Approval</div><div class="rd-val">${pillHtml(r.approval_status)}</div></div>
         <div class="rd-item"><div class="rd-lbl">Amount</div><div class="rd-val">Rs ${(r.amount || 0).toLocaleString()}</div></div>
-        <div class="rd-item"><div class="rd-lbl">Move Date</div><div class="rd-val">${r.move_date || r.date}</div></div>
+        <div class="rd-item"><div class="rd-lbl">Move Date</div><div class="rd-val">${r.move_date || r.date ? (r.move_date || r.date).split('T')[0] : '—'}</div></div>
       </div></td>
     </tr>`,
 		)
@@ -414,13 +421,16 @@ async function renderApprovalTable(shipments) {
 	}
 
 	tbody.innerHTML = shipments
-		.map(
-			(shipment) => `
+		.map((shipment) => {
+			const moveDateSimple = shipment.move_date
+				? shipment.move_date.split('T')[0]
+				: '—';
+			return `
       <tr id="approval-row-${shipment.id}">
         <td class="m">${shipment.booking_id || `#MG-${shipment.id}`}</td>
         <td class="b">${shipment.customer_name || `${shipment.first_name} ${shipment.last_name}`}</td>
         <td>${shipment.pickup_district || ''} → ${shipment.drop_district || ''}</td>
-        <td>${shipment.move_date || '—'}</td>
+        <td>${moveDateSimple}</td>
         <td class="b">Rs ${(shipment.final_quote || 0).toLocaleString()}</td>
         <td>
           <select id="vendor-select-${shipment.id}" class="vendor-select" ${shipment.approval_status !== 'pending' ? 'disabled' : ''} style="padding: 6px 10px; border-radius: 6px; background: var(--dark3); color: var(--text); border: 1px solid var(--bdim); min-width: 180px;">
@@ -440,13 +450,13 @@ async function renderApprovalTable(shipments) {
 						: `<span class="pill pc">Rejected</span>`
 			}
         </td>
-      </tr>`,
-		)
+      </tr>`;
+		})
 		.join('');
 }
 
 // ==================================================
-// EDIT STATUS MODAL (clean dropdown)
+// EDIT STATUS MODAL
 // ==================================================
 
 function openEditStatusModal(bookingId) {
@@ -1084,9 +1094,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 	goPage('dash');
 });
 
-// ==================================================
-// EXPOSE GLOBAL FUNCTIONS
-// ==================================================
+// Expose global functions
 window.goPage = goPage;
 window.toggleDetail = toggleDetail;
 window.openNewBooking = openNewBooking;
