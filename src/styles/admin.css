@@ -17,7 +17,7 @@
 	--border-dim: rgba(255, 255, 255, 0.07);
 	--text: #eef2ee;
 	--muted: rgba(238, 242, 238, 0.5);
-	--dim: rgba(238, 242, 238, 0.28);
+	--dim: rgba(238, 242, 238, 0.45);
 	--green: #4caf7d;
 	--red: #e05e5e;
 	--blue: #5e9fe0;
@@ -186,7 +186,7 @@ body {
 }
 .fbt {
 	flex: 1;
-	padding: 9px;
+	padding: 12px;
 	border-radius: 8px;
 	background: var(--dark3);
 	border: 1px solid var(--bdim);
@@ -333,8 +333,8 @@ body {
 	color: var(--dim);
 }
 .ic-btn {
-	width: 38px;
-	height: 38px;
+	width: 44px;
+	height: 44px;
 	border-radius: 9px;
 	border: 1px solid var(--border-dim);
 	background: var(--dark3);
@@ -579,6 +579,7 @@ body {
 	padding: 5px 12px;
 	font-size: 12px;
 	border-radius: 7px;
+	min-height: 44px;
 }
 
 /* ── TABLE ── */
@@ -933,7 +934,7 @@ canvas.spark {
 	display: none;
 	align-items: center;
 	justify-content: center;
-	backdrop-filter: blur(3px);
+	/* backdrop-filter removed for Android WebView performance */
 }
 .overlay.open {
 	display: flex;
@@ -969,8 +970,8 @@ canvas.spark {
 	font-weight: 600;
 }
 .m-close {
-	width: 30px;
-	height: 30px;
+	width: 44px;
+	height: 44px;
 	border-radius: 7px;
 	background: var(--dark3);
 	border: 1px solid var(--border-dim);

@@ -18,6 +18,10 @@
 				.grid2 { grid-template-columns: 1fr !important; }
 				.search { display: none !important; }
 			}
+			@media (max-width:480px) {
+				.stats { grid-template-columns: 1fr !important; }
+				.rev-stats { grid-template-columns: 1fr !important; }
+			}
 			.sb-toggle { display: none; }
 			@media (max-width:1023px) {
 				.sb-toggle { display: flex; }
@@ -239,7 +243,7 @@
 				<button
 					class="sb-toggle"
 					onclick="toggleAdminSidebar()"
-					style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:8px;background:#16261d;border:1px solid rgba(255,255,255,0.07);align-items:center;justify-content:center;cursor:pointer;color:#eef2ee">
+					style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:8px;background:#16261d;border:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#eef2ee">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
 						<line x1="3" y1="6" x2="21" y2="6"/>
 						<line x1="3" y1="12" x2="21" y2="12"/>
@@ -982,7 +986,7 @@
 			<div class="modal">
 				<div class="mh">
 					<span class="mh-title">New Booking</span>
-					<div class="m-close" onclick="closeModal('modal-new')">
+					<button type="button" class="m-close" onclick="closeModal('modal-new')" aria-label="Close">
 						<svg
 							viewBox="0 0 24 24"
 							fill="none"
@@ -991,7 +995,7 @@
 							<line x1="18" y1="6" x2="6" y2="18" />
 							<line x1="6" y1="6" x2="18" y2="18" />
 						</svg>
-					</div>
+					</button>
 				</div>
 				<div class="mb">
 					<div class="mf">
@@ -1049,9 +1053,11 @@
 			<div class="modal">
 				<div class="mh">
 					<span class="mh-title">Add New Vendor</span>
-					<div
+					<button
+						type="button"
 						class="m-close"
-						onclick="closeModal('modal-add-vendor')">
+						onclick="closeModal('modal-add-vendor')"
+						aria-label="Close">
 						<svg
 							viewBox="0 0 24 24"
 							fill="none"
@@ -1060,7 +1066,7 @@
 							<line x1="18" y1="6" x2="6" y2="18" />
 							<line x1="6" y1="6" x2="18" y2="18" />
 						</svg>
-					</div>
+					</button>
 				</div>
 				<div class="mb">
 					<div class="mf">
@@ -1138,9 +1144,11 @@
 			<div class="modal" style="max-width: 420px">
 				<div class="mh">
 					<div class="mh-title">Update Booking Status</div>
-					<div
+					<button
+						type="button"
 						class="m-close"
-						onclick="closeModal('modal-edit-status')">
+						onclick="closeModal('modal-edit-status')"
+						aria-label="Close">
 						<svg
 							viewBox="0 0 24 24"
 							fill="none"
@@ -1151,7 +1159,7 @@
 							<line x1="18" y1="6" x2="6" y2="18"></line>
 							<line x1="6" y1="6" x2="18" y2="18"></line>
 						</svg>
-					</div>
+					</button>
 				</div>
 				<div class="mb">
 					<div class="mf">

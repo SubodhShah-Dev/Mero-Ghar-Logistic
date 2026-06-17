@@ -10,6 +10,9 @@
 html {
 	scroll-behavior: smooth;
 }
+button, a, input, select, textarea, label, [onclick], .item-chip, .v-card, .pay-card, .s-circle {
+	touch-action: manipulation;
+}
 body {
 	font-family: 'Plus Jakarta Sans', sans-serif;
 	overflow-x: hidden;
@@ -135,13 +138,13 @@ textarea:focus {
 }
 
 .s-circle {
-	width: 2rem;
-	height: 2rem;
+	width: 2.75rem;
+	height: 2.75rem;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 0.75rem;
+	font-size: 0.85rem;
 	font-weight: 700;
 	flex-shrink: 0;
 	transition: all 0.3s;

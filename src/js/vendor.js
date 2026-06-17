@@ -853,7 +853,7 @@ function toggleOnline() {
 		statusSpan.textContent = 'Online & Available';
 		if (dotSpan) dotSpan.style.backgroundColor = '#4caf7d';
 		if (toggleBtn) toggleBtn.style.backgroundColor = '#2d5a3d';
-		if (toggleKnob) toggleKnob.style.transform = 'translateX(16px)';
+		if (toggleKnob) toggleKnob.style.transform = 'translateX(20px)';
 		toast('You are now online', 'green');
 	}
 }

@@ -23,7 +23,7 @@
 
 			<!-- Form -->
 			<form class="space-y-4" id="signupForm">
-				<!-- Name -->
+				<label for="signupName" class="sr-only">Full Name</label>
 				<input
 					type="text"
 					id="signupName"
@@ -31,7 +31,7 @@
 					class="w-full px-4 py-3.5 border border-forest-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-saffron-300"
 					required />
 
-				<!-- Email -->
+				<label for="signupEmail" class="sr-only">Email Address</label>
 				<input
 					type="email"
 					id="signupEmail"
@@ -39,7 +39,7 @@
 					class="w-full px-4 py-3.5 border border-forest-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-saffron-300"
 					required />
 
-				<!-- Password -->
+				<label for="signupPassword" class="sr-only">Password</label>
 				<input
 					type="password"
 					id="signupPassword"
@@ -47,7 +47,7 @@
 					class="w-full px-4 py-3.5 border border-forest-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-saffron-300"
 					required />
 
-				<!-- Confirm Password -->
+				<label for="signupConfirmPassword" class="sr-only">Confirm Password</label>
 				<input
 					type="password"
 					id="signupConfirmPassword"
@@ -55,7 +55,8 @@
 					class="w-full px-4 py-3.5 border border-forest-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-saffron-300"
 					required />
 
-					<input
+				<label for="phone" class="sr-only">Phone Number</label>
+				<input
 					type="tel"
 					id="phone"
 					pattern="[0-9]{10}"
@@ -82,8 +83,7 @@
 				<!-- Signup Button -->
 				<input
 					type="submit"
-					class="w-full bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold text-sm px-5 py-3 rounded-sm transition-all hover:-translate-y-0.5 shadow-md shadow-saffron-400/30" value="Sign Up">
-				</input>
+					class="w-full bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold text-sm px-5 py-3 rounded-sm transition-all hover:-translate-y-0.5 shadow-md shadow-saffron-400/30" value="Sign Up" />
 			</form>
 
 			<!-- Divider -->
