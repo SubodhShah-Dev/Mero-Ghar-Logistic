@@ -163,9 +163,30 @@ railway up --service backend
 
 ## Download Latest APK
 
-[**Download MeroGhar v1.9.1 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v1.9.1.apk)
+[**Download MeroGhar v2.0.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.0.0.apk)
 
-## What's New in v1.9.1
+## What's New in v2.0.0
+
+**AI Chatbot (MeroBot) — intelligent assistant on every page.**
+
+- Floating chat widget at bottom-left across all pages (home, login, signup, booking, admin, vendor)
+- Ask about bookings, tracking, pricing, payments, service areas, and more
+- Powered by Google Gemini 1.5 Flash (set `GEMINI_API_KEY` in backend `.env` for AI responses)
+- Built-in rule-based fallback Q&A when no API key is configured — works offline
+- Dark theme matching the app's forest green/saffron design
+- Self-contained vanilla JS — no external dependencies or CDN scripts
+- **APK**: v2.0.0 built & released
+
+### Setup Gemini (optional)
+For AI-powered responses, add your free API key to `backend/.env`:
+```
+GEMINI_API_KEY=your_key_here
+```
+Get one free at https://aistudio.google.com/apikey
+
+---
+
+### What's New in v1.9.1
 
 **Security & reliability release — XSS hardening, null safety, build pipeline cleanup.**
 

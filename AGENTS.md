@@ -43,6 +43,7 @@
   - Build/Meta: bumped `package.json` from `0.0.0` → `1.9.0`; bumped `APP_VERSION` in config.js to `1.9.0`; added reusable `showToast()` function to config.js.
   - Full list of 33+ bugs found during audit: [audit details remain stable].
 - v1.9.1: XSS protection (escapeHtml in admin.js/vendor.js), vendor.js null safety (34 fixes), vendor.html CDN→Vite pipeline, admin.js filter ordering fix, APK built & released.
+- v2.0.0: AI Chatbot (MeroBot) — floating widget bottom-left on all pages, Gemini 1.5 Flash backend with rule-based fallback, no external deps.
 
 ### In Progress
 - (nothing)
@@ -62,7 +63,7 @@
 - (none — all items from previous session completed in v1.9.1)
 
 ## Critical Context
-- **Latest APK:** `https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/download/v1.9.1/MeroGhar-v1.9.1.apk`
+- **Latest APK:** `https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/download/v2.0.0/MeroGhar-v2.0.0.apk`
 - **Backend live:** `https://backend-production-d51a3.up.railway.app`
 - **Build:** `npm run build && npx cap sync android` then `JAVA_HOME=/home/subodh/jdk21 ./gradlew assembleDebug` from `android/` dir.
 - **Remote:** `https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic.git` (formerly `Mero-Ghar-Logistics-Website`).
@@ -70,7 +71,10 @@
 
 ## Relevant Files
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/generate-icons.py`: App icon generator (Pillow) — current design is flat saffron M on forest green.
-- `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/js/config.js`: Central API URL, `APP_VERSION` (now `1.9.1`), `GITHUB_REPO`, `safeParse()`, `showToast()`, in-app update check + download logic.
+- `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/js/config.js`: Central API URL, `APP_VERSION` (now `2.0.0`), `GITHUB_REPO`, `safeParse()`, `showToast()`, in-app update check + download logic.
+- `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/js/chatbot.js`: AI Chatbot widget (MeroBot) — self-contained, no deps, appears on all pages.
+- `/home/subodh/workspace/Mero-Ghar-Logistics-Website/backend/controllers/chatbotController.js`: Gemini API proxy + rule-based fallback.
+- `/home/subodh/workspace/Mero-Ghar-Logistics-Website/backend/routes/chatbotRoute.js`: `POST /api/chatbot/message`.
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/pages/user.html`: Multi-step booking form — main mobile UI target.
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/pages/admin.html`: Admin panel with tables, stats, modals.
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/pages/vendor.html`: Vendor portal with fleet, jobs, modals.
