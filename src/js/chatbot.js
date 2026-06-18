@@ -5,15 +5,19 @@
   var isOpen = false;
   var isSending = false;
 
-  var BASEURL = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : 'http://localhost:5000';
+  function getBaseUrl() {
+    if (typeof API_BASE_URL !== 'undefined') return API_BASE_URL;
+    if (typeof window.API_BASE_URL !== 'undefined') return window.API_BASE_URL;
+    return 'http://localhost:5000';
+  }
 
   var WIDGET_HTML =
-    '<div id="mg-chat-btn" style="position:fixed;bottom:20px;left:20px;z-index:9997;width:56px;height:56px;border-radius:50%;background:#f8c06a;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;transition:transform 0.2s ease">' +
+    '<div id="mg-chat-btn" style="position:fixed;bottom:20px;right:20px;z-index:9997;width:56px;height:56px;border-radius:50%;background:#f8c06a;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;transition:transform 0.2s ease">' +
       '<svg id="mg-chat-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0b1510" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
         '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' +
       '</svg>' +
     '</div>' +
-    '<div id="mg-chat-panel" style="position:fixed;bottom:88px;left:20px;z-index:9997;width:360px;max-width:calc(100vw - 40px);height:480px;max-height:calc(100vh - 120px);background:#111d16;border:1px solid rgba(248,192,106,0.18);border-radius:16px;display:none;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,0.5);overflow:hidden;animation:mg-chat-in 0.25s ease">' +
+    '<div id="mg-chat-panel" style="position:fixed;bottom:88px;right:20px;z-index:9997;width:360px;max-width:calc(100vw - 40px);height:480px;max-height:calc(100vh - 120px);background:#111d16;border:1px solid rgba(248,192,106,0.18);border-radius:16px;display:none;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,0.5);overflow:hidden;animation:mg-chat-in 0.25s ease">' +
       '<div style="padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:10px;flex-shrink:0">' +
         '<div style="width:34px;height:34px;border-radius:50%;background:rgba(248,192,106,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f8c06a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
@@ -110,6 +114,21 @@
     if (el && el.parentNode) el.parentNode.removeChild(el);
   }
 
+  function getLocalFallback(msg) {
+    var m = (msg || '').toLowerCase().trim();
+    if (m.includes('hello') || m.includes('hi ') || m === 'hi' || m === 'hey' || m.includes('namaste')) return 'Namaste! 🙏 How can I help you with your move today?';
+    if (m.includes('price') || m.includes('cost') || m.includes('rate') || m.includes('quote')) return 'Our pricing is based on distance, item volume, and special handling needs. Get an instant quote by filling out the booking form.';
+    if (m.includes('book') || m.includes('order') || m.includes('move') || m.includes('shift')) return 'To book: open the app, fill in pickup/drop locations, select items, and confirm. You\'ll get a distance-based quote.';
+    if (m.includes('track') || m.includes('status') || m.includes('where') || m.includes('delivery')) return 'Track your shipment in real-time via the app — go to "My Bookings" and tap the shipment.';
+    if (m.includes('payment') || m.includes('pay') || m.includes('khalti') || m.includes('esewa')) return 'We accept Cash on Delivery, Bank Transfer, ConnectIPS, Khalti, and eSewa.';
+    if (m.includes('cancel') || m.includes('refund')) return 'To cancel a booking, please contact our support team. Refunds are case-by-case.';
+    if (m.includes('vehicle') || m.includes('truck')) return 'We have mini trucks to large trucks for full household shifting. The right vehicle is assigned based on your items.';
+    if (m.includes('fragile') || m.includes('glass') || m.includes('breakable')) return 'Yes! Mark items as fragile during booking — our team will handle them with extra care.';
+    if (m.includes('contact') || m.includes('support') || m.includes('phone')) return 'Reach support via the app\'s Help section or contact admin. We respond within 24 hours.';
+    if (m.includes('thank') || m.includes('thanks')) return 'You\'re welcome! 😊 Happy moving with MeroGhar!';
+    return 'I\'m here to help with MeroGhar Logistics — bookings, tracking, pricing, and more. Could you be more specific?';
+  }
+
   function sendMessage() {
     if (isSending) return;
     var input = document.getElementById('mg-chat-input');
@@ -123,12 +142,16 @@
     isSending = true;
     showTyping();
 
-    fetch(BASEURL + '/api/chatbot/message', {
+    var url = getBaseUrl() + '/api/chatbot/message';
+    fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text, history: chatHistory.slice(-10) }),
     })
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
       .then(function (data) {
         hideTyping();
         isSending = false;
@@ -136,10 +159,12 @@
         addMessage(reply, 'bot');
         chatHistory.push({ role: 'model', text: reply });
       })
-      .catch(function () {
+      .catch(function (err) {
         hideTyping();
         isSending = false;
-        addMessage('Connection error. Please check your network and try again.', 'bot');
+        var fallback = getLocalFallback(text);
+        addMessage(fallback + '\n\n(offline mode — replies may be limited)', 'bot');
+        chatHistory.push({ role: 'model', text: fallback });
       });
   }
 

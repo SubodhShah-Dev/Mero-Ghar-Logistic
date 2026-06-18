@@ -19,7 +19,7 @@ const API_BASE_URL = (() => {
 })();
 
 // ── In-App Update Check & Download ──
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.0';
 const GITHUB_REPO = 'SubodhShah-Dev/Mero-Ghar-Logistic';
 
 function compareVersions(a, b) {

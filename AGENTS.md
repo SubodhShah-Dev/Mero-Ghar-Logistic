@@ -44,6 +44,7 @@
   - Full list of 33+ bugs found during audit: [audit details remain stable].
 - v1.9.1: XSS protection (escapeHtml in admin.js/vendor.js), vendor.js null safety (34 fixes), vendor.html CDN→Vite pipeline, admin.js filter ordering fix, APK built & released.
 - v2.0.0: AI Chatbot (MeroBot) — floating widget bottom-left on all pages, Gemini 1.5 Flash backend with rule-based fallback, no external deps.
+- v2.1.0: UX overhaul — sticky nav topbar on user.html (MeroGhar brand + logout), session-aware index.html (Dashboard link when logged in), loading overlay on form submit, alert()→showToast() in user.js, responsive form buttons (smaller on mobile), frontend rule-based fallback in chatbot.js for offline mode. Chatbot moved from left→right.
 
 ### In Progress
 - (nothing)
@@ -63,7 +64,7 @@
 - (none — all items from previous session completed in v1.9.1)
 
 ## Critical Context
-- **Latest APK:** `https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/download/v2.0.0/MeroGhar-v2.0.0.apk`
+- **Latest APK:** `https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/download/v2.1.0/MeroGhar-v2.1.0.apk` (right-side chatbot, session-aware nav, loading overlay, offline fallback)
 - **Backend live:** `https://backend-production-d51a3.up.railway.app`
 - **Build:** `npm run build && npx cap sync android` then `JAVA_HOME=/home/subodh/jdk21 ./gradlew assembleDebug` from `android/` dir.
 - **Remote:** `https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic.git` (formerly `Mero-Ghar-Logistics-Website`).
@@ -72,7 +73,8 @@
 ## Relevant Files
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/generate-icons.py`: App icon generator (Pillow) — current design is flat saffron M on forest green.
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/js/config.js`: Central API URL, `APP_VERSION` (now `2.0.0`), `GITHUB_REPO`, `safeParse()`, `showToast()`, in-app update check + download logic.
-- `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/js/chatbot.js`: AI Chatbot widget (MeroBot) — self-contained, no deps, appears on all pages.
+- `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/js/chatbot.js`: AI Chatbot widget (MeroBot) — self-contained, no deps, appears on all pages. Has `getLocalFallback()` for offline rule-based replies.
+- `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/js/session-ui.js`: Session-aware UI enhancer — injects sticky topbar on `#app-topbar` containers, replaces Login→Dashboard on index.html when session exists.
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/backend/controllers/chatbotController.js`: Gemini API proxy + rule-based fallback.
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/backend/routes/chatbotRoute.js`: `POST /api/chatbot/message`.
 - `/home/subodh/workspace/Mero-Ghar-Logistics-Website/src/pages/user.html`: Multi-step booking form — main mobile UI target.

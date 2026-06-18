@@ -17,6 +17,12 @@
 		<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 	</head>
 	<body>
+		<div id="app-topbar"></div>
+		<div id="loading-overlay" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+			<div style="width:36px;height:36px;border:3px solid rgba(248,192,106,0.2);border-top-color:#f8c06a;border-radius:50%;animation:mg-spin 0.8s linear infinite"></div>
+			<div style="color:#eef2ee;font-size:14px;font-weight:500">Processing your booking…</div>
+		</div>
+		<style>@keyframes mg-spin{to{transform:rotate(360deg)}}</style>
 		<section class="py-16 bg-cream-200" id="booking">
 			<div class="max-w-3xl mx-auto px-5">
 				<div class="text-center mb-10">
@@ -375,12 +381,12 @@
 						<div class="px-6 pb-6 flex justify-between">
 							<button
 								id="homeBtn"
-								class="bg-red-800 hover:bg-forest-700 text-cream-50 font-semibold text-sm px-8 py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
+								class="bg-red-800 hover:bg-forest-700 text-cream-50 font-semibold text-xs sm:text-sm px-4 sm:px-8 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
 								Home
 							</button>
 							<button
 								onclick="fGoTo(2)"
-								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-sm px-8 py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
+								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-xs sm:text-sm px-4 sm:px-8 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
 								Next →
 							</button>
 						</div>
@@ -706,12 +712,12 @@
 						<div class="px-6 pb-6 flex justify-between">
 							<button
 								onclick="fGoTo(1)"
-								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-sm px-6 py-3 min-h-[44px] rounded-sm transition-all">
+								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all">
 								← Back
 							</button>
 							<button
 								onclick="fGoTo(3)"
-								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-sm px-8 py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
+								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-xs sm:text-sm px-4 sm:px-8 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
 								Next →
 							</button>
 						</div>
@@ -971,12 +977,12 @@
 						<div class="px-6 pb-6 flex justify-between">
 							<button
 								onclick="fGoTo(2)"
-								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-sm px-6 py-3 min-h-[44px] rounded-sm transition-all">
+								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all">
 								← Back
 							</button>
 							<button
 								onclick="fGoTo(4)"
-								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-sm px-8 py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
+								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-xs sm:text-sm px-4 sm:px-8 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
 								Next →
 							</button>
 						</div>
@@ -1140,12 +1146,12 @@
 						<div class="px-6 pb-6 flex justify-between">
 							<button
 								onclick="fGoTo(3)"
-								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-sm px-6 py-3 min-h-[44px] rounded-sm transition-all">
+								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all">
 								← Back
 							</button>
 							<button
 								onclick="fGoTo(5)"
-								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-sm px-8 py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
+								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-xs sm:text-sm px-4 sm:px-8 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
 								Next →
 							</button>
 						</div>
@@ -1439,12 +1445,12 @@
 							class="px-6 pb-6 flex justify-between items-center gap-4">
 							<button
 								onclick="fGoTo(4)"
-								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-sm px-6 py-3 min-h-[44px] rounded-sm transition-all">
+								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all">
 								← Back
 							</button>
 							<button
 								onclick="submitForm()"
-								class="bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold text-sm px-6 py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5 shadow-lg shadow-saffron-700/20 flex items-center gap-2 whitespace-nowrap">
+								class="bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5 shadow-lg shadow-saffron-700/20 flex items-center gap-2 whitespace-nowrap">
 								Submit Move Request ✓
 							</button>
 						</div>
@@ -1489,7 +1495,7 @@
 							quote.
 						</p>
 						<div
-							class="inline-block bg-forest-900 text-cream-50 font-display font-bold px-6 py-3 min-h-[44px] rounded-sm tracking-widest text-sm mb-6">
+							class="inline-block bg-forest-900 text-cream-50 font-display font-bold px-4 sm:px-6 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm tracking-widest text-xs sm:text-sm mb-6">
 							Booking ID: MG-<span id="bookId"></span>
 						</div>
 						<div
@@ -1528,7 +1534,7 @@
 						</div>
 						<button
 							onclick="resetForm()"
-							class="mt-8 border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-sm px-6 py-3 min-h-[44px] rounded-sm transition-all">
+							class="mt-8 border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all">
 							Submit Another Request
 						</button>
 					</div>
@@ -1648,13 +1654,13 @@
 								<button
 									type="button"
 									id="payCancel"
-									class="flex-1 border border-cream-300 text-gray-500 hover:text-forest-800 font-medium text-sm py-3 min-h-[44px] rounded-sm transition-all">
+									class="flex-1 border border-cream-300 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all">
 									Cancel
 								</button>
 								<button
 									type="submit"
 									id="paySubmit"
-									class="flex-1 bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold text-sm py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5 shadow-md shadow-saffron-600/20 flex items-center justify-center gap-2">
+									class="flex-1 bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold text-xs sm:text-sm py-2.5 sm:py-3 min-h-[36px] sm:min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5 shadow-md shadow-saffron-600/20 flex items-center justify-center gap-2">
 									Pay Now
 								</button>
 							</div>
@@ -1667,5 +1673,6 @@
 		<script src="/src/js/config.js"></script>
 <script src="/src/js/user.js"></script>
 <script src="/src/js/chatbot.js"></script>
+<script src="/src/js/session-ui.js"></script>
 	</body>
 </html>

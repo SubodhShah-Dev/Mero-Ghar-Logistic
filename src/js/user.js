@@ -11,7 +11,6 @@ function checkAuth() {
 function logout() {
 	if (confirm('Are you sure you want to logout?')) {
 		localStorage.removeItem('meroGharUser');
-		alert('Logged out successfully');
 		window.location.href = '/src/pages/login.html';
 	}
 }
@@ -32,15 +31,7 @@ function addLogoutButton() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-	const user = checkAuth();
-	if (user) {
-		addLogoutButton();
-		const userNameSpan = document.createElement('span');
-		userNameSpan.textContent = `Welcome, ${user.name}`;
-		userNameSpan.className = 'text-forest-700 font-semibold mr-3';
-		const homeBtn = document.getElementById('homeBtn');
-		if (homeBtn) homeBtn.parentNode.insertBefore(userNameSpan, homeBtn);
-	}
+	checkAuth();
 
 	// Populate province dropdowns (hardcoded)
 	populateProvincesHardcoded('pu');
@@ -1013,6 +1004,10 @@ function fGoTo(n, skipValidation = false) {
 // ── SUBMIT FORM ──
 async function submitForm() {
 	if (!stepValidations[5]()) return;
+
+	var overlay = document.getElementById('loading-overlay');
+	if (overlay) overlay.style.display = 'flex';
+
 	try {
 		const shipmentData = collectFormData();
 		const { total, distanceKm, durationText } = await calculateTotalPrice();
@@ -1031,8 +1026,9 @@ async function submitForm() {
 			},
 		);
 		const result = await response.json();
+		if (overlay) overlay.style.display = 'none';
 		if (!response.ok) {
-			alert(result.message || 'Failed to submit booking.');
+			showToast(result.message || 'Failed to submit booking.', 'red');
 			return;
 		}
 
@@ -1047,8 +1043,9 @@ async function submitForm() {
 		}
 		showSuccessMessage(result.booking_id);
 	} catch (error) {
+		if (overlay) overlay.style.display = 'none';
 		console.error(error);
-		alert('Failed to submit booking. Please check your connection.');
+		showToast('Failed to submit booking. Please check your connection.', 'red');
 	}
 }
 

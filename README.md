@@ -4,7 +4,7 @@ Full-stack logistics platform (Vite + Tailwind + vanilla JS, Express + MySQL, An
 
 ## Download APK
 
-[**Download MeroGhar v2.0.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.0.0.apk)
+[**Download MeroGhar v2.1.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.1.0.apk)
 
 ## Features
 
@@ -12,7 +12,8 @@ Full-stack logistics platform (Vite + Tailwind + vanilla JS, Express + MySQL, An
 - Real-time shipment tracking with Leaflet maps
 - Vendor portal (fleet management, job assignment)
 - Admin panel (dashboard, approvals, user management)
-- **MeroBot AI Chatbot** — Gemini-powered assistant on every page (no setup needed)
+- **MeroBot AI Chatbot** — Gemini-powered assistant on every page (offline fallback, right-side bottom)
+- **Session-aware UI** — persistent topbar, auto-switches login/dashboard on landing page
 - In-app update checker with one-tap APK download/install
 - Supports all 7 provinces of Nepal
 
