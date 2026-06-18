@@ -1,242 +1,47 @@
 # MeroGhar - Nepal's Trusted Household Movers
 
-A full-stack logistics platform built with Vite, Node.js, Express, and MySQL for an undergraduate minor project.
+Full-stack logistics platform (Vite + Tailwind + vanilla JS, Express + MySQL, Android via Capacitor).
+
+## Download APK
+
+[**Download MeroGhar v2.0.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.0.0.apk)
+
+## Features
+
+- Multi-step booking form with distance-based quotes
+- Real-time shipment tracking with Leaflet maps
+- Vendor portal (fleet management, job assignment)
+- Admin panel (dashboard, approvals, user management)
+- **MeroBot AI Chatbot** — Gemini-powered assistant on every page (no setup needed)
+- In-app update checker with one-tap APK download/install
+- Supports all 7 provinces of Nepal
 
 ## Tech Stack
 
-- **Frontend:** Vite + Tailwind CSS + vanilla JS
-- **Backend:** Express + MySQL (deployed on Railway)
-- **Android:** Capacitor 8 (wraps web app into native Android APK)
-- **Plugins:** `@capacitor/filesystem` (APK download), `@capacitor/share` (APK install trigger)
-- **Database:** MySQL (Railway free tier)
-- **Distribution:** GitHub Releases + in-app update check via GitHub API
+Vite · Tailwind CSS · vanilla JS · Express · MySQL (Railway) · Capacitor 8 · Google Gemini
 
-## Project Structure
-
-```
-├── index.html                # Landing page (hero, services, provinces, FAQ)
-├── generate-icons.py         # App icon generator (Pillow)
-├── copy-pages.mjs            # Post-build script (copies pages + compiled CSS)
-├── src/
-│   ├── main.js               # Navbar scroll shadow, mobile menu, FAQ toggles
-│   ├── style.css             # Tailwind + custom styles (touch targets, steps, chips)
-│   ├── js/
-│   │   ├── config.js         # API URL auto-detect, APP_VERSION, in-app update logic
-│   │   ├── auth.js           # Login/signup API calls
-│   │   └── guard.js          # Auth redirect guard
-│   ├── pages/                # login, signup, user, vendor, admin HTML
-│   └── styles/               # admin.css (dashboard), vendor.css (portal)
-├── backend/
-│   ├── server.js             # Express app entry
-│   ├── config/db.js          # MySQL connection pool (Railway)
-│   ├── schema.sql            # 46-column shipments table + users/vendors
-│   ├── routes/               # auth, shipment, payment, vendor routes
-│   ├── controllers/          # Request handlers
-│   ├── models/               # Database queries
-│   └── services/             # Nepal Payments, Esewa integration
-├── android/                  # Capacitor Android project (JDK 21)
-├── capacitor.config.json     # Capacitor configuration
-└── railway.json              # Railway deployment config
-```
-
-## Installation
-
-### Prerequisites
-- Node.js 18+
-- npm
-
-### 1. Clone & Install
+## Quick Start
 
 ```bash
 git clone https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic.git
 cd Mero-Ghar-Logistic
 npm install
+# Edit backend/.env with your MySQL credentials
+# Terminal 1: cd backend && node server.js
+# Terminal 2: npm run dev
 ```
 
-### 2. Database Setup (Local)
+## Build APK
 
 ```bash
-mysql -u root -e "CREATE DATABASE meroghar_db"
-mysql -u root meroghar_db < backend/schema.sql
+npm run build && npx cap sync android
+JAVA_HOME=/path/to/jdk21 ./gradlew assembleDebug   # from android/
 ```
 
-### 3. Configure Environment
-
-Edit `backend/.env` with your local MySQL credentials:
-```
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=
-DB_NAME=meroghar_db
-```
-
-### 4. Run Locally
-
-```bash
-# Terminal 1 — Backend
-cd backend && node server.js
-
-# Terminal 2 — Frontend
-npm run dev
-```
-
-Open http://localhost:5173 in your browser.
-
-## Build Android APK
-
-### Prerequisites
-- Java JDK 21+ (`JAVA_HOME` must point to it)
-- Android SDK (command-line tools, installed via `sdkmanager`)
-- Android platform 34+ installed
-
-### Steps
-
-```bash
-# 1. Build web app & copy pages/compiled CSS
-npm run build
-
-# 2. Sync web assets + native plugins to Android project
-npx cap sync android
-
-# 3. Build debug APK
-JAVA_HOME=/path/to/jdk21 ./gradlew assembleDebug
-```
-
-The APK will be at `android/app/build/outputs/apk/debug/app-debug.apk`.
-
-### Install on Device
-Transfer the APK to your Android phone (USB, Google Drive, etc.) and tap to install. Enable **"Install from unknown apps"** when prompted.
-
-> **Note:** The APK connects to `https://backend-production-d51a3.up.railway.app` by default. Edit `src/js/config.js` to change the backend URL and rebuild.
-
-## In-App Update System
-
-The app checks for new versions on every startup using the GitHub Releases API:
-
-1. **Check** — On page load, fetches `repos/SubodhShah-Dev/.../releases/latest`
-2. **Prompt** — If a newer version is found, shows an "Update Available" dialog
-3. **Download** — "Download Update" streams the APK bytes in-app via `fetch()` with a real-time progress spinner
-4. **Save** — APK is written to the device cache via `@capacitor/filesystem`
-5. **Install** — "Install Now" shares the cached APK via `@capacitor/share`, triggering Android's package installer (replaces old version)
-
-All logic is in `src/js/config.js` (no external service needed).
-
-## App Icon
-
-Generated by `generate-icons.py` (Python 3 + Pillow). Clean flat design:
-- **Background:** Forest green (#112018)
-- **Foreground:** Bold saffron "M" (#f5a623) — thick rounded letter centered on the canvas
-- Inspired by the flat-letter-icon approach (like Facebook), instantly recognizable at small sizes
-
-Regenerate all mipmap densities with:
-```bash
-python3 generate-icons.py
-```
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/auth/register` | POST | Register new user |
-| `/api/auth/login` | POST | Login |
-| `/api/auth/users` | GET | List users (admin) |
-| `/api/shipment/create` | POST | Create shipment (46 columns) |
-| `/api/shipment/all` | GET | All shipments (admin) |
-| `/api/shipment/user/:userId` | GET | User's shipments |
-| `/api/shipment/:id` | GET | Single shipment |
-| `/api/vendor/register` | POST | Vendor registration |
-| `/api/vendor/:id/jobs` | GET | Vendor job list |
-| `/api/payment/initiate` | POST | Initiate payment |
-| `/api/payment/verify` | POST | Verify payment |
-
-## Deployment
-
-The backend is deployed on **Railway** at `https://backend-production-d51a3.up.railway.app`.
-
-### Redeploy Backend
-
-```bash
-cd backend
-railway up --service backend
-```
-
-## Download Latest APK
-
-[**Download MeroGhar v2.0.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.0.0.apk)
-
-## What's New in v2.0.0
-
-**AI Chatbot (MeroBot) — intelligent assistant on every page.**
-
-- Floating chat widget at bottom-left across all pages (home, login, signup, booking, admin, vendor)
-- Ask about bookings, tracking, pricing, payments, service areas, and more
-- Powered by Google Gemini 1.5 Flash (set `GEMINI_API_KEY` in backend `.env` for AI responses)
-- Built-in rule-based fallback Q&A when no API key is configured — works offline
-- Dark theme matching the app's forest green/saffron design
-- Self-contained vanilla JS — no external dependencies or CDN scripts
-- **APK**: v2.0.0 built & released
-
-### Gemini AI
-The chatbot is live with Google Gemini 1.5 Flash — no setup needed. The API key is configured on the backend (Railway env var `GEMINI_API_KEY`).
+APK at `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ---
-
-### What's New in v1.9.1
-
-**Security & reliability release — XSS hardening, null safety, build pipeline cleanup.**
-
-### Security
-- **Stored XSS protection**: Added `escapeHtml()` helper to `admin.js` and `vendor.js` — all 33+ `innerHTML` template strings now sanitize user-supplied data (names, addresses, phone numbers, email, business names)
-- Vendor select dropdowns in admin approval table also escaped
-
-### Reliability
-- **Vendor portal null safety**: 34 missing DOM null checks added across `showRegistrationForm`, `showPendingState`, `showInactiveState`, `showBannedState`, `showApprovedDashboard`, `goPage()`, and `submitSupportTicket()`
-- **Admin dashboard**: Filter ordering fixed — `renderDashTable` was slicing to 6 rows *before* applying status/search filters, causing empty results when filtering older records
-
-### Build & Deployment
-- **Vendor page**: Removed CDN Tailwind (`cdn.tailwindcss.com`), now uses Vite PostCSS pipeline — consistent with all other pages, eliminates runtime download, enables tree-shaking
-- **APK**: v1.9.1 built & released (`7.5 MB`)
-
----
-
-### What's New in v1.9.0
-
-**Comprehensive bug fix release — 33+ issues resolved across the full stack.**
-
-### CRITICAL fixes
-- **Booking form**: Terms checkbox now saves `termsAccepted` correctly (was saving "Phone Call" preference instead)
-- **Admin panel**: `submitBooking()` now actually POSTs to the API — bookings were being silently dropped
-- **Data loss**: `pickup_address`/`drop_address` columns in the database were never populated by the backend INSERT query — now properly mapped
-- **XSS vulnerability**: Dummy payment form now HTML-escapes all user-supplied fields (`customerName`, `customerEmail`, `customerPhone`)
-- **CSS crash**: `var(--bdim)` typo in admin.css (undefined variable); `backdrop-filter: blur(3px)` in vendor.css (breaks Android WebView rendering)
-- **JSON safety**: All pages now use `safeParse()` instead of raw `JSON.parse(localStorage.getItem(...))` — prevents crashes on corrupted localStorage
-
-### HIGH priority
-- **Null-safety everywhere**: `onProvinceChange()`, address builders, `toggleOnline()` — all guarded against missing DOM elements
-- **NaN pricing**: Fallback distance calculation guarded against `parseInt("")` producing `NaN`
-- **Step 2 validation**: Was `() => true` (always passed) — now checks that user selected a home size or at least one item
-- **Payment method mapping**: Added missing `connectips` and `banktransfer` options
-- **Mobile validation**: Now requires exactly 10 digits
-- **Tailwind config**: Added missing `saffron-50` and `saffron-200` color shades (used in user form chips)
-- **Auth UX**: Replaced all 10 `alert()` calls with native toast notifications
-- **Guard redirect**: Authorization denial now shows a toast with 1.5s delay before redirect
-- **Toggle knob**: Vendor online toggle no longer jumps 4px when toggling (uses `left`/`right` instead of `translateX`)
-
-### Meta
-- `package.json` version bumped from `0.0.0` → `1.9.0`
-- In-app update checker now reports `1.9.0`
-
----
-
-### What's New in v1.8.1
-
-- **Payment processing fixed**: Replaced broken HTML injection (`innerHTML` of full `<html>` document) with a native payment overlay — `<script>` tags are no longer stripped, the form always submits to the correct API URL, and the user gets inline validation feedback
-- **"How Did You Find Us?" dropdown fixed**: Wrong `querySelectorAll()[1]` index corrected to `querySelector()` — the value is now properly saved, restored, and submitted
-- **Map rendering hardened**: Graceful fallback if Leaflet library fails to load; try-catch wrapping prevents uncaught errors from breaking the confirmation page; sessionStorage fallback retrieves map data after payment flow
 
 All releases: https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases
-
-## License
 
 Private
