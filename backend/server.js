@@ -15,6 +15,7 @@ import shipmentRoute from './routes/shipmentRoute.js';
 import adminShipmentRoute from './routes/adminShipmentRoute.js';
 import vendorRoute from './routes/vendorRoute.js';
 import dummyPaymentRoutes from './routes/dummyPaymentRoutes.js';
+import chatbotRoute from './routes/chatbotRoute.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +30,7 @@ app.use('/api/shipment', shipmentRoute);
 app.use('/api/admin', adminShipmentRoute);
 app.use('/api/vendor', vendorRoute);
 app.use('/api/payment', dummyPaymentRoutes);
+app.use('/api/chatbot', chatbotRoute);
 
 app.get('/', (req, res) => {
 	res.json('Server running');
