@@ -112,11 +112,10 @@ const fPW = { 1: '20%', 2: '40%', 3: '60%', 4: '80%', 5: '100%' };
 
 // ── Android back button / browser back handling ──
 history.replaceState({ step: 1 }, '');
-window.addEventListener('popstate', function onFormBack(e) {
-  if (fCur > 1) {
-    var prev = fCur - 1;
-    fGoTo(prev, true);
-    history.pushState({ step: fCur }, '');
+window.addEventListener('popstate', function(e) {
+  var target = (e.state && e.state.step) || 1;
+  if (target >= 1 && target <= fTotal && target !== fCur) {
+    fGoTo(target, true);
   }
 });
 
