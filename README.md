@@ -4,9 +4,13 @@ Full-stack logistics platform (Vite + Tailwind + vanilla JS, Express + MySQL, An
 
 ## Download APK
 
-[**Download MeroGhar v2.3.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.3.0.apk)
+[**Download MeroGhar v2.3.1 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.3.1.apk)
 
 ## Changelog
+
+### v2.3.1 — Login detection fix for Android WebView + step 5 vertical layout
+- **Login button fix** `src/js/session-ui.js`: Removed `e.persisted` guard on `pageshow` — now fires on every page show (Android WebView wasn't triggering bfcache); added `DOMContentLoaded` safety net
+- **Step 5 contact fields** `src/pages/user.html`: Changed grid to `grid-cols-1` so First Name, Last Name, Mobile, Alt Mobile, Email stack vertically on all screen sizes
 
 ### v2.3.0 — Session-aware UI fixes + Android back button handling
 - **Session-aware login detection** `src/js/session-ui.js`: Replaced native `confirm()` with a styled logout modal; added `pageshow` event listener so login→Dashboard replacement re-applies on back/forward cache restore

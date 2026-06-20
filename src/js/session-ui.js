@@ -118,8 +118,9 @@
 
   applySession();
 
-  // Re-apply on pageshow to handle bfcache (back/forward cache)
-  window.addEventListener('pageshow', function (e) {
-    if (e.persisted) applySession();
-  });
+  // Re-apply every time page is shown (handles back-nav in Android WebView and bfcache)
+  window.addEventListener('pageshow', applySession);
+
+  // Safety net if DOM loads after script execution
+  document.addEventListener('DOMContentLoaded', applySession);
 })();
