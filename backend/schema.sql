@@ -1,3 +1,18 @@
+CREATE TABLE IF NOT EXISTS vendor_vehicles (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vendor_id INT NOT NULL,
+  name VARCHAR(100),
+  plate_number VARCHAR(50),
+  vehicle_type VARCHAR(50),
+  capacity_tonnes DECIMAL(5,2) DEFAULT 0,
+  driver_name VARCHAR(100),
+  driver_phone VARCHAR(20),
+  status VARCHAR(50) DEFAULT 'available',
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,

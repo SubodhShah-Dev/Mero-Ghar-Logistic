@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeroGhar - My Bookings</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/src/style.css" />
+  <script src="/src/js/guard.js" data-role="user"></script>
+</head>
+<body>
+  <div id="app-topbar"></div>
+
+  <main style="max-width:720px;margin:0 auto;padding:24px 16px 80px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+      <h1 style="font-size:22px;font-weight:800;color:var(--text);margin:0">My Bookings</h1>
+      <a href="/src/pages/user.html" style="font-size:13px;color:var(--gold);text-decoration:none">+ New Booking</a>
+    </div>
+
+    <div id="bookings-list">
+      <div style="text-align:center;padding:64px 20px;color:var(--dim);font-size:14px" id="loading-msg">Loading your bookings...</div>
+    </div>
+  </main>
+
+  <script src="/src/js/config.js"></script>
+  <script src="/src/js/session-ui.js"></script>
+  <script src="/src/js/my-bookings.js"></script>
+</body>
+</html>

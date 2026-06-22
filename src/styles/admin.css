@@ -695,6 +695,14 @@ td.m {
 .pp::before {
 	background: var(--blue);
 }
+.pNw {
+	background: rgba(240, 120, 64, 0.11);
+	color: var(--orange);
+	border: 1px solid rgba(240, 120, 64, 0.22);
+}
+.pNw::before {
+	background: var(--orange);
+}
 .pc {
 	background: rgba(224, 94, 94, 0.11);
 	color: var(--red);

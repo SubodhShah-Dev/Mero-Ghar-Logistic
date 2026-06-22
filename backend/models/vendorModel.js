@@ -128,3 +128,82 @@ export const updateVendorRating = async (id, rating, totalJobs) => {
 	);
 	return result.affectedRows > 0;
 };
+
+// ── VEHICLE FUNCTIONS ──
+
+export const getVendorVehicles = async (vendorId) => {
+	try {
+		const [rows] = await pool.execute(
+			'SELECT * FROM vendor_vehicles WHERE vendor_id = ? AND is_active = 1 ORDER BY created_at DESC',
+			[vendorId],
+		);
+		return rows;
+	} catch (error) {
+		console.error('Error in getVendorVehicles:', error);
+		return [];
+	}
+};
+
+export const addVendorVehicle = async (vendorId, vehicleData) => {
+	try {
+		const { name, plate_number, vehicle_type, capacity_tonnes, driver_name, driver_phone } = vehicleData;
+		const [result] = await pool.execute(
+			`INSERT INTO vendor_vehicles (vendor_id, name, plate_number, vehicle_type, capacity_tonnes, driver_name, driver_phone)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			[vendorId, name, plate_number, vehicle_type, capacity_tonnes || null, driver_name, driver_phone || null],
+		);
+		return { id: result.insertId, ...vehicleData };
+	} catch (error) {
+		console.error('Error in addVendorVehicle:', error);
+		return null;
+	}
+};
+
+export const updateVehicleStatus = async (vehicleId, status) => {
+	try {
+		const [result] = await pool.execute(
+			'UPDATE vendor_vehicles SET status = ? WHERE id = ?',
+			[status, vehicleId],
+		);
+		return result.affectedRows > 0;
+	} catch (error) {
+		console.error('Error in updateVehicleStatus:', error);
+		return false;
+	}
+};
+
+export const removeVendorVehicle = async (vehicleId, vendorId) => {
+	try {
+		const [result] = await pool.execute(
+			'UPDATE vendor_vehicles SET is_active = 0 WHERE id = ? AND vendor_id = ?',
+			[vehicleId, vendorId],
+		);
+		return result.affectedRows > 0;
+	} catch (error) {
+		console.error('Error in removeVendorVehicle:', error);
+		return false;
+	}
+};
+
+export const findMatchingVendors = async (vehicleType, pickupProvince, dropProvince) => {
+	try {
+		const [rows] = await pool.execute(
+			`SELECT DISTINCT v.id, v.business_name, v.owner_name, v.phone, v.email,
+                    v.service_region, v.rating, v.total_jobs, v.status as vendor_status,
+                    vv.id as vehicle_id, vv.name as vehicle_name, vv.plate_number,
+                    vv.vehicle_type, vv.driver_name, vv.status as vehicle_status
+             FROM vendors v
+             JOIN vendor_vehicles vv ON vv.vendor_id = v.id
+             WHERE v.status = 'active'
+               AND vv.vehicle_type = ?
+               AND vv.status = 'available'
+               AND vv.is_active = 1
+             ORDER BY v.rating DESC`,
+			[vehicleType],
+		);
+		return rows;
+	} catch (error) {
+		console.error('Error in findMatchingVendors:', error);
+		return [];
+	}
+};

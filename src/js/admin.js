@@ -178,19 +178,6 @@ async function loadVendors() {
 	}
 }
 
-async function loadActiveVendors() {
-	try {
-		const result = await fetchAPI('/api/admin/vendors/active');
-		if (result.ok && result.vendors) {
-			return result.vendors;
-		}
-		return [];
-	} catch (error) {
-		console.error('Error loading active vendors:', error);
-		return [];
-	}
-}
-
 async function loadPendingShipments() {
 	const result = await fetchAPI('/api/admin/shipments/pending');
 	if (result.ok && result.shipments) {
@@ -445,10 +432,8 @@ async function renderApprovalTable(shipments) {
 	const tbody = document.getElementById('approval-tbody');
 	if (!tbody) return;
 
-	const activeVendors = await loadActiveVendors();
-
 	if (!shipments || shipments.length === 0) {
-		tbody.innerHTML = `<tr><td colspan="7" class="no-results">No shipments found</td></tr>`;
+		tbody.innerHTML = `<tr><td colspan="7" class="no-results">No pending shipments</td></tr>`;
 		return;
 	}
 
@@ -457,6 +442,7 @@ async function renderApprovalTable(shipments) {
 			const moveDateSimple = shipment.move_date
 				? shipment.move_date.split('T')[0]
 				: '—';
+			const vendorAssigned = shipment.assigned_vendor_id || shipment.vendor_name;
 			return `
       <tr id="approval-row-${shipment.id}">
         <td class="m">${shipment.booking_id || `#MG-${shipment.id}`}</td>
@@ -465,22 +451,10 @@ async function renderApprovalTable(shipments) {
         <td>${moveDateSimple}</td>
         <td class="b">Rs ${(shipment.final_quote || 0).toLocaleString()}</td>
         <td>
-          <select id="vendor-select-${shipment.id}" class="vendor-select" ${shipment.approval_status !== 'pending' ? 'disabled' : ''} style="padding: 6px 10px; border-radius: 6px; background: var(--dark3); color: var(--text); border: 1px solid var(--bdim); min-width: 180px;">
-            <option value="">-- Select Vendor --</option>
-            ${activeVendors.map((v) => `<option value="${v.id}">${escapeHtml(v.business_name)} (⭐ ${v.rating || 0}) - ${escapeHtml(v.service_region || '')}</option>`).join('')}
-          </select>
+          <span class="${vendorAssigned ? 'pill pd' : 'pill pNw'}">${vendorAssigned ? escapeHtml(shipment.vendor_name || 'Assigned') : 'No vendor'}</span>
         </td>
         <td>
-          ${
-				shipment.approval_status === 'pending'
-					? `
-            <button class="btn-g btn-sm" onclick="approveShipment(${shipment.id})">Approve</button>
-            <button class="btn-r btn-sm" onclick="rejectShipment(${shipment.id})">Reject</button>
-          `
-					: shipment.approval_status === 'approved'
-						? `<span class="pill pd">Approved - ${shipment.vendor_name || 'Assigned'}</span>`
-						: `<span class="pill pc">Rejected</span>`
-			}
+          <button class="btn-r btn-sm" onclick="rejectShipment(${shipment.id})">Reject</button>
         </td>
       </tr>`;
 		})
@@ -555,39 +529,6 @@ async function submitStatusChange() {
 // ==================================================
 // OTHER ACTION FUNCTIONS
 // ==================================================
-
-async function approveShipment(shipmentId) {
-	const vendorSelect = document.getElementById(`vendor-select-${shipmentId}`);
-	if (!vendorSelect) {
-		toast('Vendor select not found', 'red');
-		return;
-	}
-	const vendorId = vendorSelect.value;
-	if (!vendorId) {
-		toast('Please select a vendor', 'red');
-		return;
-	}
-	const selectedOption = vendorSelect.options[vendorSelect.selectedIndex];
-	const vendorName = selectedOption ? selectedOption.text : 'Vendor';
-	if (!confirm(`Assign this shipment to ${vendorName}?`)) return;
-
-	const result = await fetchAPI(
-		`/api/admin/shipments/${shipmentId}/approve`,
-		{
-			method: 'PUT',
-			body: JSON.stringify({ vendor_id: vendorId }),
-		},
-	);
-
-	if (result.ok) {
-		toast(`Shipment approved and assigned to ${vendorName}!`, 'green');
-		await loadPendingShipments();
-		await loadBookings();
-		if (approvalFilter === 'pending') await loadPendingShipments();
-	} else {
-		toast(result.message || 'Failed to approve shipment', 'red');
-	}
-}
 
 async function rejectShipment(shipmentId) {
 	const reason = prompt('Enter rejection reason:');
@@ -1155,7 +1096,6 @@ window.openEditStatusModal = openEditStatusModal;
 window.submitStatusChange = submitStatusChange;
 window.copyToClipboard = copyToClipboard;
 window.showNotifications = showNotifications;
-window.approveShipment = approveShipment;
 window.rejectShipment = rejectShipment;
 window.updateVendorStatus = updateVendorStatus;
 window.openAddVendor = openAddVendor;

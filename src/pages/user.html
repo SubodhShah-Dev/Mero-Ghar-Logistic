@@ -69,7 +69,13 @@
 								id="cn45"
 								class="flex-1 h-0.5 bg-cream-300 transition-all duration-500"></div>
 						</div>
-						<div id="sc5" class="s-circle s-idle">5</div>
+						<div class="flex-1 flex items-center">
+							<div id="sc5" class="s-circle s-idle">5</div>
+							<div
+								id="cn56"
+								class="flex-1 h-0.5 bg-cream-300 transition-all duration-500"></div>
+						</div>
+						<div id="sc6" class="s-circle s-idle">6</div>
 					</div>
 					<div class="flex justify-between text-center" style="margin: 0 -2px;">
 						<div class="flex-1 min-w-0 px-0.5">
@@ -97,12 +103,19 @@
 							<p
 								id="fl4"
 								class="text-gray-500 text-xs sm:text-xs font-bold uppercase tracking-wide truncate">
-								Schedule
+								Mover
 							</p>
 						</div>
 						<div class="flex-1 min-w-0 px-0.5">
 							<p
 								id="fl5"
+								class="text-gray-500 text-xs sm:text-xs font-bold uppercase tracking-wide truncate">
+								Schedule
+							</p>
+						</div>
+						<div class="flex-1 min-w-0 px-0.5">
+							<p
+								id="fl6"
 								class="text-gray-500 text-xs sm:text-xs font-bold uppercase tracking-wide truncate">
 								Contact
 							</p>
@@ -990,14 +1003,58 @@
 						</div>
 					</div>
 
-					<!-- PANEL 4 · SCHEDULE -->
+					<!-- PANEL 4 · MOVER SELECTION -->
 					<div id="fp4" class="hidden">
 						<div
 							class="bg-forest-900 px-6 py-4 flex items-center justify-between">
 							<div>
 								<p
 									class="text-saffron-400 text-xs tracking-widest uppercase font-semibold">
-									Step 4 of 5
+									Step 4 of 6
+								</p>
+								<h3
+									class="font-display text-xl font-bold text-cream-50 mt-0.5">
+									Choose Your Mover
+								</h3>
+							</div>
+							<span class="text-3xl">🛠️</span>
+						</div>
+						<div class="p-6 space-y-5">
+							<p class="text-stone-500 text-sm">
+								Pick a verified mover with matching vehicles for your move. You can also let admin assign one.
+							</p>
+							<div id="vendor-select-status" class="text-xs text-stone-500">Loading available movers...</div>
+							<div id="vendor-select-list" class="space-y-3"></div>
+							<label class="flex items-center gap-3 cursor-pointer border border-dashed border-cream-300 rounded-sm p-3 hover:border-forest-500 transition-all">
+								<input type="radio" name="selectedVendorFp5" value="" checked class="accent-forest-700 w-5 h-5 flex-shrink-0" />
+								<div>
+									<p class="text-sm font-medium text-forest-900">No preference — Let admin assign</p>
+									<p class="text-xs text-gray-500">We'll assign a verified mover on your behalf</p>
+								</div>
+							</label>
+						</div>
+						<div class="px-6 pb-6 flex justify-between">
+							<button
+								onclick="fGoTo(3)"
+								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[44px] rounded-sm transition-all">
+								← Back
+							</button>
+							<button
+								onclick="fGoTo(5)"
+								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-xs sm:text-sm px-4 sm:px-8 py-2.5 sm:py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
+								Next →
+							</button>
+						</div>
+					</div>
+
+					<!-- PANEL 5 · SCHEDULE -->
+					<div id="fp5" class="hidden">
+						<div
+							class="bg-forest-900 px-6 py-4 flex items-center justify-between">
+							<div>
+								<p
+									class="text-saffron-400 text-xs tracking-widest uppercase font-semibold">
+									Step 5 of 6
 								</p>
 								<h3
 									class="font-display text-xl font-bold text-cream-50 mt-0.5">
@@ -1151,26 +1208,26 @@
 						</div>
 						<div class="px-6 pb-6 flex justify-between">
 							<button
-								onclick="fGoTo(3)"
+								onclick="fGoTo(4)"
 								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[44px] rounded-sm transition-all">
 								← Back
 							</button>
 							<button
-								onclick="fGoTo(5)"
+								onclick="fGoTo(6)"
 								class="bg-forest-800 hover:bg-forest-700 text-cream-50 font-semibold text-xs sm:text-sm px-4 sm:px-8 py-2.5 sm:py-3 min-h-[44px] rounded-sm transition-all hover:-translate-y-0.5">
 								Next →
 							</button>
 						</div>
 					</div>
 
-					<!-- PANEL 5 · CONTACT + PAYMENT -->
-					<div id="fp5" class="hidden">
+					<!-- PANEL 6 · CONTACT + PAYMENT -->
+					<div id="fp6" class="hidden">
 						<div
 							class="bg-forest-900 px-6 py-4 flex items-center justify-between">
 							<div>
 								<p
 									class="text-saffron-400 text-xs tracking-widest uppercase font-semibold">
-									Step 5 of 5
+									Step 6 of 6
 								</p>
 								<h3
 									class="font-display text-xl font-bold text-cream-50 mt-0.5">
@@ -1462,7 +1519,7 @@
 						<div
 							class="px-6 pb-6 flex justify-between items-center gap-4">
 							<button
-								onclick="fGoTo(4)"
+								onclick="fGoTo(5)"
 								class="border border-cream-300 hover:border-forest-500 text-gray-500 hover:text-forest-800 font-medium text-xs sm:text-sm px-4 sm:px-6 py-2.5 sm:py-3 min-h-[44px] rounded-sm transition-all">
 								← Back
 							</button>

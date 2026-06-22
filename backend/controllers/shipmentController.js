@@ -39,26 +39,31 @@ export const createShipment = async (req, res) => {
 			special_notes,
 			how_found_us,
 			final_quote,
-			distance_km, // ⬅️ Added
-			estimated_duration, // ⬅️ Added
+			distance_km,
+			estimated_duration,
+			vendor_id,
 		} = req.body;
 
 		const userId = req.headers['x-user-id'] || null;
 		const booking_id = `MG-${Date.now()}`;
 		const transactionId = `TXN-${Date.now()}`;
 
+		// If customer selected a vendor directly, skip admin approval
+		const hasVendor = !!vendor_id;
+		const approvalStatus = hasVendor ? 'approved' : 'pending';
+
 		// Insert into database
 		const [result] = await pool.execute(
 			`INSERT INTO shipments (
-                booking_id, user_id,
-                pickup_address, pickup_province, pickup_district, pickup_city, pickup_ward, pickup_floor, pickup_lane_access,
+                booking_id, user_id, pickup_address, pickup_province, pickup_district, pickup_city, pickup_ward, pickup_floor, pickup_lane_access,
                 drop_address, drop_province, drop_district, drop_city, drop_ward, drop_floor,
                 home_size, selected_items, fragile_items, vehicle_type, add_on_services,
                 move_date, alternate_date, preferred_time_slot, move_reason,
                 first_name, last_name, mobile_number, alternate_mobile, email,
                 preferred_contact, payment_method, special_notes, how_found_us,
-                approval_status, status, transaction_id, payment_status, final_quote, distance_km, estimated_duration
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                approval_status, status, transaction_id, payment_status, final_quote, distance_km, estimated_duration,
+                assigned_vendor_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				booking_id,
 				userId,
@@ -93,13 +98,14 @@ export const createShipment = async (req, res) => {
 				payment_method || null,
 				special_notes || null,
 				how_found_us || null,
-				'pending',
+				approvalStatus,
 				'pending',
 				transactionId,
 				'pending',
 				final_quote || null,
-				distance_km || null, // ⬅️ Added
-				estimated_duration || null, // ⬅️ Added
+				distance_km || null,
+				estimated_duration || null,
+				vendor_id || null,
 			],
 		);
 
@@ -196,6 +202,26 @@ export const getUserShipments = async (req, res) => {
 		res.status(500).json({
 			success: false,
 			message: 'Failed to fetch user shipments',
+		});
+	}
+};
+
+export const getShipmentsByEmail = async (req, res) => {
+	try {
+		const [rows] = await pool.execute(
+			`SELECT s.*, v.business_name as vendor_name
+       FROM shipments s
+       LEFT JOIN vendors v ON s.assigned_vendor_id = v.id
+       WHERE s.email = ?
+       ORDER BY s.created_at DESC`,
+			[req.params.email],
+		);
+		res.json({ success: true, shipments: rows });
+	} catch (error) {
+		console.error('Error fetching shipments by email:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Failed to fetch shipments',
 		});
 	}
 };

@@ -4,9 +4,17 @@ Full-stack logistics platform (Vite + Tailwind + vanilla JS, Express + MySQL, An
 
 ## Download APK
 
-[**Download MeroGhar v2.3.2 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.3.2.apk)
+[**Download MeroGhar v2.4.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.4.0.apk)
 
 ## Changelog
+
+### v2.4.0 — Marketplace model: customers pick vendors directly
+- **Marketplace flow** — booking form now includes a **Mover Selection** step (fp4) after vehicle type: matching vendors (by vehicle type + province) are fetched from the API and displayed as radio cards; customer picks their mover directly
+- **Admin removed from vendor assignment** — approval table no longer has a vendor dropdown or Approve button; admin can only reject bookings. Vendors assigned directly by customers are auto-approved in the DB
+- **Vendor vehicles CRUD** — `vendor_vehicles` DB table replaces localStorage; vendor portal fleet management now uses backend API (add/edit/remove vehicles persistently)
+- **My Bookings page** — new `/src/pages/my-bookings.html` shows logged-in users all their bookings with status and assigned vendor; accessible from topbar and mobile menu
+- **Matching API** — `GET /api/vendor/matching?vehicle_type=...&pickup_province=...&drop_province=...` returns active vendors with compatible vehicles
+- **Bug fixes**: `pNw` pill style added to admin.css (was only in vendor.css), admin approval table colspan fixed
 
 ### v2.3.2 — Fixed forward/back navigation in multi-step form
 - **popstate handler** `src/js/user.js`: Now reads `event.state.step` to determine target step — properly supports both **back** and **forward** Android buttons; no longer pushes extra states into history

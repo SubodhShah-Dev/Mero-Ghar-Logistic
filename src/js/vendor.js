@@ -382,102 +382,81 @@ function closeModal(id) {
 async function addVehicle() {
 	const name = document.getElementById('vehicle-name')?.value.trim();
 	const plate = document.getElementById('vehicle-plate')?.value.trim();
-	const type = document.getElementById('vehicle-type')?.value;
-	const driver = document.getElementById('vehicle-driver')?.value.trim();
+	const vehicle_type = document.getElementById('vehicle-type')?.value;
+	const driver_name = document.getElementById('vehicle-driver')?.value.trim();
+	const driver_phone = document.getElementById('vehicle-driver-phone')?.value.trim();
+	const capacity_tonnes = document.getElementById('vehicle-capacity')?.value.trim();
 
-	if (!name || !plate || !driver) {
+	if (!name || !plate || !driver_name) {
 		toast('Please fill required fields', 'red');
 		return;
 	}
 
-	const newVehicle = {
-		id: Date.now(),
-		name,
-		plate,
-		type,
-		driver,
-		status: 'Available',
-		lastJob: '—',
-	};
-	vehicles.unshift(newVehicle);
-	saveFleet();
-	renderFleet();
-	renderFleetList();
-	updateStats();
-	closeModal('modal-add-vehicle');
-	toast(`${name} added to fleet`, 'green');
+	const result = await fetchAPI('/api/vendor/vehicles', {
+		method: 'POST',
+		body: JSON.stringify({ name, plate_number: plate, vehicle_type, capacity_tonnes, driver_name, driver_phone }),
+	});
 
+	if (result.ok) {
+		await loadFleet();
+		toast(`${name} added to fleet`, 'green');
+	} else {
+		toast(result.message || 'Failed to add vehicle', 'red');
+	}
+
+	closeModal('modal-add-vehicle');
 	[
-		'vehicle-name',
-		'vehicle-plate',
-		'vehicle-type',
-		'vehicle-capacity',
-		'vehicle-driver',
-		'vehicle-driver-phone',
+		'vehicle-name', 'vehicle-plate', 'vehicle-type',
+		'vehicle-capacity', 'vehicle-driver', 'vehicle-driver-phone',
 	].forEach((id) => {
 		const el = document.getElementById(id);
 		if (el) el.value = '';
 	});
 }
 
-function removeVehicle(vehicleId) {
+async function removeVehicle(vehicleId) {
 	if (confirm('Remove this vehicle?')) {
-		const index = vehicles.findIndex((v) => v.id == vehicleId);
-		if (index > -1) {
-			const name = vehicles[index].name;
-			vehicles.splice(index, 1);
-			saveFleet();
-			renderFleet();
-			renderFleetList();
-			updateStats();
-			toast(`${name} removed from fleet`, 'red');
+		const result = await fetchAPI(`/api/vendor/vehicles/${vehicleId}`, { method: 'DELETE' });
+		if (result.ok) {
+			await loadFleet();
+			toast('Vehicle removed from fleet', 'red');
+		} else {
+			toast(result.message || 'Failed to remove vehicle', 'red');
 		}
 	}
 }
 
-function updateVehicleStatus(vehicleId, status) {
-	const vehicle = vehicles.find((v) => v.id == vehicleId);
-	if (vehicle) {
-		vehicle.status = status;
-		saveFleet();
-		renderFleet();
-		renderFleetList();
-		toast(`${vehicle.name} status updated to ${status}`, 'gold');
+async function updateVehicleStatus(vehicleId, status) {
+	const result = await fetchAPI(`/api/vendor/vehicles/${vehicleId}/status`, {
+		method: 'PUT',
+		body: JSON.stringify({ status }),
+	});
+	if (result.ok) {
+		await loadFleet();
+		toast('Vehicle status updated', 'gold');
+	} else {
+		toast('Failed to update status', 'red');
 	}
 }
 
-function loadFleet() {
-	const savedFleet = localStorage.getItem('vendorFleet');
-	if (savedFleet) {
-		vehicles = safeParse(savedFleet, []);
+async function loadFleet() {
+	const result = await fetchAPI('/api/vendor/vehicles');
+	if (result.ok && result.vehicles) {
+		vehicles = result.vehicles.map(v => ({
+			id: v.id,
+			name: v.name || v.vehicle_name,
+			plate: v.plate_number,
+			type: v.vehicle_type,
+			driver: v.driver_name,
+			status: v.status === 'available' ? 'Available' : v.status,
+			lastJob: '—',
+		}));
 	} else {
-		vehicles = [
-			{
-				id: 1,
-				name: 'Tata 407',
-				plate: 'BA 1 KA 2233',
-				type: 'Mini Truck',
-				driver: 'Hari Bahadur',
-				status: 'Available',
-				lastJob: '—',
-			},
-			{
-				id: 2,
-				name: 'Ashok Leyland',
-				plate: 'BA 2 JA 4455',
-				type: 'Large Truck',
-				driver: 'Suresh Magar',
-				status: 'Available',
-				lastJob: '—',
-			},
-		];
+		vehicles = [];
 	}
 	renderFleet();
 	renderFleetList();
-}
-
-function saveFleet() {
-	localStorage.setItem('vendorFleet', JSON.stringify(vehicles));
+	updateStats();
 }
 
 function renderFleet() {

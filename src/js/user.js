@@ -8,6 +8,16 @@ function checkAuth() {
 	return user;
 }
 
+function escapeHtml(str) {
+	if (!str) return '';
+	return String(str)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
 function logout() {
 	if (confirm('Are you sure you want to logout?')) {
 		localStorage.removeItem('meroGharUser');
@@ -107,8 +117,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ── FORM STEPS ───────────────────────────────────────
 let fCur = 1;
-const fTotal = 5;
-const fPW = { 1: '20%', 2: '40%', 3: '60%', 4: '80%', 5: '100%' };
+const fTotal = 6;
+const fPW = { 1: '16%', 2: '32%', 3: '48%', 4: '64%', 5: '80%', 6: '100%' };
 
 // ── Android back button / browser back handling ──
 history.replaceState({ step: 1 }, '');
@@ -544,7 +554,7 @@ async function updatePriceDisplay() {
 	if (updatingPrice) return;
 	updatingPrice = true;
 	try {
-		const priceBox = document.querySelector('#fp5 .bg-saffron-50');
+		const priceBox = document.querySelector('#fp6 .bg-saffron-50');
 		if (priceBox)
 			priceBox.innerHTML = `<div class="text-center py-2 text-sm">Calculating distance...</div>`;
 		let result;
@@ -598,6 +608,66 @@ async function updatePriceDisplay() {
 	}
 }
 
+async function loadMatchingVendors() {
+	const pickupProv = document.getElementById('puProv')?.value || '';
+	const pickupDist = document.getElementById('puDist')?.value || '';
+	const dropProv = document.getElementById('drProv')?.value || '';
+	const dropDist = document.getElementById('drDist')?.value || '';
+	const vehicleSelected = document.querySelector('input[name="veh"]:checked');
+	const vehicleType = vehicleSelected
+		? vehicleSelected
+			.closest('label')
+			?.querySelector('.font-semibold')
+			?.innerText.toLowerCase()
+			.replace(' ', '_')
+			|| ''
+		: '';
+	if (!vehicleType) return;
+
+	const statusEl = document.getElementById('vendor-select-status');
+	const listEl = document.getElementById('vendor-select-list');
+	if (!statusEl || !listEl) return;
+
+	statusEl.textContent = 'Loading available movers...';
+	listEl.innerHTML = '';
+
+	try {
+		const query = new URLSearchParams({
+			vehicle_type: vehicleType,
+			pickup_province: pickupProv,
+			drop_province: dropProv,
+		});
+		const response = await fetch(`${API_BASE_URL}/api/vendor/matching?${query}`);
+		if (!response.ok) throw new Error('Failed to fetch movers');
+		const data = await response.json();
+		if (data.success && data.vendors && data.vendors.length > 0) {
+			statusEl.textContent = '';
+			listEl.innerHTML = data.vendors
+				.map(
+					(v) => `
+							<label class="flex items-center gap-3 cursor-pointer border border-cream-300 rounded-sm p-3 hover:border-forest-500 transition-all">
+								<input type="radio" name="selectedVendorFp5" value="${v.id}" class="accent-forest-700 w-5 h-5 flex-shrink-0" />
+							<div class="flex-1">
+								<div class="font-medium text-forest-900">${escapeHtml(v.business_name || v.name)} • ${escapeHtml(v.service_region)}</div>
+								<div class="text-xs text-gray-500">⭐ ${v.rating} • ${escapeHtml(v.owner_name)} • 📞 ${escapeHtml(v.phone)}</div>
+							</div>
+						</label>
+					`,
+				)
+				.join('');
+				const radio = listEl.querySelector('input[name="selectedVendorFp5"]');
+				if (radio) radio.checked = true;
+				saveFormState();
+			} else {
+				statusEl.textContent = 'No matching movers found in your route. Admin will assign one.';
+				listEl.innerHTML = '';
+			}
+		} catch (error) {
+			console.error('Vendor matching error:', error);
+			statusEl.textContent = 'Unable to load movers. Please try again later.';
+		}
+}
+
 // ========== FORM STATE PERSISTENCE ==========
 const STORAGE_KEY = 'meroGhar_booking_form';
 const USE_LOCAL_STORAGE = false;
@@ -632,24 +702,25 @@ function saveFormState() {
 					.querySelector('input[name="veh"]:checked')
 					?.closest('label')
 					?.querySelector('.font-semibold')?.innerText || '',
+			vendorId: document.querySelector('input[name="selectedVendorFp5"]:checked')?.value || '',
 			addOns: Array.from(
 				document.querySelectorAll(
 					'#fp3 input[type="checkbox"]:checked',
 				),
 			).map((cb) => cb.dataset.service),
 			moveDate:
-				document.querySelectorAll('#fp4 input[type="date"]')[0]
+				document.querySelectorAll('#fp5 input[type="date"]')[0]
 					?.value || '',
 			alternateDate:
-				document.querySelectorAll('#fp4 input[type="date"]')[1]
+				document.querySelectorAll('#fp5 input[type="date"]')[1]
 					?.value || '',
 			timeSlot:
 				document
 					.querySelector('input[name="tSlot"]:checked')
 					?.closest('label')
 					?.querySelector('.chip-lbl')?.innerText || '',
-			moveReason: document.querySelector('#fp4 select')?.value || '',
-			specialNotes: document.querySelector('#fp4 textarea')?.value || '',
+			moveReason: document.querySelector('#fp5 select')?.value || '',
+			specialNotes: document.querySelector('#fp5 textarea')?.value || '',
 			firstName: document.getElementById('firstName')?.value || '',
 			lastName: document.getElementById('lastName')?.value || '',
 			mobile: document.getElementById('mobile')?.value || '',
@@ -657,7 +728,7 @@ function saveFormState() {
 			email: document.getElementById('email')?.value || '',
 			preferredContact: Array.from(
 				document.querySelectorAll(
-					'#fp5 .flex-wrap input[type="checkbox"]:checked',
+					'#fp6 .flex-wrap input[type="checkbox"]:checked',
 				),
 			).map((cb) => cb.parentElement.innerText.trim()),
 			paymentMethod:
@@ -759,17 +830,17 @@ function restoreFormState() {
 			});
 
 		const moveDateInput = document.querySelectorAll(
-			'#fp4 input[type="date"]',
+			'#fp5 input[type="date"]',
 		)[0];
 		if (moveDateInput) moveDateInput.value = data.moveDate;
 		const altDateInput = document.querySelectorAll(
-			'#fp4 input[type="date"]',
+			'#fp5 input[type="date"]',
 		)[1];
 		if (altDateInput) altDateInput.value = data.alternateDate;
 		setRadioByLabel('tSlot', data.timeSlot);
-		const moveReasonSelect = document.querySelector('#fp4 select');
+		const moveReasonSelect = document.querySelector('#fp5 select');
 		if (moveReasonSelect) moveReasonSelect.value = data.moveReason;
-		const specialNotesTextarea = document.querySelector('#fp4 textarea');
+		const specialNotesTextarea = document.querySelector('#fp5 textarea');
 		if (specialNotesTextarea)
 			specialNotesTextarea.value = data.specialNotes;
 
@@ -889,7 +960,10 @@ const stepValidations = {
 		!!document.querySelector('input[name="veh"]:checked') ||
 		(showToast('Please select a vehicle type', 'red'), false),
 	4: function () {
-		const moveDate = document.querySelectorAll('#fp4 input[type="date"]')[0]
+		return true;
+	},
+	5: function () {
+		const moveDate = document.querySelectorAll('#fp5 input[type="date"]')[0]
 			?.value;
 		const timeSlot = document.querySelector('input[name="tSlot"]:checked');
 		if (!moveDate) {
@@ -902,12 +976,12 @@ const stepValidations = {
 		}
 		return true;
 	},
-	5: function () {
+	6: function () {
 		const firstName = document.getElementById('firstName')?.value;
 		const lastName = document.getElementById('lastName')?.value;
 		const mobile = document.getElementById('mobile')?.value;
 		const allCheckboxes = document.querySelectorAll(
-			'#fp5 input[type="checkbox"]',
+			'#fp6 input[type="checkbox"]',
 		);
 		let termsAccepted = false;
 		for (let cb of allCheckboxes) {
@@ -976,6 +1050,7 @@ function fGoTo(n, skipValidation = false) {
 		['cn23', 2],
 		['cn34', 3],
 		['cn45', 4],
+		['cn56', 5],
 	].forEach(([id, si]) => {
 		const c = document.getElementById(id);
 		if (c) c.classList.toggle('bg-forest-600', si < n);
@@ -987,13 +1062,14 @@ function fGoTo(n, skipValidation = false) {
 	document
 		.getElementById('booking')
 		?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-	if (n === 5 && !skipValidation) updatePriceDisplay();
+	if (n === 6 && !skipValidation) updatePriceDisplay();
+	if (n === 5) loadMatchingVendors();
 	saveFormState();
 }
 
 // ── SUBMIT FORM ──
 async function submitForm() {
-	if (!stepValidations[5]()) return;
+	if (!stepValidations[6]()) return;
 
 	var overlay = document.getElementById('loading-overlay');
 	if (overlay) overlay.style.display = 'flex';
@@ -1042,12 +1118,14 @@ async function submitForm() {
 function showSuccessMessage(bookingId) {
 	clearFormState();
 	const fp5 = document.getElementById('fp5');
+	const fp6 = document.getElementById('fp6');
 	const fpConfirm = document.getElementById('fpConfirm');
 	const formProgress = document.getElementById('formProgress');
 	const bookIdSpan = document.getElementById('bookId');
 	const mapContainer = document.getElementById('confirmation-map');
 	const bookingSection = document.getElementById('booking');
 	if (fp5) fp5.classList.add('hidden');
+	if (fp6) fp6.classList.add('hidden');
 	if (fpConfirm) fpConfirm.classList.remove('hidden');
 	if (formProgress) formProgress.style.width = '100%';
 	for (let i = 1; i <= fTotal; i++) {
@@ -1063,9 +1141,9 @@ function showSuccessMessage(bookingId) {
 		try {
 			var pending = sessionStorage.getItem('pendingMapData');
 			if (pending) mapData = JSON.parse(pending);
-	} catch (e) {
-		console.warn('Failed to save form state:', e);
-	}
+		} catch (e) {
+			console.warn('Failed to save form state:', e);
+		}
 	}
 	if (mapContainer && mapData) {
 		try { showLeafletMap(mapContainer, mapData); }
@@ -1272,10 +1350,10 @@ function collectFormData() {
 			if (service) addOnServices.push(service);
 		});
 	const moveDateInput = document.querySelectorAll(
-		'#fp4 input[type="date"]',
+		'#fp5 input[type="date"]',
 	)[0];
 	const alternateDateInput = document.querySelectorAll(
-		'#fp4 input[type="date"]',
+		'#fp5 input[type="date"]',
 	)[1];
 	const timeSlotSelected = document.querySelector(
 		'input[name="tSlot"]:checked',
@@ -1293,7 +1371,7 @@ function collectFormData() {
 			else if (t.includes('flexible')) timeSlot = 'flexible';
 		}
 	}
-	const moveReasonSelect = document.querySelector('#fp4 select');
+	const moveReasonSelect = document.querySelector('#fp5 select');
 	const firstNameInput = document.getElementById('firstName');
 	const lastNameInput = document.getElementById('lastName');
 	const mobileInput = document.getElementById('mobile');
@@ -1301,7 +1379,7 @@ function collectFormData() {
 	const emailInput = document.getElementById('email');
 	const preferredContact = [];
 	document
-		.querySelectorAll('#fp5 .flex-wrap input[type="checkbox"]:checked')
+		.querySelectorAll('#fp6 .flex-wrap input[type="checkbox"]:checked')
 		.forEach((cb) => {
 			const txt = cb.parentElement.innerText.trim();
 			if (txt.includes('Phone')) preferredContact.push('phone');
@@ -1324,7 +1402,8 @@ function collectFormData() {
 		else if (lower.includes('bank to bank')) paymentMethod = 'banktransfer';
 	}
 	const howFoundSelect = document.getElementById('howFound');
-	const specialNotesTextarea = document.querySelector('#fp4 textarea');
+	const specialNotesTextarea = document.querySelector('#fp5 textarea');
+	const vendorId = document.querySelector('input[name="selectedVendorFp5"]:checked')?.value || '';
 	const puProvSelect = document.getElementById('puProv');
 	const puDistSelect = document.getElementById('puDist');
 	const drProvSelect = document.getElementById('drProv');
@@ -1361,6 +1440,8 @@ function collectFormData() {
 		alternate_date: alternateDateInput?.value || '',
 		preferred_time_slot: timeSlot,
 		move_reason: moveReasonSelect?.value || '',
+		vendor_id: vendorId || null,
+		selectedVendorFp5: vendorId || null,
 		first_name: firstNameInput?.value || '',
 		last_name: lastNameInput?.value || '',
 		mobile_number: mobileInput?.value || '',
@@ -1385,7 +1466,7 @@ function resetForm() {
 function resetAllFormFields() {
 	document
 		.querySelectorAll(
-			'#fp1 input, #fp2 input, #fp3 input, #fp4 input, #fp5 input[type="text"], #fp5 input[type="tel"], #fp5 input[type="email"], #fp5 input[type="number"]',
+			'#fp1 input, #fp2 input, #fp3 input, #fp5 input[type="text"], #fp5 input[type="tel"], #fp5 input[type="email"], #fp5 input[type="number"]',
 		)
 		.forEach((input) => {
 			if (input.type === 'radio' || input.type === 'checkbox') return;
@@ -1393,7 +1474,7 @@ function resetAllFormFields() {
 		});
 	document
 		.querySelectorAll(
-			'#fp1 select, #fp2 select, #fp3 select, #fp4 select, #fp5 select',
+			'#fp1 select, #fp2 select, #fp3 select, #fp5 select',
 		)
 		.forEach((select) => (select.selectedIndex = 0));
 	document
@@ -1426,7 +1507,7 @@ function resetAllFormFields() {
 	document.getElementById('puFloor').selectedIndex = 0;
 	document.getElementById('drFloor').selectedIndex = 0;
 	document
-		.querySelectorAll('#fp2 textarea, #fp4 textarea')
+		.querySelectorAll('#fp2 textarea, #fp5 textarea')
 		.forEach((ta) => (ta.value = ''));
 }
 

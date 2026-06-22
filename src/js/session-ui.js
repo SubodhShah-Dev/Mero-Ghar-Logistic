@@ -76,6 +76,15 @@
         a.textContent = escapeHtml(session.name) + ' \u2014 Dashboard \u2192';
         a.onclick = function () { if (window.toggleMenu) window.toggleMenu(); };
         bookLink.parentNode.replaceChild(a, bookLink);
+
+        if (session.role === 'user') {
+          var bookingsLink = document.createElement('a');
+          bookingsLink.href = '/src/pages/my-bookings.html';
+          bookingsLink.className = 'block text-saffron-400 font-medium text-sm px-5 py-3 text-center';
+          bookingsLink.textContent = 'My Bookings';
+          bookingsLink.onclick = function () { if (window.toggleMenu) window.toggleMenu(); };
+          a.parentNode.insertBefore(bookingsLink, a.nextSibling);
+        }
       }
     }
   }
@@ -94,9 +103,12 @@
           '<span style="width:26px;height:26px;background:#f8c06a;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#0b1510;font-size:12px;font-weight:900;line-height:1">M</span>' +
           '<span style="color:#eef2ee;font-weight:700;font-size:15px">Mero<span style="color:#f8c06a">Ghar</span></span>' +
         '</a>' +
-        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
           (session
-            ? '<span style="color:rgba(238,242,238,0.5);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px">' +
+            ? (session.role === 'user'
+              ? '<a href="/src/pages/my-bookings.html" style="color:rgba(238,242,238,0.5);font-size:12px;text-decoration:none;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.04)">My Bookings</a>'
+              : '') +
+              '<span style="color:rgba(238,242,238,0.5);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px">' +
               escapeHtml(session.name) + '</span>' +
               '<button id="topbar-logout-btn" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.07);color:rgba(238,242,238,0.7);font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer">Logout</button>'
             : '<a href="/src/pages/login.html" style="background:#f8c06a;color:#0b1510;font-weight:700;font-size:12px;padding:6px 14px;border-radius:6px;text-decoration:none">Login</a>'
