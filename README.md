@@ -4,9 +4,16 @@ Full-stack logistics platform (Vite + Tailwind + vanilla JS, Express + MySQL, An
 
 ## Download APK
 
-[**Download MeroGhar v2.6.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.6.0.apk)
+[**Download MeroGhar v2.6.1 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.6.1.apk)
 
 ## Changelog
+
+### v2.6.1 — Fast & Reliable In-App Update Download
+- **Fixed: update download** — replaced streaming (`ReadableStream`) with blob-based download for wider Android WebView compatibility
+- **45-second timeout** via `AbortController` — no more hanging forever on slow networks
+- **Direct package installer** — uses `window.open(uri, '_system')` instead of `Share.share()` — skips the share sheet hop, installs directly
+- **GitHub API caching** — latest version cached in localStorage with 2-hour TTL; API not hit on every page load (saves bandwidth, avoids rate limits)
+- **Browser fallback** — when in-app download fails, "Download in Browser" button opens Android's native DownloadManager
 
 ### v2.6.0 — All-Questions Chatbot + Bug Fixes
 - **📋 All Questions Button** — tap the new "📋 All Questions" chip in the chatbot to see ALL 70+ questions you can ask, organized into 14 categories (About, Booking, Pricing, Vehicles, Coverage, Payment, Tracking, Services, Items & Care, Cancellation, Support, Reviews, How It Works, Insurance). Each question is a tappable chip
