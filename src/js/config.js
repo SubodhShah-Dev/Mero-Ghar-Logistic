@@ -22,7 +22,7 @@ const API_BASE_URL = (() => {
 window.API_BASE_URL = API_BASE_URL;
 
 // ── In-App Update Check & Download ──
-const APP_VERSION = '2.6.2';
+const APP_VERSION = '2.7.0';
 const GITHUB_REPO = 'SubodhShah-Dev/Mero-Ghar-Logistic';
 
 function compareVersions(a, b) {
@@ -63,14 +63,23 @@ async function downloadUpdate(downloadUrl, version) {
 async function checkForUpdates() {
   if (!navigator.onLine) return;
 
-  // ── Cache: only hit GitHub API every 2 hours ──
+  var DISMISSED_KEY = 'mg_dismissed_version';
   var CACHE_KEY = 'mg_update_cache';
   var now = Date.now();
+
+  function promptUpdate(version, url) {
+    try {
+      if (localStorage.getItem(DISMISSED_KEY) === version) return;
+    } catch (e) {}
+    showUpdateDialog(version, url);
+  }
+
+  // ── Cache: only hit GitHub API every 2 hours ──
   try {
     var cached = JSON.parse(localStorage.getItem(CACHE_KEY));
     if (cached && cached.timestamp && (now - cached.timestamp) < 7200000) {
       if (compareVersions(cached.latestVersion, APP_VERSION) > 0) {
-        showUpdateDialog(cached.latestVersion, cached.downloadUrl);
+        promptUpdate(cached.latestVersion, cached.downloadUrl);
       }
       return;
     }
@@ -104,7 +113,7 @@ async function checkForUpdates() {
       }));
     } catch (e) {}
 
-    showUpdateDialog(latestTag, downloadUrl);
+    promptUpdate(latestTag, downloadUrl);
 
   } catch (e) {
     // Silently fail
@@ -135,7 +144,13 @@ function showUpdateDialog(version, downloadUrl) {
   );
 
   document.body.appendChild(overlay);
-  document.getElementById('update-later').onclick = function () { overlay.remove(); };
+  document.getElementById('update-later').onclick = function () {
+    try {
+      localStorage.setItem('mg_dismissed_version', version);
+      localStorage.removeItem('mg_update_cache');
+    } catch (e) {}
+    overlay.remove();
+  };
   document.getElementById('update-download').onclick = function () {
     downloadUpdate(downloadUrl, version);
   };

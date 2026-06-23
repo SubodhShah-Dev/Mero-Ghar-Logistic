@@ -4,9 +4,18 @@ Full-stack logistics platform (Vite + Tailwind + vanilla JS, Express + MySQL, An
 
 ## Download APK
 
-[**Download MeroGhar v2.6.2 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.6.2.apk)
+[**Download MeroGhar v2.7.0 APK**](https://github.com/SubodhShah-Dev/Mero-Ghar-Logistic/releases/latest/download/MeroGhar-v2.7.0.apk)
 
 ## Changelog
+
+### v2.7.0 — Update dismiss fix + Chatbot fallback fixes
+
+- **Update dialog no longer re-appears after "Skip This"** — dismissed version persisted to localStorage; cache cleared on dismiss so it won't re-prompt on next page navigation or after cache expiry
+- **"Schedule my move"** now returns booking instructions (backend only checked exact substring "schedule move")
+- **"Special items help"** now returns fragile/items care info (was checking singular "special item", chip uses plural "items")
+- **"What do customers say?"** now returns review info (no patterns matched — added "say" and "customer")
+- **"Damage coverage"** no longer false-positives to province handler — insurance/addon handler reordered **before** province handler in both backend and frontend fallback; "coverage" and "damage" patterns added
+- Same pattern fixes and handler reordering applied to both **backend** (knowledge-aware fallback) and **frontend** (offline fallback): insurance → addons → reviews → province
 
 ### v2.6.2 — Chatbot Fix: All questions now answered + Update via system browser
 - **Chatbot now answers ALL listed questions** — moved purpose/about handler outside the `what/who/which/how` gate so questions like "Tell me about this service" and "Describe MeroGhar" are always caught; added missing patterns: "quote" to pricing, "pack" to add-ons, "storage"/"warehouse" to services, "special"/"cultural"/"stone" to items handler; same fixes applied to backend fallback
