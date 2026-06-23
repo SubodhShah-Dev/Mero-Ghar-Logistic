@@ -49,6 +49,23 @@
       '</div>' +
     '</div>';
 
+  var ALL_QUESTIONS = [
+    { category: 'About MeroGhar', questions: ['What is MeroGhar?', 'What is the purpose of this site?', 'Tell me about this service', 'Describe MeroGhar'] },
+    { category: 'Booking', questions: ['How to book a move?', 'Start a new booking', 'Schedule my move', 'Fill the booking form', 'Book a move'] },
+    { category: 'Pricing', questions: ['What are the prices?', 'How much does it cost?', 'Pricing range for moving', 'Get a quote', 'Service rates'] },
+    { category: 'Vehicles', questions: ['What types of trucks do you have?', 'Available vehicles', 'Cargo tempo details', 'Mini truck vs large truck', 'Which vehicle to choose?'] },
+    { category: 'Coverage', questions: ['Which provinces do you cover?', 'Coverage areas in Nepal', 'Districts served', 'Do you cover my area?', 'All 7 provinces details'] },
+    { category: 'Payment', questions: ['What payment methods are accepted?', 'How to pay via eSewa?', 'Khalti payment', 'Do you accept cash?', 'ConnectIPS payment'] },
+    { category: 'Tracking', questions: ['Track my shipment', 'Where is my order?', 'Shipment status', 'My delivery status', 'Track my move'] },
+    { category: 'Services', questions: ['What services do you offer?', 'Add-on services', 'Do you pack items?', 'Furniture disassembly', 'Storage and warehouse'] },
+    { category: 'Items & Care', questions: ['How to pack fragile items?', 'Religious statues moving instructions', 'Stone grinder handling', 'Breakable items care', 'Special items help'] },
+    { category: 'Cancellation', questions: ['Cancel my booking', 'Refund policy', 'How to cancel a move?'] },
+    { category: 'Support', questions: ['Contact support', 'Phone number', 'Viber support', 'Email address', 'Customer service'] },
+    { category: 'Reviews', questions: ['Customer reviews', 'Ratings and feedback', 'Is MeroGhar reliable?', 'Trusted movers', 'What do customers say?'] },
+    { category: 'How It Works', questions: ['How does it work?', 'Steps to move', 'Moving process explained', 'Timeline for booking', 'Step by step guide'] },
+    { category: 'Insurance', questions: ['Item insurance details', 'Protect my items', 'Damage coverage', 'Insurance cost'] }
+  ];
+
   var TYPING_HTML =
     '<div class="mg-typing" style="align-self:flex-start;display:flex;gap:4px;padding:12px 16px;background:rgba(255,255,255,0.06);border-radius:12px 12px 12px 4px">' +
       '<span style="width:6px;height:6px;border-radius:50%;background:rgba(238,242,238,0.35);animation:mg-bounce 1.2s ease-in-out infinite"></span>' +
@@ -180,8 +197,23 @@
     }
     if (m.includes('thank') || m.includes('thanks')) return 'You\'re welcome! 😊 Happy moving with MeroGhar!';
     if (m.includes('yes') || m.includes('ok') || m.includes('okay') || m.includes('sure')) return 'Great! Let me know if you have any specific questions.';
-    if (m === 'help' || m.includes('commands') || m.includes('what can you do') || m.includes('menu') || m.includes('what can i ask')) {
-      return 'Here\'s what I can help with:\n\n📦 BOOKING — "Book a move" — opens form\n📍 TRACKING — "Track my shipment"\n💰 PRICING — "Prices?"\n💳 PAYMENTS — "Payment options"\n🚚 VEHICLES — "What trucks?"\n🏔 PROVINCES — "Coverage"\n📞 SUPPORT — "Contact"\n\nType your question!';
+    if (m === 'help' || m.includes('commands') || m.includes('what can you do') || m.includes('menu') || m.includes('what can i ask') || m.includes('all questions') || m.includes('show questions')) {
+      var helpText = 'Here are all the things I can help you with — tap "📋 All Questions" chip above to see them as buttons!\n\n';
+      helpText += '📖 ABOUT: "What is MeroGhar?"\n';
+      helpText += '📦 BOOKING: "How to book?"\n';
+      helpText += '💰 PRICING: "What are the prices?"\n';
+      helpText += '🚚 VEHICLES: "What trucks?"\n';
+      helpText += '🏔 COVERAGE: "Which provinces?"\n';
+      helpText += '💳 PAYMENTS: "Payment options?"\n';
+      helpText += '📍 TRACKING: "Track my shipment"\n';
+      helpText += '📋 SERVICES: "What services?"\n';
+      helpText += '🛡️ INSURANCE: "Item insurance"\n';
+      helpText += '📦 ADD-ONS: "Add-on services"\n';
+      helpText += '❌ CANCEL: "Cancel booking"\n';
+      helpText += '⭐ REVIEWS: "What do customers say?"\n';
+      helpText += '📞 SUPPORT: "Contact support"\n\n';
+      helpText += 'Type any question or tap a chip above!';
+      return helpText;
     }
 
     if (m.includes('price') || m.includes('cost') || m.includes('rate') || m.includes('how much')) {
@@ -193,6 +225,9 @@
     }
 
     if (m.includes('what') || m.includes('who') || m.includes('which') || m.includes('how')) {
+      if (m.includes('purpose') || m.includes('what is this') || m.includes('what is mero') || m.includes('describe') || m.includes('about this') || m.includes('what does this site')) {
+        return 'MeroGhar Logistics is Nepal\'s trusted household moving service. We connect you with verified movers across all 7 provinces and 77 districts of Nepal. Book a truck, track your shipment, and pay via eSewa, Khalti, or cash. We handle everything from narrow Kathmandu lanes to inter-province moves, including furniture disassembly, packing, and auspicious timing. Ask me "How to book?" to get started!';
+      }
       if (m.includes('book') || m.includes('move')) {
         return 'To book a move: Fill the form with pickup/drop locations, select items and vehicle, choose a mover, pick a date, and confirm. You\'ll get a quote within 2 hours.';
       }
@@ -329,6 +364,40 @@
     return null;
   }
 
+  function renderAllQuestions() {
+    var msgs = document.getElementById('mg-chat-msgs');
+    if (!msgs) return;
+    var botMsg = document.createElement('div');
+    botMsg.style.cssText = 'align-self:flex-start;max-width:100%;background:rgba(255,255,255,0.06);border-radius:12px 12px 12px 4px;padding:12px 14px;font-size:12px;line-height:1.5;color:rgba(238,242,238,0.9);margin-bottom:6px';
+    botMsg.textContent = 'Here are all the questions I can answer — tap any to ask!';
+    msgs.appendChild(botMsg);
+    for (var ci = 0; ci < ALL_QUESTIONS.length; ci++) {
+      var cat = ALL_QUESTIONS[ci];
+      var catLabel = document.createElement('div');
+      catLabel.textContent = cat.category;
+      catLabel.style.cssText = 'font-size:11px;font-weight:700;color:#f8c06a;margin:10px 0 4px;padding:0 2px;letter-spacing:0.5px';
+      msgs.appendChild(catLabel);
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px';
+      for (var qi = 0; qi < cat.questions.length; qi++) {
+        var chip = document.createElement('button');
+        chip.textContent = cat.questions[qi];
+        chip.style.cssText = 'padding:5px 10px;border-radius:14px;border:1px solid rgba(248,192,106,0.2);background:rgba(248,192,106,0.05);color:#eef2ee;font-size:10px;cursor:pointer;white-space:nowrap;transition:background 0.15s';
+        chip.addEventListener('mouseenter', function () { this.style.background = 'rgba(248,192,106,0.15)'; });
+        chip.addEventListener('mouseleave', function () { this.style.background = 'rgba(248,192,106,0.05)'; });
+        chip.addEventListener('click', function () {
+          var input = document.getElementById('mg-chat-input');
+          if (!input) return;
+          input.value = this.textContent;
+          sendMessage();
+        });
+        row.appendChild(chip);
+      }
+      msgs.appendChild(row);
+    }
+    scrollToBottom();
+  }
+
   function renderChips() {
     var msgs = document.getElementById('mg-chat-msgs');
     if (!msgs) return;
@@ -337,6 +406,7 @@
       { label: '📍 Track', text: 'Track my shipment' },
       { label: '💰 Pricing', text: 'What are the prices' },
       { label: '💳 Payments', text: 'Payment options' },
+      { label: '📋 All Questions', text: '__all_questions__' },
       { label: '🔐 Login', text: 'Login' },
       { label: '❓ Help', text: 'help' }
     ];
@@ -353,6 +423,10 @@
       btn.addEventListener('click', function () {
         var input = document.getElementById('mg-chat-input');
         if (!input) return;
+        if (this.dataset.text === '__all_questions__') {
+          renderAllQuestions();
+          return;
+        }
         input.value = this.dataset.text;
         sendMessage();
       });

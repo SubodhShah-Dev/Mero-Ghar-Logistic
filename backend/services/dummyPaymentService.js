@@ -10,6 +10,12 @@ export const initiateDummyPayment = async (
 	const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 	return {
+		amount,
+		transaction_uuid: transactionUuid,
+		order_id: orderId,
+		customer_name: customerName,
+		customer_email: customerEmail,
+		customer_phone: customerPhone,
 		form_html: `
             <!DOCTYPE html>
             <html lang="en">

@@ -162,8 +162,26 @@ function generateKnowledgeResponse(message, context, faq) {
     return "You're welcome! 😊 Happy moving with MeroGhar!";
   }
 
-  if (msg === 'help' || msg.includes('commands') || msg.includes('what can you do') || msg.includes('menu') || msg.includes('what can i ask')) {
-    return "Here's what I can help you with:\n\n📦 BOOKING — \"Book a move\" — opens the booking form\n📍 TRACKING — \"Track my shipment\" — shows shipment status\n💰 PRICING — \"What are the prices?\" — pricing info\n💳 PAYMENTS — \"Payment options\" — accepted methods\n🚚 VEHICLES — \"What trucks do you have?\" — fleet info\n📞 SUPPORT — \"Contact support\" — reach our team\n\nJust type what you need!";
+  if (msg === 'help' || msg.includes('commands') || msg.includes('what can you do') || msg.includes('menu') || msg.includes('what can i ask') || msg.includes('all questions') || msg.includes('show questions')) {
+    var helpText = "Here are all the questions I can answer — type any of them!\n\n";
+    helpText += "📖 ABOUT: \"What is MeroGhar?\", \"Purpose of this site?\"\n";
+    helpText += "📦 BOOKING: \"How to book?\", \"Schedule my move\"\n";
+    helpText += "💰 PRICING: \"What are the prices?\", \"How much does it cost?\"\n";
+    helpText += "🚚 VEHICLES: \"What trucks do you have?\", \"Which vehicle to choose?\"\n";
+    helpText += "🏔 COVERAGE: \"Which provinces?\", \"Do you cover my area?\"\n";
+    helpText += "💳 PAYMENTS: \"Payment options?\", \"How to pay via eSewa?\"\n";
+    helpText += "📍 TRACKING: \"Track my shipment\", \"Where is my order?\"\n";
+    helpText += "📋 SERVICES: \"What services?\", \"Add-on services\"\n";
+    helpText += "🛡️ INSURANCE: \"Item insurance\", \"Damage coverage\"\n";
+    helpText += "❌ CANCEL: \"Cancel booking\", \"Refund policy\"\n";
+    helpText += "⭐ REVIEWS: \"Customer reviews\", \"Ratings\"\n";
+    helpText += "📞 SUPPORT: \"Contact support\", \"Phone number\"\n\n";
+    helpText += "Just type your question!";
+    return helpText;
+  }
+
+  if (msg.includes('purpose') || msg.includes('what is this site') || msg.includes('what is mero') || msg.includes('describe') || msg.includes('about this') || msg.includes('what does this site')) {
+    return 'MeroGhar Logistics is Nepal\'s trusted household moving service. We connect you with verified movers across all 7 provinces and 77 districts of Nepal. Book a truck, track your shipment, and pay via eSewa, Khalti, or cash. We handle everything from narrow Kathmandu lanes to inter-province moves, including furniture disassembly, packing, and auspicious timing. Ask me "How to book?" to get started!';
   }
 
   if (msg.includes('book') || msg.includes('order') || msg.includes('shift') || msg.includes('schedule move') || (msg.includes('how') && msg.includes('move'))) {

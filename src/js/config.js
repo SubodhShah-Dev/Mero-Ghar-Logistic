@@ -22,7 +22,7 @@ const API_BASE_URL = (() => {
 window.API_BASE_URL = API_BASE_URL;
 
 // ── In-App Update Check & Download ──
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 const GITHUB_REPO = 'SubodhShah-Dev/Mero-Ghar-Logistic';
 
 function compareVersions(a, b) {
