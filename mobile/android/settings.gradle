@@ -4,8 +4,6 @@ pluginManagement {
 plugins {
   id("com.facebook.react.settings")
 }
-extensions.configure(com.facebook.react.ReactSettingsExtension) {
-  autolinkLibrariesFromCommand()
-}
+reactSettings { autolinkLibrariesFromCommand() }
 rootProject.name = 'MeroGhar'
 include ':app'
