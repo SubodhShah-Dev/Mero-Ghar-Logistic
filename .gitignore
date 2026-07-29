@@ -1,0 +1,28 @@
+node_modules/
+dist/
+.env
+*.local
+.DS_Store
+*.apk
+*.aab
+*.hprof
+*.keystore
+!debug.keystore
+
+# Build outputs
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/captures/
+
+# React Native
+mobile/.metro-health-check*
+mobile/ios/Pods/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
