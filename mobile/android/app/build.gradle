@@ -1,11 +1,9 @@
-plugins {
-  id("com.facebook.react")
-}
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
 
 react {
-  // Required for React Native 0.79
+    autolinkLibrariesWithApp()
 }
 
 def enableProguardInReleaseBuilds = true
@@ -61,5 +59,3 @@ dependencies {
     implementation jscFlavor
   }
 }
-
-
