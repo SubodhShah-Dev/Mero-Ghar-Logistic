@@ -1,4 +1,10 @@
-import pool from '../config/db.js';
+import pool, { dialect } from '../config/db.js';
+
+// Dialect-neutral full-name expression (MySQL uses CONCAT, SQLite uses ||).
+const NAME_CONCAT =
+	dialect === 'mysql'
+		? "CONCAT(s.first_name, ' ', s.last_name)"
+		: "(s.first_name || ' ' || s.last_name)";
 
 // Get shipment by ID
 export const getShipmentById = async (id) => {
@@ -18,12 +24,17 @@ export const getShipmentsByUserId = async (userId) => {
 };
 
 // Get all shipments
-export const getAllShipments = async () => {
+export const getAllShipments = async ({ page = 1, limit = 50 } = {}) => {
+	const offset = (page - 1) * limit;
 	const [rows] = await pool.execute(
-		`SELECT s.*, u.name as user_name, u.email as user_email 
+		`SELECT s.*, u.name as user_name, u.email as user_email,
+               v.business_name as vendor_name
          FROM shipments s 
          LEFT JOIN users u ON s.user_id = u.id 
-         ORDER BY s.created_at DESC`,
+         LEFT JOIN vendors v ON s.assigned_vendor_id = v.id
+         ORDER BY s.created_at DESC
+         LIMIT ? OFFSET ?`,
+		[Number(limit), Number(offset)],
 	);
 	return rows;
 };
@@ -57,23 +68,27 @@ export const updateShipmentStatus = async (id, status, finalQuote = null) => {
 };
 
 // Get pending shipments for admin
-export const getPendingShipments = async () => {
-	const [rows] = await pool.execute(`
-        SELECT s.*, 
-               CONCAT(s.first_name, ' ', s.last_name) as customer_name,
+export const getPendingShipments = async ({ page = 1, limit = 50 } = {}) => {
+	const offset = (page - 1) * limit;
+	const [rows] = await pool.execute(
+		`SELECT s.*, 
+               ${NAME_CONCAT} as customer_name,
                s.mobile_number as customer_phone
         FROM shipments s 
         WHERE s.approval_status = 'pending' 
         ORDER BY s.created_at ASC
-    `);
+        LIMIT ? OFFSET ?`,
+		[Number(limit), Number(offset)],
+	);
 	return rows;
 };
 
 // Get shipments for vendor
-export const getShipmentsForVendor = async (vendorId) => {
+export const getShipmentsForVendor = async (vendorId, { page = 1, limit = 50 } = {}) => {
+	const offset = (page - 1) * limit;
 	const [rows] = await pool.execute(
 		`SELECT s.*, 
-               CONCAT(s.first_name, ' ', s.last_name) as customer_name,
+               ${NAME_CONCAT} as customer_name,
                s.mobile_number as customer_phone,
                s.pickup_district, s.pickup_city, s.pickup_ward,
                s.drop_district, s.drop_city, s.drop_ward,
@@ -82,8 +97,9 @@ export const getShipmentsForVendor = async (vendorId) => {
         FROM shipments s 
         WHERE s.assigned_vendor_id = ? AND s.approval_status = 'approved'
         ORDER BY s.move_date ASC
+        LIMIT ? OFFSET ?
     `,
-		[vendorId],
+		[vendorId, Number(limit), Number(offset)],
 	);
 	return rows;
 };
@@ -95,7 +111,7 @@ export const approveShipment = async (shipmentId, vendorId, adminId) => {
          SET approval_status = 'approved', 
              assigned_vendor_id = ?, 
              approved_by = ?, 
-             approved_at = NOW(),
+             approved_at = CURRENT_TIMESTAMP,
              status = 'pending'
          WHERE id = ? AND approval_status = 'pending'`,
 		[vendorId, adminId, shipmentId],
@@ -109,8 +125,8 @@ export const rejectShipment = async (shipmentId, adminId, reason) => {
 		`UPDATE shipments 
          SET approval_status = 'rejected', 
              approved_by = ?, 
-             approved_at = NOW(),
-             special_notes = CONCAT(COALESCE(special_notes, ''), ' | Rejected: ', ?)
+             approved_at = CURRENT_TIMESTAMP,
+             special_notes = ${dialect === 'mysql' ? "CONCAT(COALESCE(special_notes, ''), ' | Rejected: ', ?)" : "(COALESCE(special_notes, '') || ' | Rejected: ' || ?)"}
          WHERE id = ? AND approval_status = 'pending'`,
 		[adminId, reason, shipmentId],
 	);
@@ -118,27 +134,29 @@ export const rejectShipment = async (shipmentId, adminId, reason) => {
 };
 
 // Get shipments by approval status
-export const getShipmentsByApprovalStatus = async (status) => {
+export const getShipmentsByApprovalStatus = async (status, { page = 1, limit = 50 } = {}) => {
+	const offset = (page - 1) * limit;
 	const [rows] = await pool.execute(
 		`SELECT s.*, 
-               CONCAT(s.first_name, ' ', s.last_name) as customer_name,
+               ${NAME_CONCAT} as customer_name,
                v.business_name as vendor_name,
                v.id as vendor_id
         FROM shipments s 
         LEFT JOIN vendors v ON s.assigned_vendor_id = v.id
         WHERE s.approval_status = ?
         ORDER BY s.created_at DESC
+        LIMIT ? OFFSET ?
     `,
-		[status],
+		[status, Number(limit), Number(offset)],
 	);
 	return rows;
 };
 
-// Update vendor shipment status
-export const updateVendorShipmentStatus = async (id, status) => {
+// Update vendor shipment status (scoped to the assigned vendor)
+export const updateVendorShipmentStatus = async (id, status, vendorId) => {
 	const [result] = await pool.execute(
-		'UPDATE shipments SET status = ? WHERE id = ?',
-		[status, id],
+		'UPDATE shipments SET status = ? WHERE id = ? AND assigned_vendor_id = ?',
+		[status, id, vendorId],
 	);
 	return result.affectedRows > 0;
 };

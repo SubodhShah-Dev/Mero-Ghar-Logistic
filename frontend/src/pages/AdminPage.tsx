@@ -1,23 +1,58 @@
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Truck, Users, Settings, Ticket, Check, X, Search } from 'lucide-react'
-import { ADMIN, SHIPMENTS, TICKETS } from '../services/api'
+import {
+  LayoutDashboard, Truck, Users, Settings, Ticket, Check, X,
+  MapPin, Calendar, CreditCard, BadgeCheck, Package,
+} from 'lucide-react'
+import { ADMIN, AUTH, SHIPMENTS, TICKETS } from '../services/api'
 import { useToast } from '../context/ToastContext'
-import { useAuth } from '../context/AuthContext'
 import type { Shipment, Vendor as VendorType, SupportTicket } from '../types'
 
-type Tab = 'dashboard' | 'shipments' | 'vendors' | 'settings' | 'tickets'
+type Tab = 'dashboard' | 'shipments' | 'vendors' | 'users' | 'settings' | 'tickets'
+
+type AdminUser = {
+  id: number
+  name: string
+  email: string
+  role: string
+  phone: string | null
+  created_at: string
+}
+
+const statusFilterOptions = ['all', 'pending', 'accepted', 'in_transit', 'delivered', 'cancelled']
+
+const statusBadge = (status: string) => {
+  const map: Record<string, string> = {
+    pending: 'bg-saffron-400/20 text-saffron-300',
+    accepted: 'bg-blue-400/20 text-blue-300',
+    in_transit: 'bg-purple-400/20 text-purple-300',
+    delivered: 'bg-green-400/20 text-green-300',
+    cancelled: 'bg-red-400/20 text-red-300',
+  }
+  return map[status] || 'bg-forest-700 text-forest-300'
+}
+
+const approvalBadge = (status: string) => {
+  const map: Record<string, string> = {
+    pending: 'bg-saffron-400/20 text-saffron-300',
+    approved: 'bg-green-400/20 text-green-300',
+    rejected: 'bg-red-400/20 text-red-300',
+  }
+  return map[status] || 'bg-forest-700 text-forest-300'
+}
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [vendors, setVendors] = useState<VendorType[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({})
   const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [vendorForApproval, setVendorForApproval] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const { showToast } = useToast()
-  const { user } = useAuth()
 
   useEffect(() => {
     loadAll()
@@ -25,27 +60,30 @@ export default function AdminPage() {
 
   const loadAll = async () => {
     setLoading(true)
-    try {
-      const [sRes, vRes, stRes, tRes] = await Promise.all([
-        SHIPMENTS.getAll().catch(() => ({ data: { shipments: [] } })),
-        ADMIN.getVendors().catch(() => ({ data: { vendors: [] } })),
-        ADMIN.getSettings().catch(() => ({ data: { settings: [] } })),
-        TICKETS.getAll().catch(() => ({ data: { tickets: [] } })),
-      ])
-      setShipments(sRes.data.shipments || [])
-      setVendors(vRes.data.vendors || [])
+    const [sRes, vRes, uRes, stRes, tRes] = await Promise.allSettled([
+      SHIPMENTS.getAll(),
+      ADMIN.getVendors(),
+      AUTH.getUsers(),
+      ADMIN.getSettings(),
+      TICKETS.getAll(),
+    ])
+    if (sRes.status === 'fulfilled') setShipments(sRes.value.data.shipments || [])
+    if (vRes.status === 'fulfilled') setVendors(vRes.value.data.vendors || [])
+    if (uRes.status === 'fulfilled') setUsers(uRes.value.data.users || [])
+    if (stRes.status === 'fulfilled') {
       const s: Record<string, string> = {}
-      ;(stRes.data.settings || []).forEach((st: { setting_key: string; setting_value: string }) => {
+      ;(stRes.value.data.settings || []).forEach((st: { setting_key: string; setting_value: string }) => {
         s[st.setting_key] = st.setting_value
       })
       setSettings(s)
       setEditedSettings(s)
-      setTickets(tRes.data.tickets || [])
-    } catch {
-      showToast('Failed to load dashboard', 'red')
-    } finally {
-      setLoading(false)
     }
+    if (tRes.status === 'fulfilled') setTickets(tRes.value.data.tickets || [])
+    const failed = [sRes, vRes, uRes, stRes, tRes].filter((r) => r.status === 'rejected').length
+    if (failed > 0) {
+      showToast(`Failed to load ${failed} of 5 data sources`, 'red')
+    }
+    setLoading(false)
   }
 
   const toggleVendorStatus = async (id: number, currentStatus: string) => {
@@ -60,11 +98,26 @@ export default function AdminPage() {
   }
 
   const approveShipment = async (id: number) => {
+    const vendorId = Number(vendorForApproval[id])
+    if (!vendorId) {
+      showToast('Select a vendor to assign first', 'red')
+      return
+    }
     try {
-      await ADMIN.approveShipment(id)
+      await ADMIN.approveShipment(id, vendorId)
       showToast('Shipment approved', 'green')
       loadAll()
-    } catch { showToast('Failed to approve', 'red') }
+    } catch (err: unknown) {
+      showToast((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to approve', 'red')
+    }
+  }
+
+  const rejectShipment = async (id: number) => {
+    try {
+      await ADMIN.rejectShipment(id)
+      showToast('Shipment rejected', 'green')
+      loadAll()
+    } catch { showToast('Failed to reject', 'red') }
   }
 
   const saveSettings = async () => {
@@ -103,9 +156,26 @@ export default function AdminPage() {
     { id: 'dashboard' as Tab, icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'shipments' as Tab, icon: Truck, label: 'Shipments' },
     { id: 'vendors' as Tab, icon: Users, label: 'Vendors' },
+    { id: 'users' as Tab, icon: BadgeCheck, label: 'Users' },
     { id: 'settings' as Tab, icon: Settings, label: 'Settings' },
     { id: 'tickets' as Tab, icon: Ticket, label: 'Tickets' },
   ]
+
+  const activeVendors = vendors.filter((v) => v.status === 'active')
+
+  const pendingApprovals = shipments.filter((s) => s.approval_status === 'pending')
+  const recentShipments = [...shipments].sort((a, b) => b.id - a.id).slice(0, 6)
+  const filteredShipments = statusFilter === 'all'
+    ? shipments
+    : shipments.filter((s) => s.status === statusFilter)
+
+  const totalRevenue = shipments
+    .filter((s) => s.payment_status === 'paid' && s.final_quote)
+    .reduce((sum, s) => sum + (s.final_quote || 0), 0)
+  const deliveredCount = shipments.filter((s) => s.status === 'delivered').length
+  const completionRate = shipments.length > 0
+    ? Math.round((deliveredCount / shipments.length) * 100)
+    : 0
 
   if (loading) {
     return (
@@ -151,14 +221,17 @@ export default function AdminPage() {
           {tab === 'dashboard' && (
             <div className="space-y-6">
               <h1 className="font-display font-black text-2xl text-cream-50">Dashboard</h1>
+
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: 'Total Shipments', value: shipments.length, color: 'bg-saffron-400/10 border-saffron-400/30 text-saffron-400' },
-                  { label: 'Pending', value: shipments.filter((s) => s.status === 'pending').length, color: 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400' },
+                  { label: 'Pending Approval', value: pendingApprovals.length, color: 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400' },
                   { label: 'In Transit', value: shipments.filter((s) => s.status === 'in_transit').length, color: 'bg-blue-400/10 border-blue-400/30 text-blue-400' },
-                  { label: 'Delivered', value: shipments.filter((s) => s.status === 'delivered').length, color: 'bg-green-400/10 border-green-400/30 text-green-400' },
+                  { label: 'Delivered', value: deliveredCount, color: 'bg-green-400/10 border-green-400/30 text-green-400' },
                   { label: 'Vendors', value: vendors.length, color: 'bg-purple-400/10 border-purple-400/30 text-purple-400' },
-                  { label: 'Active Vendors', value: vendors.filter((v) => v.status === 'active').length, color: 'bg-teal-400/10 border-teal-400/30 text-teal-400' },
+                  { label: 'Active Vendors', value: activeVendors.length, color: 'bg-teal-400/10 border-teal-400/30 text-teal-400' },
+                  { label: 'Registered Users', value: users.length, color: 'bg-orange-400/10 border-orange-400/30 text-orange-400' },
+                  { label: 'Completion Rate', value: `${completionRate}%`, color: 'bg-pink-400/10 border-pink-400/30 text-pink-400' },
                 ].map((s) => (
                   <div key={s.label} className={`${s.color} border rounded-sm p-5`}>
                     <p className="text-2xl font-black">{s.value}</p>
@@ -166,53 +239,169 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
+
+              {totalRevenue > 0 && (
+                <div className="bg-forest-900 border border-forest-700 rounded-sm p-5 flex items-center gap-3">
+                  <CreditCard className="w-5 h-5 text-saffron-400" />
+                  <p className="text-sm text-forest-300">
+                    Collected revenue:{' '}
+                    <span className="text-cream-50 font-bold text-lg">NPR {totalRevenue.toLocaleString()}</span>
+                    <span className="text-forest-500"> from {shipments.filter((s) => s.payment_status === 'paid').length} paid shipments</span>
+                  </p>
+                </div>
+              )}
+
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Pending approvals */}
+                <div className="bg-forest-900 border border-forest-700 rounded-sm p-5">
+                  <h2 className="font-display font-bold text-base text-cream-50 mb-3 flex items-center gap-2">
+                    <Check className="w-4 h-4 text-saffron-400" /> Pending Approvals ({pendingApprovals.length})
+                  </h2>
+                  {pendingApprovals.length === 0 ? (
+                    <p className="text-forest-400 text-sm">Nothing waiting for approval. Nice.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {pendingApprovals.map((s) => (
+                        <div key={s.id} className="bg-forest-800 border border-forest-600 rounded-sm p-4 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-cream-50 truncate">{s.first_name} {s.last_name}</p>
+                            <p className="text-xs text-forest-400 truncate flex items-center gap-1">
+                              <MapPin className="w-3 h-3 shrink-0" /> {s.pickup_city} → {s.drop_city} · {s.vehicle_type}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <select
+                              value={vendorForApproval[s.id] || ''}
+                              onChange={(e) => setVendorForApproval((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                              className="bg-forest-900 border border-forest-600 rounded-sm px-2 py-1.5 text-xs text-cream-50 outline-none focus:border-saffron-400 max-w-[140px]">
+                              <option value="">Assign vendor</option>
+                              {activeVendors.map((v) => (
+                                <option key={v.id} value={v.id}>{v.business_name}</option>
+                              ))}
+                            </select>
+                            <button onClick={() => approveShipment(s.id)} title="Approve"
+                              className="p-1.5 bg-green-400/20 text-green-300 rounded hover:bg-green-400/30">
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => rejectShipment(s.id)} title="Reject"
+                              className="p-1.5 bg-red-400/20 text-red-300 rounded hover:bg-red-400/30">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recent shipments */}
+                <div className="bg-forest-900 border border-forest-700 rounded-sm p-5">
+                  <h2 className="font-display font-bold text-base text-cream-50 mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-saffron-400" /> Recent Shipments
+                  </h2>
+                  {recentShipments.length === 0 ? (
+                    <p className="text-forest-400 text-sm">No shipments yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentShipments.map((s) => (
+                        <div key={s.id} className="bg-forest-800 border border-forest-600 rounded-sm p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-cream-50 truncate">{s.booking_id}</p>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${statusBadge(s.status)}`}>{s.status}</span>
+                          </div>
+                          <p className="text-xs text-forest-400 mt-1 truncate">{s.pickup_city} → {s.drop_city}</p>
+                          <p className="text-xs text-forest-500 mt-0.5">
+                            {s.vendor_name ? `Mover: ${s.vendor_name}` : 'No mover assigned'} · {new Date(s.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
           {tab === 'shipments' && (
             <div className="space-y-4">
-              <h1 className="font-display font-black text-2xl text-cream-50 mb-4">All Shipments</h1>
-              {shipments.length === 0 ? (
-                <p className="text-forest-400 text-sm">No shipments yet.</p>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <h1 className="font-display font-black text-2xl text-cream-50">All Shipments</h1>
+                <div className="flex gap-1 flex-wrap">
+                  {statusFilterOptions.map((opt) => (
+                    <button key={opt} onClick={() => setStatusFilter(opt)}
+                      className={`px-3 py-1.5 rounded text-xs font-medium transition-all capitalize ${
+                        statusFilter === opt ? 'bg-saffron-400 text-forest-900' : 'bg-forest-800 text-forest-400 hover:text-cream-50'
+                      }`}>
+                      {opt.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {filteredShipments.length === 0 ? (
+                <p className="text-forest-400 text-sm">No shipments in this view.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-forest-400 text-xs uppercase tracking-wider border-b border-forest-700">
-                        <th className="text-left py-3 px-3">ID</th>
+                        <th className="text-left py-3 px-3">Booking</th>
                         <th className="text-left py-3 px-3">Customer</th>
                         <th className="text-left py-3 px-3">Route</th>
+                        <th className="text-left py-3 px-3">Move Date</th>
                         <th className="text-left py-3 px-3">Vehicle</th>
+                        <th className="text-left py-3 px-3">Mover</th>
+                        <th className="text-left py-3 px-3">Payment</th>
+                        <th className="text-left py-3 px-3">Approval</th>
                         <th className="text-left py-3 px-3">Status</th>
                         <th className="text-left py-3 px-3">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {shipments.map((s) => (
+                      {filteredShipments.map((s) => (
                         <tr key={s.id} className="border-b border-forest-800 text-cream-200 hover:bg-forest-800/50">
                           <td className="py-3 px-3">{s.booking_id}</td>
                           <td className="py-3 px-3">{s.first_name} {s.last_name}</td>
                           <td className="py-3 px-3 text-xs">{s.pickup_city} → {s.drop_city}</td>
-                          <td className="py-3 px-3">{s.vehicle_type}</td>
-                          <td className="py-3 px-3">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              s.status === 'pending' ? 'bg-saffron-400/20 text-saffron-300' :
-                              s.status === 'in_transit' ? 'bg-blue-400/20 text-blue-300' :
-                              s.status === 'delivered' ? 'bg-green-400/20 text-green-300' :
-                              'bg-forest-700 text-forest-300'
-                            }`}>{s.status}</span>
+                          <td className="py-3 px-3 text-xs">
+                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-forest-500" /> {s.move_date}</span>
                           </td>
-                          <td className="py-3 px-3 flex gap-2">
-                            {s.status === 'pending' && (
-                              <>
-                                <button onClick={() => approveShipment(s.id)}
+                          <td className="py-3 px-3">{s.vehicle_type}</td>
+                          <td className="py-3 px-3 text-xs">{s.vendor_name || '—'}</td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                              s.payment_status === 'paid' ? 'bg-green-400/20 text-green-300' : 'bg-forest-700 text-forest-300'
+                            }`}>{s.payment_status}</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${approvalBadge(s.approval_status)}`}>{s.approval_status}</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusBadge(s.status)}`}>{s.status}</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            {s.approval_status === 'pending' ? (
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={vendorForApproval[s.id] || ''}
+                                  onChange={(e) => setVendorForApproval((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                  className="bg-forest-900 border border-forest-600 rounded-sm px-1.5 py-1 text-xs text-cream-50 outline-none focus:border-saffron-400 max-w-[120px]">
+                                  <option value="">Vendor</option>
+                                  {activeVendors.map((v) => (
+                                    <option key={v.id} value={v.id}>{v.business_name}</option>
+                                  ))}
+                                </select>
+                                <button onClick={() => approveShipment(s.id)} title="Approve"
                                   className="p-1.5 bg-green-400/20 text-green-300 rounded hover:bg-green-400/30">
                                   <Check className="w-3.5 h-3.5" />
                                 </button>
-                                <button className="p-1.5 bg-red-400/20 text-red-300 rounded hover:bg-red-400/30">
+                                <button onClick={() => rejectShipment(s.id)} title="Reject"
+                                  className="p-1.5 bg-red-400/20 text-red-300 rounded hover:bg-red-400/30">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
-                              </>
+                              </div>
+                            ) : (
+                              <span className="text-forest-500 text-xs">—</span>
                             )}
                           </td>
                         </tr>
@@ -237,7 +426,9 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-3">Business</th>
                         <th className="text-left py-3 px-3">Owner</th>
                         <th className="text-left py-3 px-3">Phone</th>
+                        <th className="text-left py-3 px-3">Region</th>
                         <th className="text-left py-3 px-3">Rating</th>
+                        <th className="text-left py-3 px-3">Jobs</th>
                         <th className="text-left py-3 px-3">Status</th>
                         <th className="text-left py-3 px-3">Actions</th>
                       </tr>
@@ -248,7 +439,9 @@ export default function AdminPage() {
                           <td className="py-3 px-3 font-medium">{v.business_name}</td>
                           <td className="py-3 px-3">{v.owner_name}</td>
                           <td className="py-3 px-3">{v.phone}</td>
+                          <td className="py-3 px-3 text-xs">{v.service_region || '—'}</td>
                           <td className="py-3 px-3">{v.rating}★</td>
+                          <td className="py-3 px-3">{v.total_jobs}</td>
                           <td className="py-3 px-3">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                               v.status === 'active' ? 'bg-green-400/20 text-green-300' :
@@ -266,6 +459,46 @@ export default function AdminPage() {
                               {v.status === 'active' ? 'Deactivate' : 'Activate'}
                             </button>
                           </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'users' && (
+            <div className="space-y-4">
+              <h1 className="font-display font-black text-2xl text-cream-50 mb-4">Registered Users</h1>
+              {users.length === 0 ? (
+                <p className="text-forest-400 text-sm">No users registered.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-forest-400 text-xs uppercase tracking-wider border-b border-forest-700">
+                        <th className="text-left py-3 px-3">Name</th>
+                        <th className="text-left py-3 px-3">Email</th>
+                        <th className="text-left py-3 px-3">Role</th>
+                        <th className="text-left py-3 px-3">Phone</th>
+                        <th className="text-left py-3 px-3">Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr key={u.id} className="border-b border-forest-800 text-cream-200 hover:bg-forest-800/50">
+                          <td className="py-3 px-3 font-medium">{u.name}</td>
+                          <td className="py-3 px-3">{u.email}</td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                              u.role === 'admin' ? 'bg-purple-400/20 text-purple-300' :
+                              u.role === 'vendor' ? 'bg-blue-400/20 text-blue-300' :
+                              'bg-forest-700 text-forest-300'
+                            }`}>{u.role}</span>
+                          </td>
+                          <td className="py-3 px-3">{u.phone || '—'}</td>
+                          <td className="py-3 px-3 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -302,6 +535,7 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
           {tab === 'tickets' && (
             <div className="space-y-4">
               <h1 className="font-display font-black text-2xl text-cream-50 mb-4">Support Tickets</h1>
@@ -315,6 +549,8 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-3">ID</th>
                         <th className="text-left py-3 px-3">Vendor</th>
                         <th className="text-left py-3 px-3">Subject</th>
+                        <th className="text-left py-3 px-3">Message</th>
+                        <th className="text-left py-3 px-3">Date</th>
                         <th className="text-left py-3 px-3">Status</th>
                         <th className="text-left py-3 px-3">Actions</th>
                       </tr>
@@ -325,6 +561,8 @@ export default function AdminPage() {
                           <td className="py-3 px-3">#{t.id}</td>
                           <td className="py-3 px-3">{t.business_name || '—'}</td>
                           <td className="py-3 px-3">{t.subject}</td>
+                          <td className="py-3 px-3 text-xs text-forest-400 max-w-[260px] truncate">{t.message}</td>
+                          <td className="py-3 px-3 text-xs">{new Date(t.created_at).toLocaleDateString()}</td>
                           <td className="py-3 px-3">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                               t.status === 'open' ? 'bg-saffron-400/20 text-saffron-300' :

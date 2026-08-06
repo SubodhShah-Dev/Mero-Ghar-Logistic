@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backend-production-d51a3.up.railway.app'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://meroghar-backend.onrender.com'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -57,8 +57,10 @@ export const SHIPMENTS = {
 export const ADMIN = {
   getPendingShipments: () => api.get('/api/admin/shipments/pending'),
   getShipmentsByStatus: (status: string) => api.get(`/api/admin/shipments/status/${status}`),
-  approveShipment: (id: number) => api.put(`/api/admin/shipments/${id}/approve`),
-  rejectShipment: (id: number) => api.put(`/api/admin/shipments/${id}/reject`),
+  approveShipment: (id: number, vendorId?: number) =>
+    api.put(`/api/admin/shipments/${id}/approve`, { vendor_id: vendorId }),
+  rejectShipment: (id: number, reason?: string) =>
+    api.put(`/api/admin/shipments/${id}/reject`, { reason }),
   getVendors: () => api.get('/api/admin/vendors'),
   getActiveVendors: () => api.get('/api/admin/vendors/active'),
   updateVendorStatus: (id: number, status: string) =>
@@ -91,8 +93,9 @@ export const CHATBOT = {
 }
 
 export const TICKETS = {
-  create: (data: { subject: string; message: string }) => api.post('/api/tickets', data),
-  getAll: () => api.get('/api/tickets'),
+  submit: (data: { subject: string; message: string }) => api.post('/api/tickets/submit', data),
+  getMine: () => api.get('/api/tickets/mine'),
+  getAll: () => api.get('/api/tickets/all'),
   resolve: (id: number) => api.put(`/api/tickets/${id}/resolve`),
   close: (id: number) => api.put(`/api/tickets/${id}/close`),
 }

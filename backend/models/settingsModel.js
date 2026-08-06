@@ -1,4 +1,4 @@
-import pool from '../config/db.js';
+import pool, { dialect } from '../config/db.js';
 
 export const getSettings = async () => {
 	try {
@@ -29,10 +29,12 @@ export const getSetting = async (key) => {
 
 export const upsertSetting = async (key, value) => {
 	try {
-		await pool.execute(
-			'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
-			[key, value, value],
-		);
+		const upsertSql =
+			dialect === 'mysql'
+				? 'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = CURRENT_TIMESTAMP'
+				: 'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = CURRENT_TIMESTAMP';
+		const params = dialect === 'mysql' ? [key, value, value] : [key, value];
+		await pool.execute(upsertSql, params);
 		return true;
 	} catch (error) {
 		console.error('Error saving setting:', error);

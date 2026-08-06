@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 import dotenv from 'dotenv';
 dotenv.config({ path: path.join(__dirname, '.env') });
 
+import { init as initDb } from './config/db.js';
 import authRoute from './routes/authRoute.js';
 import shipmentRoute from './routes/shipmentRoute.js';
 import adminShipmentRoute from './routes/adminShipmentRoute.js';
@@ -21,6 +22,7 @@ import chatbotRoute from './routes/chatbotRoute.js';
 import geocodeRoute from './routes/geocodeRoute.js';
 import supportTicketRoute from './routes/supportTicketRoute.js';
 import settingsRoute from './routes/settingsRoute.js';
+import { HttpError } from './utils/HttpError.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,7 +36,7 @@ const allowedOrigins = [
 ];
 app.use(cors({
 	origin: function (origin, callback) {
-		if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.railway.app')) {
+		if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.railway.app') || origin.endsWith('.onrender.com')) {
 			callback(null, true);
 		} else {
 			callback(new Error('Not allowed by CORS'));
@@ -67,6 +69,30 @@ app.get('/', (req, res) => {
 	res.json('Server running');
 });
 
-app.listen(PORT, () => {
-	console.log(`Server running on http://localhost:${PORT}`);
+// 404 handler for unknown routes
+app.use((req, res) => {
+	res.status(404).json({ success: false, message: 'Route not found' });
 });
+
+// Global error handler
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+	if (err instanceof HttpError) {
+		return res
+			.status(err.status)
+			.json({ success: false, message: err.message });
+	}
+	console.error('Unhandled error:', err);
+	res.status(500).json({ success: false, message: 'Internal server error' });
+});
+
+initDb()
+	.then(() => {
+		app.listen(PORT, () => {
+			console.log(`Server running on http://localhost:${PORT}`);
+		});
+	})
+	.catch((err) => {
+		console.error('Failed to initialize database:', err);
+		process.exit(1);
+	});

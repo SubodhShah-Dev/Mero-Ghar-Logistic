@@ -1,27 +1,19 @@
 import { getSettings, upsertSetting } from '../models/settingsModel.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { HttpError } from '../utils/HttpError.js';
 
-export const getAppSettings = async (req, res) => {
-	try {
-		const settings = await getSettings();
-		res.json({ success: true, settings });
-	} catch (error) {
-		console.error('Error in getAppSettings:', error);
-		res.status(500).json({ success: false, message: 'Server error' });
-	}
-};
+export const getAppSettings = asyncHandler(async (req, res) => {
+	const settings = await getSettings();
+	res.json({ success: true, settings });
+});
 
-export const saveSettings = async (req, res) => {
-	try {
-		const entries = req.body;
-		if (!entries || typeof entries !== 'object') {
-			return res.status(400).json({ success: false, message: 'Invalid settings data' });
-		}
-		for (const [key, value] of Object.entries(entries)) {
-			await upsertSetting(key, String(value));
-		}
-		res.json({ success: true, message: 'Settings saved' });
-	} catch (error) {
-		console.error('Error in saveSettings:', error);
-		res.status(500).json({ success: false, message: 'Server error' });
+export const saveSettings = asyncHandler(async (req, res) => {
+	const entries = req.body;
+	if (!entries || typeof entries !== 'object' || Array.isArray(entries)) {
+		throw new HttpError(400, 'Invalid settings data');
 	}
-};
+	for (const [key, value] of Object.entries(entries)) {
+		await upsertSetting(key, String(value));
+	}
+	res.json({ success: true, message: 'Settings saved' });
+});

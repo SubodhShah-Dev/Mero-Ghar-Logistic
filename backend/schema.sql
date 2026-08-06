@@ -1,26 +1,13 @@
-CREATE TABLE IF NOT EXISTS vendor_vehicles (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  vendor_id INT NOT NULL,
-  name VARCHAR(100),
-  plate_number VARCHAR(50),
-  vehicle_type VARCHAR(50),
-  capacity_tonnes DECIMAL(5,2) DEFAULT 0,
-  driver_name VARCHAR(100),
-  driver_phone VARCHAR(20),
-  status VARCHAR(50) DEFAULT 'available',
-  is_active TINYINT(1) DEFAULT 1,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE,
-  INDEX idx_vendor_vehicles_vendor (vendor_id),
-  INDEX idx_vendor_vehicles_type (vehicle_type)
-);
+-- Auto-generated from backend/config/schema.js (do not edit by hand).
+-- Run `node scripts/export-schema.js` to regenerate.
+-- mysql dialect.
 
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  role ENUM('user', 'vendor', 'admin') DEFAULT 'user',
+  role ENUM('user','vendor','admin') DEFAULT 'user',
   phone VARCHAR(20),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -41,6 +28,23 @@ CREATE TABLE IF NOT EXISTS vendors (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_vendors_user (user_id),
   INDEX idx_vendors_status (status)
+);
+
+CREATE TABLE IF NOT EXISTS vendor_vehicles (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vendor_id INT NOT NULL,
+  name VARCHAR(100),
+  plate_number VARCHAR(50),
+  vehicle_type VARCHAR(50),
+  capacity_tonnes DECIMAL(5,2) DEFAULT 0,
+  driver_name VARCHAR(100),
+  driver_phone VARCHAR(20),
+  status VARCHAR(50) DEFAULT 'available',
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE,
+  INDEX idx_vendor_vehicles_vendor (vendor_id),
+  INDEX idx_vendor_vehicles_type (vehicle_type)
 );
 
 CREATE TABLE IF NOT EXISTS shipments (
@@ -104,7 +108,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
   vendor_id INT NOT NULL,
   subject VARCHAR(255) NOT NULL,
   message TEXT NOT NULL,
-  status ENUM('open', 'resolved', 'closed') DEFAULT 'open',
+  status ENUM('open','resolved','closed') DEFAULT 'open',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE,
@@ -118,4 +122,12 @@ CREATE TABLE IF NOT EXISTS settings (
   setting_value TEXT NOT NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_settings_key (setting_key)
+);
+
+CREATE TABLE IF NOT EXISTS sync_deletions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  table_name VARCHAR(100) NOT NULL,
+  row_id INT NOT NULL,
+  deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (table_name, row_id)
 );

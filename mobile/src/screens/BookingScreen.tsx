@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native'
 import { SHIPMENTS } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { COLORS } from '../utils/theme'
@@ -55,7 +55,7 @@ export default function BookingScreen() {
   }
 
   const inputStyle = { backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4, paddingHorizontal: 16, paddingVertical: 12, color: COLORS.cream[50], fontSize: 15, minHeight: 48, marginBottom: 12 }
-  const labelStyle = { color: COLORS.cream[200], fontSize: 14, fontWeight: '500', marginBottom: 6 }
+  const labelStyle = { color: COLORS.cream[200], fontSize: 14, fontWeight: '500' as const, marginBottom: 6 }
   const chipStyle = (active: boolean) => ({
     paddingHorizontal: 16, paddingVertical: 10, borderRadius: 4, borderWidth: 1,
     borderColor: active ? COLORS.saffron[400] : COLORS.forest[600],

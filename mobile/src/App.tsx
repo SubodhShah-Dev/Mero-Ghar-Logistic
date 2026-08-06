@@ -2,7 +2,8 @@ import React from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { createStackNavigator } from '@react-navigation/stack'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { AuthProvider } from './context/AuthContext'
+import RoleGuard from './components/RoleGuard'
 import HomeScreen from './screens/HomeScreen'
 import LoginScreen from './screens/LoginScreen'
 import SignupScreen from './screens/SignupScreen'
@@ -24,8 +25,6 @@ export type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>()
 
 function AppNavigator() {
-  const { user } = useAuth()
-
   return (
     <Stack.Navigator
       screenOptions={{
@@ -39,8 +38,20 @@ function AppNavigator() {
       <Stack.Screen name="Signup" component={SignupScreen} options={{ title: 'Sign Up' }} />
       <Stack.Screen name="Booking" component={BookingScreen} options={{ title: 'Book a Move' }} />
       <Stack.Screen name="MyBookings" component={MyBookingsScreen} options={{ title: 'My Bookings' }} />
-      <Stack.Screen name="Admin" component={AdminScreen} options={{ title: 'Admin' }} />
-      <Stack.Screen name="Vendor" component={VendorScreen} options={{ title: 'Vendor Portal' }} />
+      <Stack.Screen name="Admin" options={{ title: 'Admin' }}>
+        {() => (
+          <RoleGuard role="admin">
+            <AdminScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="Vendor" options={{ title: 'Vendor Portal' }}>
+        {() => (
+          <RoleGuard role="vendor">
+            <VendorScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   )
 }

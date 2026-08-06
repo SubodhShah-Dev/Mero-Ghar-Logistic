@@ -1,12 +1,14 @@
 import pool from '../config/db.js';
 
-export const getAllVendors = async () => {
+export const getAllVendors = async ({ page = 1, limit = 50 } = {}) => {
 	try {
+		const offset = (page - 1) * limit;
 		const [rows] = await pool.execute(`
             SELECT v.*, u.email as user_email, u.name as user_name 
             FROM vendors v 
             JOIN users u ON v.user_id = u.id 
             ORDER BY v.created_at DESC
+            LIMIT ${limit} OFFSET ${offset}
         `);
 		return rows;
 	} catch (error) {
@@ -84,8 +86,8 @@ export const createVendor = async (vendorData) => {
 			owner_name,
 			phone,
 			email,
-			service_region,
-			address,
+			service_region || null,
+			address || null,
 			'pending',
 		],
 	);

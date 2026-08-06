@@ -1,7 +1,6 @@
 import axios from 'axios'
-import { Platform } from 'react-native'
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://backend-production-d51a3.up.railway.app'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { API_BASE_URL } from '../config'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,7 +9,6 @@ const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   try {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default
     const token = await AsyncStorage.getItem('meroGharToken')
     if (token) config.headers.Authorization = `Bearer ${token}`
   } catch {}

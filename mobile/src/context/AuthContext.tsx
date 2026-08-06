@@ -14,7 +14,7 @@ interface AuthContextType {
   user: User | null
   token: string | null
   loading: boolean
-  login: (email: string, password: string, role?: string) => Promise<{ ok: boolean; message?: string }>
+  login: (email: string, password: string, role?: string) => Promise<{ ok: boolean; message?: string; role?: string }>
   register: (data: { name: string; email: string; password: string; role?: string; phone?: string }) => Promise<{ ok: boolean; message?: string }>
   logout: () => void
 }
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(data.token)
       }
       setUser(userData)
-      return { ok: true }
+      return { ok: true, role: data.user.role }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Server error'
       return { ok: false, message: msg }

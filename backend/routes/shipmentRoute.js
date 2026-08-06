@@ -16,6 +16,6 @@ router.get('/all', authenticate, requireRole('admin'), getAllShipments);
 router.get('/my', authenticate, getUserShipments);
 router.get('/email/:email', getShipmentsByEmail);
 router.get('/:id', authenticate, getShipment);
-router.put('/:id/status', authenticate, updateShipmentStatus);
+router.put('/:id/status', authenticate, requireRole('admin'), updateShipmentStatus);
 
 export default router;

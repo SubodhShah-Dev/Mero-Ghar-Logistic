@@ -1,17 +1,33 @@
 import { useState, useEffect } from 'react'
-import { Truck, Package, Plus, X, User } from 'lucide-react'
+import { Truck, Package, Plus, X, User, Ticket, Star, Send } from 'lucide-react'
 import { VENDOR, TICKETS } from '../services/api'
 import { useToast } from '../context/ToastContext'
 import type { Shipment, Vehicle, SupportTicket } from '../types'
 
 type Tab = 'jobs' | 'fleet' | 'tickets' | 'profile'
 
+const statusBadge = (status: string) => {
+  const map: Record<string, string> = {
+    pending: 'bg-saffron-400/20 text-saffron-300',
+    accepted: 'bg-blue-400/20 text-blue-300',
+    in_transit: 'bg-purple-400/20 text-purple-300',
+    delivered: 'bg-green-400/20 text-green-300',
+    cancelled: 'bg-red-400/20 text-red-300',
+  }
+  return map[status] || 'bg-forest-700 text-forest-300'
+}
+
 export default function VendorPage() {
   const [tab, setTab] = useState<Tab>('jobs')
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [profile, setProfile] = useState({
+    business_name: '', owner_name: '', phone: '', email: '', service_region: '', address: '', rating: 0, total_jobs: 0,
+  })
   const [tickets, setTickets] = useState<SupportTicket[]>([])
-  const [profile, setProfile] = useState({ business_name: '', owner_name: '', phone: '', service_region: '', address: '' })
+  const [ticketSubject, setTicketSubject] = useState('')
+  const [ticketMessage, setTicketMessage] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showAddVehicle, setShowAddVehicle] = useState(false)
   const [newVehicle, setNewVehicle] = useState({ name: '', plate_number: '', vehicle_type: '', capacity_tonnes: 0, driver_name: '', driver_phone: '' })
@@ -21,19 +37,21 @@ export default function VendorPage() {
 
   const loadAll = async () => {
     setLoading(true)
-    try {
-      const [sRes, vRes, tRes, pRes] = await Promise.all([
-        VENDOR.getShipments().catch(() => ({ data: { shipments: [] } })),
-        VENDOR.getVehicles().catch(() => ({ data: { vehicles: [] } })),
-        TICKETS.getAll().catch(() => ({ data: { tickets: [] } })),
-        VENDOR.getProfile().catch(() => ({ data: { vendor: {} } })),
-      ])
-      setShipments(sRes.data.shipments || [])
-      setVehicles(vRes.data.vehicles || [])
-      setTickets(tRes.data.tickets || [])
-      if (pRes.data.vendor) setProfile(pRes.data.vendor)
-    } catch { showToast('Failed to load data', 'red') }
-    finally { setLoading(false) }
+    const [sRes, vRes, pRes, tRes] = await Promise.allSettled([
+      VENDOR.getShipments(),
+      VENDOR.getVehicles(),
+      VENDOR.getProfile(),
+      TICKETS.getMine(),
+    ])
+    if (sRes.status === 'fulfilled') setShipments(sRes.value.data.shipments || [])
+    if (vRes.status === 'fulfilled') setVehicles(vRes.value.data.vehicles || [])
+    if (pRes.status === 'fulfilled' && pRes.value.data.vendor) setProfile(pRes.value.data.vendor)
+    if (tRes.status === 'fulfilled') setTickets(tRes.value.data.tickets || [])
+    const failed = [sRes, vRes, pRes, tRes].filter((r) => r.status === 'rejected').length
+    if (failed > 0) {
+      showToast(`Failed to load ${failed} of 4 data sources`, 'red')
+    }
+    setLoading(false)
   }
 
   const updateShipmentStatus = async (id: number, action: string) => {
@@ -70,13 +88,54 @@ export default function VendorPage() {
     } catch { showToast('Failed to remove vehicle', 'red') }
   }
 
+  const saveProfile = async () => {
+    setSavingProfile(true)
+    try {
+      await VENDOR.updateProfile({
+        business_name: profile.business_name,
+        owner_name: profile.owner_name,
+        phone: profile.phone,
+        service_region: profile.service_region,
+        address: profile.address,
+      })
+      showToast('Profile updated', 'green')
+      loadAll()
+    } catch {
+      showToast('Failed to update profile', 'red')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const submitTicket = async () => {
+    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+      showToast('Subject and message are required', 'red')
+      return
+    }
+    try {
+      await TICKETS.submit({ subject: ticketSubject.trim(), message: ticketMessage.trim() })
+      showToast('Ticket submitted', 'green')
+      setTicketSubject('')
+      setTicketMessage('')
+      loadAll()
+    } catch {
+      showToast('Failed to submit ticket', 'red')
+    }
+  }
+
   const tabs = [
     { id: 'jobs' as Tab, icon: Package, label: 'Jobs' },
     { id: 'fleet' as Tab, icon: Truck, label: 'Fleet' },
+    { id: 'tickets' as Tab, icon: Ticket, label: 'Support' },
     { id: 'profile' as Tab, icon: User, label: 'Profile' },
   ]
 
   const inputCls = 'w-full bg-forest-800 border border-forest-600 rounded-sm px-4 py-3 text-cream-50 text-sm placeholder-forest-400 outline-none focus:border-saffron-400 transition-colors min-h-[44px]'
+
+  const activeJobs = shipments.filter((s) => ['accepted', 'in_transit'].includes(s.status)).length
+  const deliveredJobs = shipments.filter((s) => s.status === 'delivered').length
+  const availableVehicles = vehicles.filter((v) => v.status === 'available').length
+  const totalQuotes = shipments.reduce((sum, s) => sum + (s.final_quote || 0), 0)
 
   if (loading) {
     return (
@@ -117,53 +176,66 @@ export default function VendorPage() {
 
         <main className="flex-1 pt-6 pb-12 min-w-0">
           {tab === 'jobs' && (
-            <div className="space-y-4">
-              <h1 className="font-display font-black text-2xl text-cream-50 mb-4">My Jobs</h1>
+            <div className="space-y-6">
+              <h1 className="font-display font-black text-2xl text-cream-50">My Jobs</h1>
+
+              {/* Overview */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { label: 'Active Jobs', value: activeJobs, color: 'bg-blue-400/10 border-blue-400/30 text-blue-400' },
+                  { label: 'Delivered', value: deliveredJobs, color: 'bg-green-400/10 border-green-400/30 text-green-400' },
+                  { label: 'Available Fleet', value: `${availableVehicles}/${vehicles.length}`, color: 'bg-teal-400/10 border-teal-400/30 text-teal-400' },
+                  { label: 'Total Quotes', value: totalQuotes ? `NPR ${totalQuotes.toLocaleString()}` : '—', color: 'bg-saffron-400/10 border-saffron-400/30 text-saffron-400' },
+                ].map((s) => (
+                  <div key={s.label} className={`${s.color} border rounded-sm p-5`}>
+                    <p className="text-xl font-black">{s.value}</p>
+                    <p className="text-xs mt-1 opacity-80">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
               {shipments.length === 0 ? (
                 <p className="text-forest-400 text-sm">No jobs assigned yet.</p>
               ) : (
-                shipments.map((s) => (
-                  <div key={s.id} className="bg-forest-900 border border-forest-700 rounded-sm p-6">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div>
-                        <p className="font-semibold text-cream-50 text-sm">{s.booking_id}</p>
-                        <p className="text-forest-400 text-xs">{s.pickup_city} → {s.drop_city}</p>
+                <div className="space-y-4">
+                  {shipments.map((s) => (
+                    <div key={s.id} className="bg-forest-900 border border-forest-700 rounded-sm p-6">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div>
+                          <p className="font-semibold text-cream-50 text-sm">{s.booking_id}</p>
+                          <p className="text-forest-400 text-xs">{s.pickup_city} → {s.drop_city}</p>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded text-xs font-medium ${statusBadge(s.status)}`}>{s.status}</span>
                       </div>
-                      <span className={`px-2.5 py-1 rounded text-xs font-medium ${
-                        s.status === 'pending' ? 'bg-saffron-400/20 text-saffron-300' :
-                        s.status === 'accepted' ? 'bg-blue-400/20 text-blue-300' :
-                        s.status === 'in_transit' ? 'bg-purple-400/20 text-purple-300' :
-                        s.status === 'delivered' ? 'bg-green-400/20 text-green-300' :
-                        'bg-forest-700 text-forest-300'
-                      }`}>{s.status}</span>
+                      <div className="grid grid-cols-2 gap-3 text-sm text-forest-300 mb-4">
+                        <div><span className="text-forest-500">Customer:</span> {s.first_name} {s.last_name}</div>
+                        <div><span className="text-forest-500">Phone:</span> {s.mobile_number}</div>
+                        <div><span className="text-forest-500">Move Date:</span> {s.move_date}</div>
+                        <div><span className="text-forest-500">Vehicle:</span> {s.vehicle_type}</div>
+                        {s.final_quote ? <div><span className="text-forest-500">Quote:</span> NPR {s.final_quote.toLocaleString()}</div> : null}
+                        {s.payment_status ? <div><span className="text-forest-500">Payment:</span> <span className="capitalize">{s.payment_status}</span></div> : null}
+                      </div>
+                      <div className="flex gap-2">
+                        {s.status === 'pending' && (
+                          <>
+                            <button onClick={() => updateShipmentStatus(s.id, 'accept')}
+                              className="bg-green-400/20 text-green-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-green-400/30 transition-colors">Accept</button>
+                            <button onClick={() => updateShipmentStatus(s.id, 'reject')}
+                              className="bg-red-400/20 text-red-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-red-400/30 transition-colors">Reject</button>
+                          </>
+                        )}
+                        {s.status === 'accepted' && (
+                          <button onClick={() => updateShipmentStatus(s.id, 'start')}
+                            className="bg-saffron-400/20 text-saffron-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-saffron-400/30 transition-colors">Start Delivery</button>
+                        )}
+                        {s.status === 'in_transit' && (
+                          <button onClick={() => updateShipmentStatus(s.id, 'complete')}
+                            className="bg-green-400/20 text-green-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-green-400/30 transition-colors">Mark Delivered</button>
+                        )}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm text-forest-300 mb-4">
-                      <div><span className="text-forest-500">Customer:</span> {s.first_name} {s.last_name}</div>
-                      <div><span className="text-forest-500">Phone:</span> {s.mobile_number}</div>
-                      <div><span className="text-forest-500">Move Date:</span> {s.move_date}</div>
-                      <div><span className="text-forest-500">Vehicle:</span> {s.vehicle_type}</div>
-                      {s.final_quote && <div><span className="text-forest-500">Quote:</span> NPR {s.final_quote.toLocaleString()}</div>}
-                    </div>
-                    <div className="flex gap-2">
-                      {s.status === 'pending' && (
-                        <>
-                          <button onClick={() => updateShipmentStatus(s.id, 'accept')}
-                            className="bg-green-400/20 text-green-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-green-400/30 transition-colors">Accept</button>
-                          <button onClick={() => updateShipmentStatus(s.id, 'reject')}
-                            className="bg-red-400/20 text-red-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-red-400/30 transition-colors">Reject</button>
-                        </>
-                      )}
-                      {s.status === 'accepted' && (
-                        <button onClick={() => updateShipmentStatus(s.id, 'start')}
-                          className="bg-saffron-400/20 text-saffron-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-saffron-400/30 transition-colors">Start Delivery</button>
-                      )}
-                      {s.status === 'in_transit' && (
-                        <button onClick={() => updateShipmentStatus(s.id, 'complete')}
-                          className="bg-green-400/20 text-green-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-green-400/30 transition-colors">Mark Delivered</button>
-                      )}
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -232,25 +304,101 @@ export default function VendorPage() {
             </div>
           )}
 
+          {tab === 'tickets' && (
+            <div className="space-y-6">
+              <h1 className="font-display font-black text-2xl text-cream-50">Support Tickets</h1>
+
+              <div className="bg-forest-900 border border-forest-700 rounded-sm p-6 space-y-4">
+                <h2 className="font-display font-bold text-base text-cream-50">Submit a Ticket</h2>
+                <input placeholder="Subject" value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} className={inputCls} />
+                <textarea placeholder="Describe your issue..." value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} className={inputCls + ' min-h-[110px] resize-none'} />
+                <div className="flex justify-end">
+                  <button onClick={submitTicket}
+                    className="flex items-center gap-2 bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold px-5 py-2.5 rounded-sm text-sm transition-all min-h-[44px]">
+                    <Send className="w-4 h-4" /> Submit
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h2 className="font-display font-bold text-base text-cream-50 mb-3">My Tickets ({tickets.length})</h2>
+                {tickets.length === 0 ? (
+                  <p className="text-forest-400 text-sm">No tickets submitted yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {tickets.map((t) => (
+                      <div key={t.id} className="bg-forest-900 border border-forest-700 rounded-sm p-5">
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <p className="font-semibold text-cream-50 text-sm">#{t.id} · {t.subject}</p>
+                          <span className={`px-2.5 py-0.5 rounded text-xs font-medium ${
+                            t.status === 'open' ? 'bg-saffron-400/20 text-saffron-300' :
+                            t.status === 'resolved' ? 'bg-green-400/20 text-green-300' :
+                            'bg-forest-700 text-forest-300'
+                          }`}>{t.status}</span>
+                        </div>
+                        <p className="text-sm text-forest-400">{t.message}</p>
+                        <p className="text-xs text-forest-500 mt-2">{new Date(t.created_at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {tab === 'profile' && (
             <div className="space-y-6">
               <h1 className="font-display font-black text-2xl text-cream-50">My Profile</h1>
-              <div className="bg-forest-900 border border-forest-700 rounded-sm p-6 space-y-4">
+
+              <div className="grid sm:grid-cols-3 gap-4">
                 {[
-                  { label: 'Business Name', value: profile.business_name },
-                  { label: 'Owner Name', value: profile.owner_name },
-                  { label: 'Phone', value: profile.phone },
-                  { label: 'Service Region', value: profile.service_region },
-                  { label: 'Address', value: profile.address },
-                ].map((f) => (
-                  <div key={f.label}>
-                    <label className="block text-cream-200 text-sm font-medium mb-1.5">{f.label}</label>
-                    <input defaultValue={f.value} className={inputCls} />
+                  { label: 'Rating', value: profile.rating ? `${profile.rating}★` : '—', color: 'bg-saffron-400/10 border-saffron-400/30 text-saffron-400', icon: Star },
+                  { label: 'Total Jobs', value: profile.total_jobs, color: 'bg-blue-400/10 border-blue-400/30 text-blue-400', icon: Package },
+                  { label: 'Status', value: 'Active', color: 'bg-green-400/10 border-green-400/30 text-green-400', icon: Truck },
+                ].map((s) => (
+                  <div key={s.label} className={`${s.color} border rounded-sm p-4 flex items-center gap-3`}>
+                    <s.icon className="w-5 h-5" />
+                    <div>
+                      <p className="text-lg font-black">{s.value}</p>
+                      <p className="text-xs opacity-80">{s.label}</p>
+                    </div>
                   </div>
                 ))}
-                <button className="bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold px-6 py-3 rounded-sm text-sm transition-all min-h-[44px]">
-                  Update Profile
-                </button>
+              </div>
+
+              <div className="bg-forest-900 border border-forest-700 rounded-sm p-6 space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Business Name</label>
+                    <input value={profile.business_name} onChange={(e) => setProfile({ ...profile, business_name: e.target.value })} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Owner Name</label>
+                    <input value={profile.owner_name} onChange={(e) => setProfile({ ...profile, owner_name: e.target.value })} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Phone</label>
+                    <input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Email</label>
+                    <input value={profile.email} disabled className={inputCls + ' opacity-50 cursor-not-allowed'} />
+                  </div>
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Service Region</label>
+                    <input value={profile.service_region} onChange={(e) => setProfile({ ...profile, service_region: e.target.value })} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Address</label>
+                    <input value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} className={inputCls} />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={saveProfile} disabled={savingProfile}
+                    className="bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold px-6 py-3 rounded-sm text-sm transition-all min-h-[44px] disabled:opacity-50">
+                    {savingProfile ? 'Saving...' : 'Update Profile'}
+                  </button>
+                </div>
               </div>
             </div>
           )}

@@ -3,6 +3,11 @@ dist/
 .env
 *.local
 .DS_Store
+
+# SQLite file DB
+backend/data/*.db*
+backend/data/*.sqlite*
+
 *.apk
 *.aab
 *.hprof

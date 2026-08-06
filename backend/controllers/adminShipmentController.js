@@ -6,82 +6,74 @@ import {
 	getActiveShipmentsCountForVendor,
 } from '../models/shipmentModel.js';
 import { getVendorById } from '../models/vendorModel.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { HttpError } from '../utils/HttpError.js';
+import { ALLOWED_APPROVAL_STATUSES } from '../utils/validation.js';
 
-export const getPendingShipmentsList = async (req, res) => {
-	try {
-		const shipments = await getPendingShipments();
-		res.json({ success: true, shipments });
-	} catch (error) {
-		console.error('Error fetching pending shipments:', error);
-		res.status(500).json({ success: false, message: 'Server error' });
-	}
+const parsePagination = (query) => {
+	const page = Math.max(parseInt(query.page) || 1, 1);
+	const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+	return { page, limit };
 };
 
-export const getShipmentsByStatus = async (req, res) => {
-	try {
-		const { status } = req.params;
-		const shipments = await getShipmentsByApprovalStatus(status);
-		res.json({ success: true, shipments });
-	} catch (error) {
-		console.error('Error fetching shipments by status:', error);
-		res.status(500).json({ success: false, message: 'Server error' });
+export const getPendingShipmentsList = asyncHandler(async (req, res) => {
+	const shipments = await getPendingShipments(parsePagination(req.query));
+	res.json({ success: true, shipments });
+});
+
+export const getShipmentsByStatus = asyncHandler(async (req, res) => {
+	const { status } = req.params;
+	if (!ALLOWED_APPROVAL_STATUSES.includes(status)) {
+		throw new HttpError(400, 'Invalid approval status');
 	}
-};
+	const shipments = await getShipmentsByApprovalStatus(
+		status,
+		parsePagination(req.query),
+	);
+	res.json({ success: true, shipments });
+});
 
-export const approveShipmentRequest = async (req, res) => {
-	try {
-		const { id } = req.params;
-		const { vendor_id } = req.body;
-		const adminId = req.user.id;
+export const approveShipmentRequest = asyncHandler(async (req, res) => {
+	const { id } = req.params;
+	const { vendor_id } = req.body;
+	const adminId = req.user.id;
 
-		const vendor = await getVendorById(vendor_id);
-		if (!vendor) {
-			return res
-				.status(404)
-				.json({ success: false, message: 'Vendor not found' });
-		}
-
-		// 🚫 Check if vendor already has an active shipment
-		const activeCount = await getActiveShipmentsCountForVendor(vendor_id);
-		if (activeCount > 0) {
-			return res.status(400).json({
-				success: false,
-				message: `${vendor.business_name} already has an active shipment. Please wait until it's completed.`,
-			});
-		}
-
-		const approved = await approveShipment(id, vendor_id, adminId);
-		if (!approved) {
-			return res
-				.status(404)
-				.json({ success: false, message: 'Shipment not found' });
-		}
-
-		res.json({
-			success: true,
-			message: `Shipment approved and assigned to ${vendor.business_name}`,
-		});
-	} catch (error) {
-		console.error('Error approving shipment:', error);
-		res.status(500).json({ success: false, message: 'Server error' });
+	const vendor = await getVendorById(vendor_id);
+	if (!vendor) {
+		throw new HttpError(404, 'Vendor not found');
 	}
-};
-export const rejectShipmentRequest = async (req, res) => {
-	try {
-		const { id } = req.params;
-		const { reason } = req.body;
-		const adminId = req.user.id;
-
-		const rejected = await rejectShipment(id, adminId, reason);
-		if (!rejected) {
-			return res
-				.status(404)
-				.json({ success: false, message: 'Shipment not found' });
-		}
-
-		res.json({ success: true, message: 'Shipment rejected' });
-	} catch (error) {
-		console.error('Error rejecting shipment:', error);
-		res.status(500).json({ success: false, message: 'Server error' });
+	if (vendor.status !== 'active') {
+		throw new HttpError(400, 'Vendor is not active and cannot be assigned');
 	}
-};
+
+	const activeCount = await getActiveShipmentsCountForVendor(vendor_id);
+	if (activeCount > 0) {
+		throw new HttpError(
+			400,
+			`${vendor.business_name} already has an active shipment. Please wait until it's completed.`,
+		);
+	}
+
+	const approved = await approveShipment(id, vendor_id, adminId);
+	if (!approved) {
+		throw new HttpError(404, 'Shipment not found');
+	}
+
+	res.json({
+		success: true,
+		message: `Shipment approved and assigned to ${vendor.business_name}`,
+	});
+});
+
+export const rejectShipmentRequest = asyncHandler(async (req, res) => {
+	const { id } = req.params;
+	const { reason } = req.body;
+	const adminId = req.user.id;
+
+	const rejected = await rejectShipment(id, adminId, reason);
+	if (!rejected) {
+		throw new HttpError(404, 'Shipment not found');
+	}
+
+	res.json({ success: true, message: 'Shipment rejected' });
+});

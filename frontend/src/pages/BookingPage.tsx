@@ -1,8 +1,10 @@
-import { useReducer, useState, useEffect, useCallback, useRef, type Reducer } from 'react'
+import { useReducer, useState, useEffect, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Check, MapPin, Home, Truck, Package, User, AlertCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { SHIPMENTS, VENDOR } from '../services/api'
+import { NEPAL_DATA, provinces } from '../utils/nepal'
 import type { BookingFormData } from '../types'
 
 type StepAction =
@@ -38,28 +40,6 @@ function initialState(): BookingFormData {
   }
 }
 
-const NEPAL_DATA = {
-  provinces: [
-    { id: '1', name: 'Province No. 1 (Koshi)' },
-    { id: '2', name: 'Province No. 2 (Madhesh)' },
-    { id: '3', name: 'Bagmati Province' },
-    { id: '4', name: 'Gandaki Province' },
-    { id: '5', name: 'Lumbini Province' },
-    { id: '6', name: 'Karnali Province' },
-    { id: '7', name: 'Sudurpashchim Province' },
-  ],
-  districts: {
-    '1': ['Bhojpur', 'Dhankuta', 'Ilam', 'Jhapa', 'Khotang', 'Morang', 'Okhaldhunga', 'Panchthar', 'Sankhuwasabha', 'Solukhumbu', 'Sunsari', 'Taplejung', 'Terhathum', 'Udayapur'],
-    '2': ['Bara', 'Dhanusha', 'Mahottari', 'Parsa', 'Rautahat', 'Saptari', 'Sarlahi', 'Siraha'],
-    '3': ['Bhaktapur', 'Chitwan', 'Dhading', 'Dolakha', 'Kathmandu', 'Kavrepalanchok', 'Lalitpur', 'Makwanpur', 'Nuwakot', 'Ramechhap', 'Rasuwa', 'Sindhuli', 'Sindhupalchok'],
-    '4': ['Baglung', 'Gorkha', 'Kaski', 'Lamjung', 'Manang', 'Mustang', 'Myagdi', 'Nawalpur', 'Parbat', 'Syangja', 'Tanahun'],
-    '5': ['Arghakhanchi', 'Banke', 'Bardiya', 'Dang', 'Eastern Rukum', 'Gulmi', 'Kapilvastu', 'Nawalparasi West', 'Palpa', 'Pyuthan', 'Rolpa', 'Rupandehi'],
-    '6': ['Dailekh', 'Dolpa', 'Humla', 'Jajarkot', 'Jumla', 'Kalikot', 'Mugu', 'Salyan', 'Surkhet', 'Western Rukum'],
-    '7': ['Achham', 'Baitadi', 'Bajhang', 'Bajura', 'Dadeldhura', 'Darchula', 'Doti', 'Kailali', 'Kanchanpur'],
-  },
-}
-
-const provinces = NEPAL_DATA.provinces
 const homeSizes = ['1 Room (PG/Studio)', '1 BHK', '2 BHK', '3 BHK', '4+ BHK', 'House (Full)']
 const itemOptions = ['Furniture', 'Electronics', 'Kitchen', 'Clothes', 'Books', 'Gym Equipment', 'Religious Items', 'Musical Instruments']
 const vehicleOptions = [
@@ -127,7 +107,7 @@ type StepErrors = Partial<Record<string, string>>
 
 export default function BookingPage() {
   const [step, setStep] = useState(0)
-  const [form, dispatch] = useReducer<Reducer<BookingFormData, StepAction>>(formReducer, undefined, loadDraft)
+  const [form, dispatch] = useReducer(formReducer, undefined, loadDraft)
   const [matchingVendors, setMatchingVendors] = useState<Array<{ id: number; business_name: string; rating: number; total_jobs: number; service_region: string }>>([])
   const [selectedVendor, setSelectedVendor] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -137,6 +117,7 @@ export default function BookingPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const formRef = useRef<HTMLFormElement>(null)
+  const navigate = useNavigate()
 
   const steps = [
     { icon: MapPin, title: 'Location', subtitle: 'Pickup & Drop' },
@@ -179,20 +160,6 @@ export default function BookingPage() {
 
   const markTouched = (field: string) => {
     setTouched((prev) => new Set(prev).add(field))
-  }
-
-  const validateField = (field: string, value: string): string | undefined => {
-    if (!value && ['pickup_province', 'pickup_district', 'pickup_city', 'drop_province', 'drop_district', 'drop_city',
-      'home_size', 'vehicle_type', 'move_date', 'first_name', 'last_name', 'email', 'payment_method'].includes(field)) {
-      return 'This field is required'
-    }
-    if (field === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      return 'Invalid email address'
-    }
-    if (field === 'mobile_number' && value && value.length !== 10) {
-      return 'Must be exactly 10 digits'
-    }
-    return undefined
   }
 
   const getStepErrors = (s: number): StepErrors => {
@@ -298,9 +265,7 @@ export default function BookingPage() {
         showToast('Booking created! Complete payment now.', 'gold')
       } else {
         showToast('Booking submitted! We will contact you within 2 hours.', 'green')
-        dispatch({ type: 'RESET' })
-        setStep(0)
-        setSelectedVendor(null)
+        navigate('/my-bookings')
       }
     } catch {
       showToast('Server error. Please try again.', 'red')
@@ -395,7 +360,7 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-forest-950 pt-24 pb-12">
-      <div className="max-w-3xl mx-auto px-4 sm:px-5">
+      <div className="max-w-3xl lg:max-w-5xl mx-auto px-4 sm:px-5">
         {/* Progress */}
         <div className="flex items-center gap-1 sm:gap-2 mb-8 overflow-x-auto pb-2">
           {steps.map((s, i) => (
@@ -691,16 +656,14 @@ export default function BookingPage() {
                 showToast('Payment redirect coming soon. Your booking is saved.', 'blue')
                 dispatch({ type: 'RESET' })
                 setPaymentData(null)
-                setStep(0)
-                setSelectedVendor(null)
+                navigate('/my-bookings')
               }} className="w-full py-3.5 rounded-xl bg-saffron-400 text-forest-900 text-sm font-bold hover:bg-saffron-300 transition-all active:scale-[0.98]">
                 Proceed to Pay
               </button>
               <button onClick={() => {
                 dispatch({ type: 'RESET' })
                 setPaymentData(null)
-                setStep(0)
-                setSelectedVendor(null)
+                navigate('/my-bookings')
                 showToast('Booking saved! You can pay later.', 'green')
               }} className="w-full py-3 rounded-xl border border-white/10 text-forest-400 text-sm font-medium hover:text-cream-50 transition-colors">
                 Pay Later
