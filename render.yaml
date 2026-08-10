@@ -1,5 +1,5 @@
 services:
-  # Backend API (Express + Node, free tier)
+  # Backend API (Express + Node, free tier) - uses SQLite, no external DB needed.
   - type: web
     name: meroghar-backend
     rootDir: backend
@@ -10,29 +10,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # SQLite only - zero cost, no external database account required.
+      # Note: Render's free-tier disk is ephemeral; the SQLite file resets on
+      # redeploy. Demo seeding (below) refills it, which is fine for a showcase.
       - key: DB_DRIVER
-        value: mysql
+        value: sqlite
       # Seeds demo accounts (admin/vendor/customer @test.com) on first deploy so
       # an admin can log in. Set to "false" once real users exist.
       - key: SEED_DEMO_DATA
         value: "true"
-      # TiDB Cloud Serverless (MySQL-compatible) uses TLS on port 4000.
-      - key: MYSQL_SSL
-        value: "true"
-      - key: MYSQLPORT
-        value: "4000"
-      # Fill these in the Render dashboard after creating the TiDB cluster.
-      - key: MYSQLHOST
-        value: set-this-in-dashboard
-      - key: MYSQLUSER
-        value: set-this-in-dashboard
-      - key: MYSQL_DATABASE
-        value: set-this-in-dashboard
-      - key: MYSQLPASSWORD
-        generateValue: true
-      # TiDB Starter CA cert as base64 (from the TiDB console connection dialog).
-      - key: MYSQL_SSL_CA_B64
-        value: set-this-in-dashboard
       - key: JWT_SECRET
         generateValue: true
 

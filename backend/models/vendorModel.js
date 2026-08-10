@@ -155,8 +155,15 @@ export const addVendorVehicle = async (vendorId, vehicleData) => {
 	}
 };
 
-export const updateVehicleStatus = async (vehicleId, status) => {
+export const updateVehicleStatus = async (vehicleId, status, vendorId = null) => {
 	try {
+		if (vendorId != null) {
+			const [result] = await pool.execute(
+				'UPDATE vendor_vehicles SET status = ? WHERE id = ? AND vendor_id = ?',
+				[status, vehicleId, vendorId],
+			);
+			return result.affectedRows > 0;
+		}
 		const [result] = await pool.execute(
 			'UPDATE vendor_vehicles SET status = ? WHERE id = ?',
 			[status, vehicleId],
@@ -184,10 +191,7 @@ export const removeVendorVehicle = async (vehicleId, vendorId) => {
 export const findMatchingVendors = async (vehicleType) => {
 	try {
 		const [rows] = await pool.execute(
-			`SELECT DISTINCT v.id, v.business_name, v.owner_name, v.phone, v.email,
-                    v.service_region, v.rating, v.total_jobs, v.status as vendor_status,
-                    vv.id as vehicle_id, vv.name as vehicle_name, vv.plate_number,
-                    vv.vehicle_type, vv.driver_name, vv.status as vehicle_status
+			`SELECT DISTINCT v.id, v.business_name, v.service_region, v.rating, v.total_jobs
              FROM vendors v
              JOIN vendor_vehicles vv ON vv.vendor_id = v.id
              WHERE v.status = 'active'

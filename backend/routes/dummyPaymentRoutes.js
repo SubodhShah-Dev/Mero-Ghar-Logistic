@@ -16,8 +16,11 @@ router.post(
 
 		if (result.success) {
 			try {
+				// Demo only: mark the booking as paid but leave status 'pending'
+				// so it can advance through the admin/vendor state machine
+				// (pending -> accepted -> in_transit -> delivered).
 				await pool.execute(
-					`UPDATE shipments SET payment_status = 'paid', status = 'confirmed' WHERE transaction_id = ?`,
+					`UPDATE shipments SET payment_status = 'paid' WHERE transaction_id = ? AND status = 'pending'`,
 					[result.transaction_id],
 				);
 			} catch (dbError) {

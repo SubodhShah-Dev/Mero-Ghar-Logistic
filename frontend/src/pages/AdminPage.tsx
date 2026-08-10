@@ -71,12 +71,11 @@ export default function AdminPage() {
     if (vRes.status === 'fulfilled') setVendors(vRes.value.data.vendors || [])
     if (uRes.status === 'fulfilled') setUsers(uRes.value.data.users || [])
     if (stRes.status === 'fulfilled') {
-      const s: Record<string, string> = {}
-      ;(stRes.value.data.settings || []).forEach((st: { setting_key: string; setting_value: string }) => {
-        s[st.setting_key] = st.setting_value
-      })
-      setSettings(s)
-      setEditedSettings(s)
+      const raw: Record<string, string> = stRes.value.data.settings || {}
+      const normalized: Record<string, string> = {}
+      for (const [k, v] of Object.entries(raw)) normalized[k] = String(v)
+      setSettings(normalized)
+      setEditedSettings(normalized)
     }
     if (tRes.status === 'fulfilled') setTickets(tRes.value.data.tickets || [])
     const failed = [sRes, vRes, uRes, stRes, tRes].filter((r) => r.status === 'rejected').length

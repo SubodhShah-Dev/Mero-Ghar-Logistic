@@ -38,6 +38,8 @@ export const VENDOR = {
   completeDelivery: (id: number) => api.put(`/api/vendor/shipments/${id}/complete`),
   getVehicles: () => api.get('/api/vendor/vehicles'),
   addVehicle: (data: Record<string, unknown>) => api.post('/api/vendor/vehicles', data),
+  updateVehicleStatus: (id: number, status: string) =>
+    api.put(`/api/vendor/vehicles/${id}/status`, { status }),
   deleteVehicle: (id: number) => api.delete(`/api/vendor/vehicles/${id}`),
 }
 
@@ -52,7 +54,7 @@ export const ADMIN = {
     api.put(`/api/admin/vendors/${id}/status`, { status }),
   getSettings: () => api.get('/api/settings'),
   updateSettings: (key: string, value: string) =>
-    api.put('/api/settings', { setting_key: key, setting_value: value }),
+    api.put('/api/settings', { [key]: value }),
 }
 
 export const CHATBOT = {
@@ -60,8 +62,9 @@ export const CHATBOT = {
 }
 
 export const TICKETS = {
-  create: (data: { subject: string; message: string }) => api.post('/api/tickets', data),
-  getAll: () => api.get('/api/tickets'),
+  create: (data: { subject: string; message: string }) => api.post('/api/tickets/submit', data),
+  getMine: () => api.get('/api/tickets/mine'),
+  getAll: () => api.get('/api/tickets/all'),
   resolve: (id: number) => api.put(`/api/tickets/${id}/resolve`),
   close: (id: number) => api.put(`/api/tickets/${id}/close`),
 }

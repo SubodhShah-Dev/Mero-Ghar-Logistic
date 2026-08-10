@@ -222,14 +222,6 @@ export const completeDelivery = asyncHandler(async (req, res) => {
 	res.json({ success: true, message: 'Delivery completed' });
 });
 
-export const testVendorRoute = async (req, res) => {
-	res.json({
-		success: true,
-		message: 'Vendor route is working!',
-		timestamp: new Date().toISOString(),
-	});
-};
-
 export const rejectShipment = asyncHandler(async (req, res) => {
 	const { id } = req.params;
 	const userId = req.user.id;
@@ -287,9 +279,20 @@ export const updateVehicleStatusCtrl = asyncHandler(async (req, res) => {
 	if (!allowedStatuses.includes(status)) {
 		throw new HttpError(400, 'Invalid vehicle status');
 	}
-	const updated = await updateVehicleStatus(id, status);
+
+	// Admins may update any vehicle; vendors are scoped to their own fleet.
+	let scope = null;
+	if (req.user.role !== 'admin') {
+		const vendor = await getVendorByUserId(req.user.id);
+		if (!vendor) {
+			throw new HttpError(403, 'Vendor profile not found');
+		}
+		scope = vendor.id;
+	}
+
+	const updated = await updateVehicleStatus(id, status, scope);
 	if (!updated) {
-		throw new HttpError(404, 'Vehicle not found');
+		throw new HttpError(404, 'Vehicle not found or not owned by you');
 	}
 	res.json({ success: true, message: 'Vehicle status updated' });
 });

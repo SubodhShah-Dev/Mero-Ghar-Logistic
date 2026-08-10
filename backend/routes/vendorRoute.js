@@ -7,7 +7,6 @@ import {
 	acceptShipment,
 	startDelivery,
 	completeDelivery,
-	testVendorRoute,
 	rejectShipment,
 	getMyVehicles,
 	addVehicle,
@@ -18,8 +17,6 @@ import {
 import { authenticate, requireRole, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
-
-router.get('/test', testVendorRoute);
 
 router.get('/profile', authenticate, requireRole('vendor', 'admin'), getMyVendorProfile);
 router.put('/profile', authenticate, requireRole('vendor', 'admin'), updateMyVendorProfile);

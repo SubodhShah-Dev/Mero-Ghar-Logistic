@@ -23,6 +23,12 @@ const INSERT_SHIPMENT_SQL = `INSERT INTO shipments (
 	assigned_vendor_id
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
+const DEMO_QUOTE_BY_VEHICLE = {
+	'Cargo Tempo': 4000,
+	'Mini Truck': 8000,
+	'Large Truck': 12000,
+};
+
 export const createShipment = asyncHandler(async (req, res) => {
 	const {
 		first_name,
@@ -169,7 +175,7 @@ export const createShipment = asyncHandler(async (req, res) => {
 			'pending',
 			transactionId,
 			'pending',
-			null,
+			DEMO_QUOTE_BY_VEHICLE[vehicle_type] || null,
 			distance_km || null,
 			estimated_duration || null,
 			assignedVendorId,
@@ -184,12 +190,25 @@ export const createShipment = asyncHandler(async (req, res) => {
 		connection.release();
 	}
 
+	const paymentRequired =
+		!!payment_method && String(payment_method) !== 'cash' &&
+		(DEMO_QUOTE_BY_VEHICLE[vehicle_type] || 0) > 0;
+
 	res.status(201).json({
 		success: true,
 		message: 'Shipment created successfully',
 		booking_id,
 		shipment_id: shipmentId,
-		payment_required: false,
+		transaction_id: transactionId,
+		payment_required: paymentRequired,
+		payment_data: paymentRequired
+			? {
+					amount: DEMO_QUOTE_BY_VEHICLE[vehicle_type] || 0,
+					customer_name: `${first_name} ${last_name || ''}`.trim(),
+					customer_email: email || '',
+					customer_phone: mobile_number || '',
+			  }
+			: null,
 	});
 });
 
@@ -205,6 +224,14 @@ export const getShipment = asyncHandler(async (req, res) => {
 	if (!shipment) {
 		throw new HttpError(404, 'Shipment not found');
 	}
+	// Only the booking owner or an admin may view a single booking's details.
+	const isAdmin = req.user?.role === 'admin';
+	const isOwner =
+		shipment.user_id != null &&
+		Number(shipment.user_id) === Number(req.user?.id);
+	if (!isAdmin && !isOwner) {
+		throw new HttpError(403, 'You do not have access to this booking');
+	}
 	res.json({ success: true, shipment });
 });
 
@@ -216,7 +243,11 @@ export const getUserShipments = asyncHandler(async (req, res) => {
 
 export const getShipmentsByEmail = asyncHandler(async (req, res) => {
 	const [rows] = await pool.execute(
-		`SELECT s.*, v.business_name as vendor_name
+		`SELECT s.id, s.booking_id, s.status, s.created_at,
+		        s.pickup_city, s.pickup_district, s.pickup_province,
+		        s.drop_city, s.drop_district, s.drop_province,
+		        s.vehicle_type, s.final_quote, s.move_date,
+		        v.business_name as vendor_name
 		 FROM shipments s
 		 LEFT JOIN vendors v ON s.assigned_vendor_id = v.id
 		 WHERE s.email = ?

@@ -10,11 +10,13 @@ export default function MyBookingsScreen() {
   const { user } = useAuth()
 
   useEffect(() => {
+    if (!user) {
+      setLoading(false)
+      return
+    }
     ;(async () => {
       try {
-        const res = await (user
-          ? SHIPMENTS.getMy()
-          : SHIPMENTS.getByEmail(''))
+        const res = await SHIPMENTS.getMy()
         setShipments(res.data.shipments || [])
       } catch {} finally {
         setLoading(false)

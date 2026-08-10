@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Check, MapPin, Home, Truck, Package, User, AlertCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { SHIPMENTS, VENDOR } from '../services/api'
+import { SHIPMENTS, VENDOR, PAYMENT } from '../services/api'
 import { NEPAL_DATA, provinces } from '../utils/nepal'
 import type { BookingFormData } from '../types'
 
@@ -111,9 +111,19 @@ export default function BookingPage() {
   const [matchingVendors, setMatchingVendors] = useState<Array<{ id: number; business_name: string; rating: number; total_jobs: number; service_region: string }>>([])
   const [selectedVendor, setSelectedVendor] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [paymentData, setPaymentData] = useState<Record<string, string> | null>(null)
+  const [paymentInfo, setPaymentInfo] = useState<{
+    amount: number
+    transaction_id: string
+    booking_id: string
+    payment_method: string
+    customer_name: string
+    customer_email: string
+    customer_phone: string
+  } | null>(null)
   const [errors, setErrors] = useState<StepErrors>({})
   const [touched, setTouched] = useState<Set<string>>(new Set())
+  const [payMobile, setPayMobile] = useState('')
+  const [payPassword, setPayPassword] = useState('')
   const { user } = useAuth()
   const { showToast } = useToast()
   const formRef = useRef<HTMLFormElement>(null)
@@ -253,14 +263,14 @@ export default function BookingPage() {
         return
       }
       if (data.payment_required && data.payment_data) {
-        setPaymentData({
-          amount: data.payment_data.amount?.toString() || '',
-          transaction_uuid: data.payment_data.transaction_uuid || '',
+        setPaymentInfo({
+          amount: data.payment_data.amount ?? 0,
+          transaction_id: data.transaction_id || '',
           booking_id: data.booking_id || '',
-          customer_name: data.payment_data.customer_name || '',
-          customer_email: data.payment_data.customer_email || '',
-          customer_phone: data.payment_data.customer_phone || '',
-          payment_method: form.payment_method,
+          payment_method: form.payment_method || 'esewa',
+          customer_name: data.payment_data.customer_name || user?.name || '',
+          customer_email: data.payment_data.customer_email || form.email || '',
+          customer_phone: data.payment_data.customer_phone || form.mobile_number || '',
         })
         showToast('Booking created! Complete payment now.', 'gold')
       } else {
@@ -269,6 +279,40 @@ export default function BookingPage() {
       }
     } catch {
       showToast('Server error. Please try again.', 'red')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handlePayNow = async (mobile: string, password: string) => {
+    if (!paymentInfo) return
+    if (mobile.trim().length !== 10) {
+      showToast('Enter a 10-digit mobile number', 'red')
+      return
+    }
+    if (!password.trim()) {
+      showToast('Enter any password (demo payment)', 'red')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await PAYMENT.process({
+        mobile,
+        password,
+        amount: paymentInfo.amount,
+        transaction_uuid: paymentInfo.transaction_id,
+        order_id: paymentInfo.booking_id,
+        customer_name: paymentInfo.customer_name,
+        customer_email: paymentInfo.customer_email,
+        customer_phone: paymentInfo.customer_phone,
+      })
+      const bid = paymentInfo.booking_id
+      dispatch({ type: 'RESET' })
+      setPaymentInfo(null)
+      showToast(`Payment successful for ${bid}. We will contact you soon.`, 'green')
+      navigate('/my-bookings')
+    } catch {
+      showToast('Payment failed. Try again or pay later.', 'red')
     } finally {
       setSubmitting(false)
     }
@@ -641,31 +685,42 @@ export default function BookingPage() {
         </form>
       </div>
 
-      {/* Payment Overlay */}
-      {paymentData && (
+      {/* Payment Overlay (demo flow) */}
+      {paymentInfo && (
         <div className="fixed inset-0 z-50 bg-black/72 flex items-center justify-center p-6">
           <div className="bg-forest-900 border border-saffron-400/20 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-slide-in">
             <div className="w-14 h-14 rounded-full bg-saffron-400/15 flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl">💳</span>
             </div>
             <h3 className="text-cream-50 text-lg font-bold mb-1">Complete Payment</h3>
-            <p className="text-forest-400 text-sm mb-1">Pay via <span className="capitalize font-semibold text-cream-200">{paymentData.payment_method}</span></p>
-            <p className="text-saffron-400 font-display font-black text-3xl mb-6">NPR {paymentData.amount ? parseInt(paymentData.amount).toLocaleString() : '—'}</p>
+            <p className="text-forest-400 text-sm mb-1">Pay via <span className="capitalize font-semibold text-cream-200">{paymentInfo.payment_method}</span></p>
+            <p className="text-saffron-400 font-display font-black text-3xl mb-2">NPR {paymentInfo.amount.toLocaleString()}</p>
+            <p className="text-forest-500 text-xs mb-5">Booking {paymentInfo.booking_id}</p>
             <div className="space-y-3">
-              <button onClick={async () => {
-                showToast('Payment redirect coming soon. Your booking is saved.', 'blue')
-                dispatch({ type: 'RESET' })
-                setPaymentData(null)
-                navigate('/my-bookings')
-              }} className="w-full py-3.5 rounded-xl bg-saffron-400 text-forest-900 text-sm font-bold hover:bg-saffron-300 transition-all active:scale-[0.98]">
-                Proceed to Pay
+              <input
+                value={payMobile}
+                onChange={(e) => setPayMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="Mobile number (demo)"
+                inputMode="numeric"
+                className="w-full bg-forest-800 border border-forest-600 rounded-xl px-4 py-3 text-cream-50 text-sm placeholder-forest-400 outline-none focus:border-saffron-400 min-h-[48px]"
+              />
+              <input
+                value={payPassword}
+                onChange={(e) => setPayPassword(e.target.value)}
+                placeholder="Password (any)"
+                type="password"
+                className="w-full bg-forest-800 border border-forest-600 rounded-xl px-4 py-3 text-cream-50 text-sm placeholder-forest-400 outline-none focus:border-saffron-400 min-h-[48px]"
+              />
+              <button onClick={() => handlePayNow(payMobile, payPassword)} disabled={submitting}
+                className="w-full py-3.5 rounded-xl bg-saffron-400 text-forest-900 text-sm font-bold hover:bg-saffron-300 transition-all active:scale-[0.98] disabled:opacity-50 min-h-[48px]">
+                {submitting ? 'Processing...' : 'Proceed to Pay'}
               </button>
               <button onClick={() => {
                 dispatch({ type: 'RESET' })
-                setPaymentData(null)
+                setPaymentInfo(null)
                 navigate('/my-bookings')
                 showToast('Booking saved! You can pay later.', 'green')
-              }} className="w-full py-3 rounded-xl border border-white/10 text-forest-400 text-sm font-medium hover:text-cream-50 transition-colors">
+              }} className="w-full py-3 rounded-xl border border-white/10 text-forest-400 text-sm font-medium hover:text-cream-50 transition-colors min-h-[44px]">
                 Pay Later
               </button>
             </div>

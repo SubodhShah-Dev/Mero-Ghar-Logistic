@@ -4,8 +4,9 @@ import {
 	rejectShipment,
 	getShipmentsByApprovalStatus,
 	getActiveShipmentsCountForVendor,
+	getShipmentById,
 } from '../models/shipmentModel.js';
-import { getVendorById } from '../models/vendorModel.js';
+import { getVendorById, findMatchingVendors } from '../models/vendorModel.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 import { ALLOWED_APPROVAL_STATUSES } from '../utils/validation.js';
@@ -35,8 +36,25 @@ export const getShipmentsByStatus = asyncHandler(async (req, res) => {
 
 export const approveShipmentRequest = asyncHandler(async (req, res) => {
 	const { id } = req.params;
-	const { vendor_id } = req.body;
+	let { vendor_id } = req.body;
 	const adminId = req.user.id;
+
+	// Mobile clients approve without choosing a mover, so auto-assign the best
+	// eligible one (active, matching vehicle type & availability) at that point.
+	if (!vendor_id) {
+		const target = await getShipmentById(id);
+		if (!target) {
+			throw new HttpError(404, 'Shipment not found');
+		}
+		const candidates = await findMatchingVendors(target.vehicle_type);
+		if (candidates.length === 0) {
+			throw new HttpError(
+				400,
+				'No available mover currently matches this booking',
+			);
+		}
+		vendor_id = candidates[0].id;
+	}
 
 	const vendor = await getVendorById(vendor_id);
 	if (!vendor) {

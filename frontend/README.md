@@ -1,32 +1,40 @@
-# React + TypeScript + Vite
+# MeroGhar — Web Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Vite + React 19 + TypeScript + Tailwind CSS SPA for the MeroGhar logistics marketplace (see the [root README](../README.md)).
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cp .env.example .env   # VITE_API_URL=http://localhost:5000
+npm install
+npm run dev            # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Scripts
+
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Type-check (`tsc -b`) then production build into `dist/` |
+| `npm run lint` | Oxlint |
+| `npm run preview` | Preview the production build |
+
+## Environment
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `VITE_API_URL` | `https://meroghar-backend.onrender.com` | Backend base URL (set to `http://localhost:5000` in dev) |
+
+## Structure
+
+```
+src/
+├── pages/          Landing, Booking (5-step), Login, Signup, My Bookings, Admin, Vendor, 404
+├── components/     Navbar, Footer, MeroBot, ProtectedRoute/RoleRoute, UpdateDialog, ErrorBoundary, GoToTop
+├── context/        AuthContext (JWT in localStorage), ToastContext
+├── services/api.ts Single Axios client with auth interceptor + typed endpoint groups
+├── types/          Domain models
+└── utils/          Nepal province/district data, helpers
+```
+
+Featuring the **demo payment overlay**: after a non-cash booking is created, the user completes the in-app demo payment form, which calls the backend demo gateway and marks the booking `paid` while it stays `pending` for admin/vendor scheduling.

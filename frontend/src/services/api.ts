@@ -67,7 +67,7 @@ export const ADMIN = {
     api.put(`/api/admin/vendors/${id}/status`, { status }),
   getSettings: () => api.get('/api/settings'),
   updateSettings: (key: string, value: string) =>
-    api.put('/api/settings', { setting_key: key, setting_value: value }),
+    api.put('/api/settings', { [key]: value }),
 }
 
 export const VENDOR = {
@@ -90,6 +90,10 @@ export const VENDOR = {
 
 export const CHATBOT = {
   sendMessage: (message: string) => api.post('/api/chatbot/message', { message }),
+}
+
+export const PAYMENT = {
+  process: (data: Record<string, unknown>) => api.post('/api/payment/dummy/process', data),
 }
 
 export const TICKETS = {
