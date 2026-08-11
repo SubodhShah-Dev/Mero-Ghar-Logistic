@@ -19,8 +19,11 @@ import {
 
 import {
 	getShipmentsForVendor,
+	getAvailableShipmentsForVendor,
+	claimShipmentForVendor,
 	getShipmentById,
 	updateVendorShipmentStatus,
+	getActiveShipmentsCountForVendor,
 } from '../models/shipmentModel.js';
 
 const parsePagination = (query) => {
@@ -245,6 +248,68 @@ export const rejectShipment = asyncHandler(async (req, res) => {
 	}
 
 	res.json({ success: true, message: 'Job rejected successfully' });
+});
+
+// ── CLAIM POOL (no admin in the loop) ──
+
+export const getAvailableShipments = asyncHandler(async (req, res) => {
+	const vendor = await getVendorByUserId(req.user.id);
+	if (!vendor) {
+		throw new HttpError(404, 'Vendor not found');
+	}
+	if (vendor.status !== 'active') {
+		return res.json({ success: true, shipments: [] });
+	}
+	const shipments = await getAvailableShipmentsForVendor(
+		vendor.id,
+		parsePagination(req.query),
+	);
+	res.json({ success: true, shipments });
+});
+
+export const claimShipment = asyncHandler(async (req, res) => {
+	const { id } = req.params;
+	const vendor = await getVendorByUserId(req.user.id);
+	if (!vendor) {
+		throw new HttpError(404, 'Vendor not found');
+	}
+	if (vendor.status !== 'active') {
+		throw new HttpError(400, 'Vendor is not active');
+	}
+
+	const shipment = await getShipmentById(id);
+	if (!shipment) {
+		throw new HttpError(404, 'Shipment not found');
+	}
+	if (
+		shipment.approval_status !== 'pending' ||
+		shipment.assigned_vendor_id != null
+	) {
+		throw new HttpError(409, 'This job has already been claimed by another mover');
+	}
+
+	const matching = await findMatchingVendors(shipment.vehicle_type);
+	if (!matching.some((m) => String(m.id) === String(vendor.id))) {
+		throw new HttpError(400, 'You do not have an available vehicle for this job');
+	}
+
+	const busy = await getActiveShipmentsCountForVendor(vendor.id);
+	if (busy > 0) {
+		throw new HttpError(
+			400,
+			'You already have an active job. Finish it before claiming another.',
+		);
+	}
+
+	const claimed = await claimShipmentForVendor(id, vendor.id);
+	if (!claimed) {
+		throw new HttpError(409, 'This job has just been claimed by another mover');
+	}
+
+	res.json({
+		success: true,
+		message: 'Job claimed. You can now chat with the customer.',
+	});
 });
 
 // ── VEHICLE CRUD ──

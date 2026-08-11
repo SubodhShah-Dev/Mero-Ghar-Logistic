@@ -510,18 +510,11 @@ test('selecting an available mover auto-approves and a busy mover is blocked', a
 	assert.equal(cancel.status, 200, 'admin can cancel to free the mover');
 });
 
-test('approving an unbidden booking auto-assigns the best available mover', async () => {
+test('an unbidden booking auto-assigns the best available mover without admin', async () => {
 	const booking = await createAndPayBooking({ vehicle_type: 'Cargo Tempo' });
-	const res = await req(
-		'PUT',
-		`/api/admin/shipments/${booking.shipment_id}/approve`,
-		{},
-		adminToken,
-	);
-	assert.equal(res.status, 200, 'mobile-style approval (no vendor_id) works');
 
 	const detail = await req('GET', `/api/shipment/${booking.shipment_id}`, undefined, customerToken);
-	assert.equal(detail.body?.shipment?.approval_status, 'approved');
+	assert.equal(detail.body?.shipment?.approval_status, 'approved', 'auto-approved at booking time');
 	assert.ok(detail.body?.shipment?.assigned_vendor_id, 'a mover was auto-assigned');
 
 	const cancel = await req(
@@ -531,6 +524,124 @@ test('approving an unbidden booking auto-assigns the best available mover', asyn
 		adminToken,
 	);
 	assert.equal(cancel.status, 200, 'cleanup keeps the seeded mover free for later tests');
+});
+
+let claimShipment;
+test('an unassignable booking enters the claim pool and a mover can claim it', async () => {
+	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
+	const seed = vendors.body?.vendors?.find((v) => v.business_name === 'Himalayan Movers');
+	assert.ok(seed, 'seed mover present');
+
+	const deactivate = await req(
+		'PUT',
+		`/api/admin/vendors/${seed.id}/status`,
+		{ status: 'inactive' },
+		adminToken,
+	);
+	assert.equal(deactivate.status, 200);
+
+	claimShipment = await createAndPayBooking({ vehicle_type: 'Cargo Tempo' });
+	const pending = await req('GET', `/api/shipment/${claimShipment.shipment_id}`, undefined, customerToken);
+	assert.equal(pending.body?.shipment?.approval_status, 'pending', 'no active mover matched');
+	assert.equal(pending.body?.shipment?.assigned_vendor_id, null);
+
+	const reactivate = await req(
+		'PUT',
+		`/api/admin/vendors/${seed.id}/status`,
+		{ status: 'active' },
+		adminToken,
+	);
+	assert.equal(reactivate.status, 200);
+
+	const pool = await req('GET', '/api/vendor/available', undefined, vendorToken);
+	assert.equal(pool.status, 200);
+	assert.ok(
+		pool.body?.shipments?.some((s) => s.id === claimShipment.shipment_id),
+		'unassigned booking is in the claim pool',
+	);
+
+	const claim = await req('PUT', `/api/vendor/shipments/${claimShipment.shipment_id}/claim`, {}, vendorToken);
+	assert.equal(claim.status, 200);
+
+	const after = await req('GET', `/api/shipment/${claimShipment.shipment_id}`, undefined, customerToken);
+	assert.equal(after.body?.shipment?.approval_status, 'approved');
+	assert.equal(String(after.body?.shipment?.assigned_vendor_id), String(seed.id));
+
+	const pool2 = await req('GET', '/api/vendor/available', undefined, vendorToken);
+	assert.equal(
+		pool2.body?.shipments?.some((s) => s.id === claimShipment.shipment_id),
+		false,
+		'claimed job leaves the pool',
+	);
+
+	const again = await req('PUT', `/api/vendor/shipments/${claimShipment.shipment_id}/claim`, {}, vendorToken);
+	assert.equal(again.status, 409, 'double claim is rejected');
+
+	const blocked = await req('GET', '/api/vendor/available', undefined, customerToken);
+	assert.equal(blocked.status, 403, 'claim pool is vendor-only');
+
+	const cancel = await req(
+		'PUT',
+		`/api/shipment/${claimShipment.shipment_id}/status`,
+		{ status: 'cancelled' },
+		adminToken,
+	);
+	assert.equal(cancel.status, 200, 'cleanup frees the mover');
+});
+
+test('customer and assigned mover can chat, outsiders are blocked', async () => {
+	const chatBooking = await createAndPayBooking({ vehicle_type: 'Cargo Tempo' });
+	const detail = await req('GET', `/api/shipment/${chatBooking.shipment_id}`, undefined, customerToken);
+	assert.equal(detail.body?.shipment?.approval_status, 'approved');
+	assert.ok(detail.body?.shipment?.assigned_vendor_id, 'mover auto-assigned for chat');
+
+	const send = await req(
+		'POST',
+		`/api/shipment/${chatBooking.shipment_id}/messages`,
+		{ message: 'Hi, what time on move day?' },
+		customerToken,
+	);
+	assert.equal(send.status, 201);
+
+	const vendorView = await req('GET', `/api/shipment/${chatBooking.shipment_id}/messages`, undefined, vendorToken);
+	assert.equal(vendorView.status, 200);
+	assert.ok(
+		vendorView.body?.messages?.some((m) => m.message === 'Hi, what time on move day?'),
+		'vendor sees the customer message',
+	);
+
+	const reply = await req(
+		'POST',
+		`/api/shipment/${chatBooking.shipment_id}/messages`,
+		{ message: '9am sharp!' },
+		vendorToken,
+	);
+	assert.equal(reply.status, 201);
+
+	const customerView = await req('GET', `/api/shipment/${chatBooking.shipment_id}/messages`, undefined, customerToken);
+	assert.ok(
+		customerView.body?.messages?.some((m) => m.message === '9am sharp!'),
+		'customer sees the reply',
+	);
+
+	const empty = await req(
+		'POST',
+		`/api/shipment/${chatBooking.shipment_id}/messages`,
+		{ message: '   ' },
+		customerToken,
+	);
+	assert.equal(empty.status, 400, 'blank messages are rejected');
+
+	const stranger = await req('GET', `/api/shipment/${chatBooking.shipment_id}/messages`, undefined, adminToken);
+	assert.equal(stranger.status, 403, 'a non-party cannot read the thread');
+
+	const cancel = await req(
+		'PUT',
+		`/api/shipment/${chatBooking.shipment_id}/status`,
+		{ status: 'cancelled' },
+		adminToken,
+	);
+	assert.equal(cancel.status, 200);
 });
 
 let adminRejectedShipment;

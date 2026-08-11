@@ -128,6 +128,19 @@ CREATE INDEX IF NOT EXISTS idx_tickets_vendor ON support_tickets (vendor_id);
 
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON support_tickets (status);
 
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shipment_id INTEGER NOT NULL,
+  sender_user_id INTEGER,
+  sender_role TEXT NOT NULL CHECK (sender_role IN ('customer','vendor')),
+  message TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE,
+  FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_shipment ON messages (shipment_id);
+
 CREATE TABLE IF NOT EXISTS settings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   setting_key TEXT NOT NULL UNIQUE,

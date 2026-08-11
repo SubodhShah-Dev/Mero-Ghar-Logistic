@@ -26,11 +26,25 @@ export default function HomeScreen() {
           </Text>
 
           <View style={styles.buttons}>
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={() => navigation.navigate(user ? 'Booking' : 'Login')}>
-              <Text style={styles.primaryBtnText}>{user ? 'Book a Move' : 'Get Started'}</Text>
-            </TouchableOpacity>
+            {user?.role === 'user' ? (
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => navigation.navigate('Booking')}>
+                <Text style={styles.primaryBtnText}>Book a Move</Text>
+              </TouchableOpacity>
+            ) : user ? (
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => navigation.navigate(user.role === 'admin' ? 'Admin' : 'Vendor')}>
+                <Text style={styles.primaryBtnText}>
+                  {user.role === 'admin' ? 'Admin Panel' : 'Vendor Portal'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('Login')}>
+                <Text style={styles.primaryBtnText}>Get Started</Text>
+              </TouchableOpacity>
+            )}
             {user ? (
               <TouchableOpacity style={styles.secondaryBtn} onPress={logout}>
                 <Text style={styles.secondaryBtnText}>Logout</Text>

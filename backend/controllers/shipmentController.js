@@ -10,7 +10,9 @@ import {
 	getShipmentById,
 	getShipmentsByUserId,
 	updateShipmentStatus as updateShipmentStatusModel,
+	getActiveShipmentsCountForVendor as getVendorActiveCount,
 } from '../models/shipmentModel.js';
+import { findMatchingVendors } from '../models/vendorModel.js';
 
 const INSERT_SHIPMENT_SQL = `INSERT INTO shipments (
 	booking_id, user_id, pickup_address, pickup_province, pickup_district, pickup_city, pickup_ward, pickup_floor, pickup_lane_access,
@@ -135,6 +137,19 @@ export const createShipment = asyncHandler(async (req, res) => {
 
 			approvalStatus = 'approved';
 			assignedVendorId = vendor_id;
+		} else {
+			// No mover chosen: auto-assign the best matching available mover so the
+			// booking reaches a vendor without admin intervention. If none is free,
+			// the booking stays unassigned and appears in the vendors' claim pool.
+			const candidates = await findMatchingVendors(vehicle_type);
+			for (const candidate of candidates) {
+				const busy = await getVendorActiveCount(candidate.id);
+				if (busy === 0) {
+					approvalStatus = 'approved';
+					assignedVendorId = candidate.id;
+					break;
+				}
+			}
 		}
 
 		const [result] = await connection.execute(INSERT_SHIPMENT_SQL, [

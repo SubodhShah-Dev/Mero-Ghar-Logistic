@@ -4,6 +4,8 @@ import {
 	updateMyVendorProfile,
 	registerVendor,
 	getVendorShipments,
+	getAvailableShipments,
+	claimShipment,
 	acceptShipment,
 	startDelivery,
 	completeDelivery,
@@ -21,7 +23,9 @@ const router = express.Router();
 router.get('/profile', authenticate, requireRole('vendor', 'admin'), getMyVendorProfile);
 router.put('/profile', authenticate, requireRole('vendor', 'admin'), updateMyVendorProfile);
 router.post('/register', authenticate, registerVendor);
+router.get('/available', authenticate, requireRole('vendor'), getAvailableShipments);
 router.get('/shipments', authenticate, requireRole('vendor', 'admin'), getVendorShipments);
+router.put('/shipments/:id/claim', authenticate, requireRole('vendor'), claimShipment);
 router.put('/shipments/:id/accept', authenticate, requireRole('vendor'), acceptShipment);
 router.put('/shipments/:id/start', authenticate, requireRole('vendor'), startDelivery);
 router.put('/shipments/:id/complete', authenticate, requireRole('vendor'), completeDelivery);

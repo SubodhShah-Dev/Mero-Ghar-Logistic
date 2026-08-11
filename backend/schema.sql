@@ -116,6 +116,18 @@ CREATE TABLE IF NOT EXISTS support_tickets (
   INDEX idx_tickets_status (status)
 );
 
+CREATE TABLE IF NOT EXISTS messages (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  shipment_id INT NOT NULL,
+  sender_user_id INT,
+  sender_role ENUM('customer','vendor') NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE,
+  FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_messages_shipment (shipment_id)
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   id INT AUTO_INCREMENT PRIMARY KEY,
   setting_key VARCHAR(100) NOT NULL UNIQUE,

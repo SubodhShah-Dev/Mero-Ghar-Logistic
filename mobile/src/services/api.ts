@@ -57,6 +57,10 @@ export const ADMIN = {
     api.put('/api/settings', { [key]: value }),
 }
 
+export const PAYMENT = {
+  process: (data: Record<string, unknown>) => api.post('/api/payment/dummy/process', data),
+}
+
 export const CHATBOT = {
   sendMessage: (message: string) => api.post('/api/chatbot/message', { message }),
 }

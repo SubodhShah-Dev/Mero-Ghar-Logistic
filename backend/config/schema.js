@@ -208,6 +208,28 @@ const TABLES = [
 		],
 	},
 	{
+		name: 'messages',
+		columns: [
+			{ name: 'id', ...COLUMN.id },
+			{ name: 'shipment_id', ...COLUMN.ref('shipments') },
+			{ name: 'sender_user_id', ...COLUMN.nullableRef('users') },
+			{
+				name: 'sender_role',
+				mysql: "ENUM('customer','vendor') NOT NULL",
+				sqlite: "TEXT NOT NULL CHECK (sender_role IN ('customer','vendor'))",
+			},
+			{ name: 'message', ...COLUMN.textNotNull() },
+			{ name: 'created_at', ...COLUMN.timestamp() },
+		],
+		constraints: [
+			'FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE',
+			'FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE SET NULL',
+		],
+		indexes: [
+			{ name: 'idx_messages_shipment', cols: ['shipment_id'] },
+		],
+	},
+	{
 		name: 'settings',
 		columns: [
 			{ name: 'id', ...COLUMN.id },

@@ -17,7 +17,12 @@ export const getShipmentById = async (id) => {
 // Get shipments by user ID
 export const getShipmentsByUserId = async (userId) => {
 	const [rows] = await pool.execute(
-		'SELECT * FROM shipments WHERE user_id = ? ORDER BY created_at DESC',
+		`SELECT s.*, 
+               v.business_name as vendor_name,
+               v.phone as vendor_phone
+         FROM shipments s
+         LEFT JOIN vendors v ON s.assigned_vendor_id = v.id
+         WHERE s.user_id = ? ORDER BY s.created_at DESC`,
 		[userId],
 	);
 	return rows;
@@ -102,6 +107,43 @@ export const getShipmentsForVendor = async (vendorId, { page = 1, limit = 50 } =
 		[vendorId, Number(limit), Number(offset)],
 	);
 	return rows;
+};
+
+// Unassigned pending bookings that this vendor can claim (must have an
+// available vehicle of the required type in their fleet).
+export const getAvailableShipmentsForVendor = async (
+	vendorId,
+	{ page = 1, limit = 50 } = {},
+) => {
+	const offset = (page - 1) * limit;
+	const [rows] = await pool.execute(
+		`SELECT s.*, 
+               ${NAME_CONCAT} as customer_name,
+               s.mobile_number as customer_phone
+        FROM shipments s 
+        WHERE s.approval_status = 'pending'
+          AND s.assigned_vendor_id IS NULL
+          AND s.status = 'pending'
+          AND s.vehicle_type IN (
+              SELECT vv.vehicle_type FROM vendor_vehicles vv
+              WHERE vv.vendor_id = ? AND vv.is_active = 1 AND vv.status = 'available'
+          )
+        ORDER BY s.created_at ASC
+        LIMIT ? OFFSET ?`,
+		[vendorId, Number(limit), Number(offset)],
+	);
+	return rows;
+};
+
+// Race-safe claim: only succeeds while the booking is still unassigned.
+export const claimShipmentForVendor = async (shipmentId, vendorId) => {
+	const [result] = await pool.execute(
+		`UPDATE shipments 
+         SET assigned_vendor_id = ?, approval_status = 'approved', status = 'pending'
+         WHERE id = ? AND approval_status = 'pending' AND assigned_vendor_id IS NULL`,
+		[vendorId, shipmentId],
+	);
+	return result.affectedRows > 0;
 };
 
 // Approve shipment
