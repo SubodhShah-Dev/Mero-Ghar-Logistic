@@ -6,7 +6,7 @@ react {
     autolinkLibrariesWithApp()
 }
 
-def enableProguardInReleaseBuilds = true
+def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
 
 android {
@@ -20,8 +20,8 @@ android {
     applicationId "com.meroghar"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 2
-    versionName "3.1.0"
+    versionCode 3
+    versionName "3.1.1"
   }
 
   signingConfigs {

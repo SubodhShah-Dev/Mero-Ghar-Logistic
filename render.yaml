@@ -2,6 +2,7 @@ services:
   # Backend API (Express + Node, free tier) - uses SQLite, no external DB needed.
   - type: web
     name: meroghar-backend
+    runtime: node
     rootDir: backend
     plan: free
     buildCommand: npm install

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import {
   LayoutDashboard, Truck, Users, Settings, Ticket, Check, X,
   MapPin, Calendar, CreditCard, BadgeCheck, Package,
@@ -54,11 +54,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false)
   const { showToast } = useToast()
 
-  useEffect(() => {
-    loadAll()
-  }, [])
-
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true)
     const [sRes, vRes, uRes, stRes, tRes] = await Promise.allSettled([
       SHIPMENTS.getAll(),
@@ -83,7 +79,7 @@ export default function AdminPage() {
       showToast(`Failed to load ${failed} of 5 data sources`, 'red')
     }
     setLoading(false)
-  }
+  }, [showToast])
 
   const toggleVendorStatus = async (id: number, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active'

@@ -426,7 +426,14 @@ export default function BookingPage() {
           ))}
         </div>
 
-        <form ref={formRef} onSubmit={(e) => { e.preventDefault(); step === steps.length - 1 ? handleSubmit() : nextStep() }}
+        <form ref={formRef} onSubmit={(e) => {
+          e.preventDefault()
+          if (step === steps.length - 1) {
+            handleSubmit()
+          } else {
+            nextStep()
+          }
+        }}
           className="bg-forest-900 border border-forest-700 rounded-sm p-5 sm:p-8 space-y-6 animate-slide-in">
 
           {/* STEP 0: Location */}

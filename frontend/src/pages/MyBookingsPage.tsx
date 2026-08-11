@@ -22,6 +22,8 @@ export default function MyBookingsPage() {
 
   useEffect(() => {
     loadShipments()
+    // Runs once per sign-in; email lookups are triggered by the Search button below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const loadShipments = async () => {

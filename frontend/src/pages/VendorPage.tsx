@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { Truck, Package, Plus, X, User, Ticket, Star, Send } from 'lucide-react'
 import { VENDOR, TICKETS } from '../services/api'
 import { useToast } from '../context/ToastContext'
@@ -33,9 +33,7 @@ export default function VendorPage() {
   const [newVehicle, setNewVehicle] = useState({ name: '', plate_number: '', vehicle_type: '', capacity_tonnes: 0, driver_name: '', driver_phone: '' })
   const { showToast } = useToast()
 
-  useEffect(() => { loadAll() }, [])
-
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true)
     const [sRes, vRes, pRes, tRes] = await Promise.allSettled([
       VENDOR.getShipments(),
@@ -52,7 +50,7 @@ export default function VendorPage() {
       showToast(`Failed to load ${failed} of 4 data sources`, 'red')
     }
     setLoading(false)
-  }
+  }, [showToast])
 
   const updateShipmentStatus = async (id: number, action: string) => {
     try {
