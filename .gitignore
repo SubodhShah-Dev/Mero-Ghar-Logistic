@@ -16,6 +16,7 @@ backend/data/*.sqlite*
 
 # Build outputs
 mobile/android/app/build/
+mobile/android/app/.cxx/
 mobile/android/build/
 mobile/android/.gradle/
 mobile/android/local.properties
