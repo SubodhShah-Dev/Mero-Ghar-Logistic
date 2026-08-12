@@ -302,6 +302,25 @@ test('chatbot responds to a question and rejects empty messages', async () => {
 	assert.equal(empty.status, 400);
 });
 
+test('chatbot exposes a comprehensive grouped question list and answers fixed questions', async () => {
+	const questions = await req('GET', '/api/chatbot/questions');
+	assert.equal(questions.status, 200);
+	assert.equal(questions.body?.success, true);
+	assert.ok(questions.body?.categories?.length >= 5, 'multiple question categories are listed');
+	for (const cat of questions.body.categories) {
+		assert.ok(cat.name && cat.questions?.length > 0, 'each category has a name and questions');
+		for (const q of cat.questions) {
+			assert.ok(typeof q === 'string' && q.trim().length > 0, 'questions are non-empty strings');
+		}
+	}
+
+	const answer = await req('POST', '/api/chatbot/message', { message: 'What is MeroGhar Logistics?' });
+	assert.equal(answer.status, 200);
+	assert.ok(typeof answer.body?.response === 'string' && answer.body.response.length > 0);
+	// The canonical question gets its curated answer — it should mention MeroGhar.
+	assert.match(answer.body.response, /MeroGhar/);
+});
+
 test('auth users listing is admin-only', async () => {
 	const adminRes = await req('GET', '/api/auth/users', undefined, adminToken);
 	assert.equal(adminRes.status, 200);

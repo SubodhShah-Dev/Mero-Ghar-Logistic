@@ -13,6 +13,7 @@ import MyBookingsScreen from './screens/MyBookingsScreen'
 import AdminScreen from './screens/AdminScreen'
 import VendorScreen from './screens/VendorScreen'
 import ChatScreen from './screens/ChatScreen'
+import MeroBotScreen from './screens/MeroBotScreen'
 
 export type RootStackParamList = {
   Home: undefined
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   Admin: undefined
   Vendor: undefined
   Chat: { shipmentId: number; senderRole: 'customer' | 'vendor'; title?: string }
+  MeroBot: undefined
 }
 
 const Stack = createStackNavigator<RootStackParamList>()
@@ -56,6 +58,7 @@ function AppNavigator() {
         )}
       </Stack.Screen>
       <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'Chat' }} />
+      <Stack.Screen name="MeroBot" component={MeroBotScreen} options={{ title: 'MeroBot' }} />
     </Stack.Navigator>
   )
 }

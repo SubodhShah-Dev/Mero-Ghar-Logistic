@@ -96,6 +96,7 @@ export const CHAT = {
 
 export const CHATBOT = {
   sendMessage: (message: string) => api.post('/api/chatbot/message', { message }),
+  getQuestions: () => api.get('/api/chatbot/questions'),
 }
 
 export const PAYMENT = {

@@ -12,5 +12,5 @@ export function compareVersions(a: string, b: string): number {
   return 0
 }
 
-export const APP_VERSION = '3.2.0'
+export const APP_VERSION = '3.3.0'
 export const GITHUB_REPO = 'SubodhShah-Dev/Mero-Ghar-Logistic'

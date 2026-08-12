@@ -13,7 +13,8 @@ export default function HomeScreen() {
   const { user, logout } = useAuth()
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.screen}>
+      <ScrollView style={styles.container}>
       <View style={styles.hero}>
         <View style={styles.heroContent}>
           <Text style={styles.badge}>NEPAL'S TRUSTED MOVING NETWORK</Text>
@@ -58,6 +59,9 @@ export default function HomeScreen() {
 
           {user && (
             <View style={styles.quickLinks}>
+              <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate('MeroBot')}>
+                <Text style={styles.linkText}>💬 Chat Assistant</Text>
+              </TouchableOpacity>
               {(user.role === 'user') && (
                 <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate('MyBookings')}>
                   <Text style={styles.linkText}>📋 My Bookings</Text>
@@ -93,12 +97,38 @@ export default function HomeScreen() {
           </View>
         ))}
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('MeroBot')}
+        accessibilityLabel="Open chat assistant">
+        <Text style={styles.fabText}>💬</Text>
+      </TouchableOpacity>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: COLORS.forest[950] },
   container: { flex: 1, backgroundColor: COLORS.forest[950] },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.saffron[400],
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  fabText: { fontSize: 24 },
   hero: { paddingTop: 80, paddingHorizontal: 24, paddingBottom: 48 },
   heroContent: { alignItems: 'center' },
   badge: { color: COLORS.saffron[400], fontSize: 11, letterSpacing: 2, fontWeight: '600', marginBottom: 16 },

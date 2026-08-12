@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { MessageCircle, X, Send } from 'lucide-react'
+import { MessageCircle, X, Send, HelpCircle } from 'lucide-react'
 import { CHATBOT } from '../services/api'
 
 interface Message {
   text: string
   isUser: boolean
+}
+
+interface QuestionCategory {
+  name: string
+  questions: string[]
 }
 
 const LOCAL_ANSWERS: Record<string, string> = {
@@ -18,6 +23,18 @@ const LOCAL_ANSWERS: Record<string, string> = {
   'esewa': 'Yes, we accept eSewa! Select eSewa as payment method in Step 5, and you will be redirected to complete the payment after form submission.',
   'khalti': 'Yes, we accept Khalti! Select Khalti in Step 5, and complete payment after form submission.',
 }
+
+const FALLBACK_CATEGORIES: QuestionCategory[] = [
+  { name: 'About', questions: ['What is MeroGhar Logistics?'] },
+  { name: 'Booking', questions: ['How do I book a move?'] },
+  { name: 'Pricing & Quote', questions: ['What are your price ranges?'] },
+  { name: 'Vehicles', questions: ['What vehicle options do you have?'] },
+  { name: 'Coverage', questions: ['Which provinces and districts do you cover?'] },
+  { name: 'Payments', questions: ['What payment methods do you accept?'] },
+  { name: 'Tracking & Special Items', questions: ['How do I track my shipment?'] },
+  { name: 'Timing & Cancellation', questions: ['What is your cancellation or refund policy?'] },
+  { name: 'Support & Trust', questions: ['How can I contact support?'] },
+]
 
 function getLocalReply(input: string): string | null {
   const clean = input.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
@@ -33,13 +50,13 @@ function getLocalReply(input: string): string | null {
   return null
 }
 
-const QUICK_CHIPS = ['📋 Book a Move', '🚛 Pricing', '🗺️ Coverage', '💳 Payments', '❓ Help']
-
 export default function MeroBot() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [categories, setCategories] = useState<QuestionCategory[]>([])
+  const [questionsOpen, setQuestionsOpen] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<HTMLButtonElement>(null)
 
@@ -49,14 +66,26 @@ export default function MeroBot() {
 
   useEffect(() => {
     if (open && messages.length === 0) {
-      setMessages([{ text: 'Namaste! 👋 I am MeroBot. How can I help with your move?', isUser: false }])
+      setMessages([{ text: 'Namaste! 👋 I am the MeroGhar chat assistant. How can I help with your move?', isUser: false }])
     }
   }, [open, messages.length])
+
+  useEffect(() => {
+    if (open && categories.length === 0) {
+      CHATBOT.getQuestions()
+        .then(({ data }) => {
+          if (data?.categories?.length) setCategories(data.categories)
+          else setCategories(FALLBACK_CATEGORIES)
+        })
+        .catch(() => setCategories(FALLBACK_CATEGORIES))
+    }
+  }, [open, categories.length])
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return
     setMessages((prev) => [...prev, { text, isUser: true }])
     setInput('')
+    setQuestionsOpen(false)
 
     const local = getLocalReply(text)
     if (local) {
@@ -99,12 +128,15 @@ export default function MeroBot() {
   return (
     <>
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 w-[360px] max-w-[calc(100vw-32px)] bg-forest-900 border border-forest-700 rounded-xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ maxHeight: '520px', transform: `translate(${pos.x}px, ${pos.y}px)` }}>
+        <div className="fixed bottom-6 right-6 z-50 w-[370px] max-w-[calc(100vw-32px)] bg-forest-900 border border-forest-700 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+          style={{ maxHeight: '560px', transform: `translate(${pos.x}px, ${pos.y}px)` }}>
           <div className="flex items-center justify-between px-4 py-3 bg-forest-800 border-b border-forest-700">
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 bg-saffron-400 rounded flex items-center justify-center text-forest-900 text-xs font-black">M</span>
-              <span className="text-cream-50 font-semibold text-sm">MeroBot</span>
+              <div>
+                <span className="text-cream-50 font-semibold text-sm">MeroBot</span>
+                <span className="block text-[10px] text-forest-400">{categories.length ? `${categories.reduce((n, c) => n + c.questions.length, 0)} questions I can answer` : 'Online'}</span>
+              </div>
             </div>
             <button onClick={() => setOpen(false)} className="text-forest-400 hover:text-cream-50 p-1">
               <X className="w-5 h-5" />
@@ -126,21 +158,36 @@ export default function MeroBot() {
                 <div className="bg-forest-800 text-cream-50 px-3.5 py-2.5 rounded-xl text-sm">Typing...</div>
               </div>
             )}
-
-            {messages.length === 1 && !messages[0].isUser && (
-              <div className="flex flex-wrap gap-2 pt-2">
-                {QUICK_CHIPS.map((chip) => (
-                  <button key={chip} onClick={() => sendMessage(chip.replace(/^[^\s]+\s/, ''))}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-saffron-400/30 text-saffron-300 hover:bg-saffron-400/10 transition-colors">
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            )}
             <div ref={endRef} />
           </div>
 
+          {questionsOpen && (
+            <div className="border-t border-forest-700 bg-forest-950/60 max-h-[280px] overflow-y-auto p-3 space-y-3">
+              {categories.map((cat) => (
+                <div key={cat.name}>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-saffron-400 mb-1.5">{cat.name}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {cat.questions.map((q) => (
+                      <button key={q} onClick={() => sendMessage(q)}
+                        className="text-left text-xs px-3 py-1.5 rounded-lg border border-forest-600 text-cream-100 hover:border-saffron-400/60 hover:text-saffron-300 bg-forest-800 transition-colors">
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <form onSubmit={(e) => { e.preventDefault(); sendMessage(input) }} className="flex items-center gap-2 p-3 border-t border-forest-700 bg-forest-800">
+            <button type="button" onClick={() => setQuestionsOpen(!questionsOpen)}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-lg border transition-colors ${
+                questionsOpen ? 'border-saffron-400 bg-saffron-400/15 text-saffron-300' : 'border-forest-600 text-forest-300 hover:border-saffron-400/50 hover:text-saffron-300'
+              }`}
+              aria-label="Show questions">
+              <HelpCircle className="w-4 h-4" />
+              Questions
+            </button>
             <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask me anything..."
               className="flex-1 bg-forest-900 border border-forest-600 rounded-lg px-3 py-2 text-sm text-cream-50 placeholder-forest-400 outline-none focus:border-saffron-400" />
             <button type="submit" className="bg-saffron-400 hover:bg-saffron-300 text-forest-900 p-2 rounded-lg transition-colors" disabled={loading}>
@@ -155,7 +202,7 @@ export default function MeroBot() {
         onClick={() => setOpen(!open)}
         className="fixed bottom-6 right-5 z-50 w-14 h-14 bg-saffron-400 hover:bg-saffron-300 text-forest-900 rounded-full flex items-center justify-center shadow-xl transition-all hover:-translate-y-1 active:scale-95 touch-none"
         style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
-        aria-label="Chat with MeroBot">
+        aria-label="Open chat assistant">
         {open ? <X className="w-7 h-7" /> : <MessageCircle className="w-7 h-7" />}
       </button>
     </>
