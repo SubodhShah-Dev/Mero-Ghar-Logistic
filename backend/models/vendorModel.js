@@ -188,22 +188,138 @@ export const removeVendorVehicle = async (vehicleId, vendorId) => {
 	}
 };
 
-export const findMatchingVendors = async (vehicleType) => {
+export const findMatchingVendors = async (vehicleType, route = {}) => {
 	try {
-		const [rows] = await pool.execute(
-			`SELECT DISTINCT v.id, v.business_name, v.service_region, v.rating, v.total_jobs
+		const { pickup_province, pickup_district, drop_province, drop_district } = route;
+		// A mover matches a booking when they are active, have an available
+		// vehicle of the requested type, and cover the pickup->drop route.
+		// Vendors without any routes declared still match everything (legacy
+		// fallback) so existing vendors keep receiving jobs until they add routes.
+		let sql = `
+            SELECT DISTINCT v.id, v.business_name, v.service_region, v.rating, v.total_jobs
              FROM vendors v
              JOIN vendor_vehicles vv ON vv.vendor_id = v.id
              WHERE v.status = 'active'
                AND vv.vehicle_type = ?
                AND vv.status = 'available'
-               AND vv.is_active = 1
-             ORDER BY v.rating DESC`,
-			[vehicleType],
-		);
+               AND vv.is_active = 1`;
+		const params = [vehicleType];
+
+		if (pickup_province && drop_province) {
+			sql += `
+               AND (
+                 EXISTS (
+                   SELECT 1 FROM vendor_routes vr
+                   WHERE vr.vendor_id = v.id
+                     AND vr.is_active = 1
+                     AND vr.from_province = ?
+                     AND (vr.from_district IS NULL OR vr.from_district = ?)
+                     AND vr.to_province = ?
+                     AND (vr.to_district IS NULL OR vr.to_district = ?)
+                 )
+                 OR NOT EXISTS (SELECT 1 FROM vendor_routes WHERE vendor_id = v.id)
+               )`;
+			params.push(
+				pickup_province,
+				pickup_district || null,
+				drop_province,
+				drop_district || null,
+			);
+		}
+
+		sql += ` ORDER BY v.rating DESC`;
+		const [rows] = await pool.execute(sql, params);
 		return rows;
 	} catch (error) {
 		console.error('Error in findMatchingVendors:', error);
 		return [];
+	}
+};
+
+// True when the vendor has a route covering pickup->drop, or has no routes at
+// all (legacy fallback: no routes means they accept any route).
+export const vendorCoversRoute = async (vendorId, route = {}) => {
+	try {
+		const { pickup_province, pickup_district, drop_province, drop_district } = route;
+		const [countRows] = await pool.execute(
+			'SELECT COUNT(*) as c FROM vendor_routes WHERE vendor_id = ?',
+			[vendorId],
+		);
+		if (!countRows[0] || countRows[0].c === 0) return true;
+		if (!pickup_province || !drop_province) return false;
+
+		const [rows] = await pool.execute(
+			`SELECT COUNT(*) as c FROM vendor_routes
+			 WHERE vendor_id = ? AND is_active = 1
+			   AND from_province = ?
+			   AND (from_district IS NULL OR from_district = ?)
+			   AND to_province = ?
+			   AND (to_district IS NULL OR to_district = ?)`,
+			[
+				vendorId,
+				pickup_province,
+				pickup_district || null,
+				drop_province,
+				drop_district || null,
+			],
+		);
+		return rows[0]?.c > 0;
+	} catch (error) {
+		console.error('Error in vendorCoversRoute:', error);
+		return true;
+	}
+};
+
+// ── ROUTE CRUD ──
+
+export const getVendorRoutes = async (vendorId) => {
+	try {
+		const [rows] = await pool.execute(
+			`SELECT id, vendor_id, from_province, from_district, to_province, to_district, is_active, created_at
+			 FROM vendor_routes
+			 WHERE vendor_id = ?
+			 ORDER BY created_at DESC`,
+			[vendorId],
+		);
+		return rows;
+	} catch (error) {
+		console.error('Error in getVendorRoutes:', error);
+		return [];
+	}
+};
+
+export const addVendorRoute = async (vendorId, routeData) => {
+	try {
+		const { from_province, from_district, to_province, to_district } = routeData;
+		if (!from_province || !to_province) return null;
+		const [result] = await pool.execute(
+			`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
+			 VALUES (?, ?, ?, ?, ?)`,
+			[vendorId, from_province, from_district || null, to_province, to_district || null],
+		);
+		return {
+			id: result.insertId,
+			vendor_id: vendorId,
+			from_province,
+			from_district: from_district || null,
+			to_province,
+			to_district: to_district || null,
+		};
+	} catch (error) {
+		console.error('Error in addVendorRoute:', error);
+		return null;
+	}
+};
+
+export const removeVendorRoute = async (routeId, vendorId) => {
+	try {
+		const [result] = await pool.execute(
+			'DELETE FROM vendor_routes WHERE id = ? AND vendor_id = ?',
+			[routeId, vendorId],
+		);
+		return result.affectedRows > 0;
+	} catch (error) {
+		console.error('Error in removeVendorRoute:', error);
+		return false;
 	}
 };

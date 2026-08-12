@@ -254,6 +254,17 @@ const seed = async () => {
 	);
 
 	await execute(
+		`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
+		 VALUES (?, ?, ?, ?, ?)`,
+		[vendorId, 'Bagmati Province', 'Kathmandu', 'Bagmati Province', 'Lalitpur'],
+	);
+	await execute(
+		`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
+		 VALUES (?, ?, ?, ?, ?)`,
+		[vendorId, 'Bagmati Province', null, 'Gandaki Province', null],
+	);
+
+	await execute(
 		`INSERT INTO shipments (
 			booking_id, user_id, first_name, last_name, mobile_number, email,
 			pickup_province, pickup_district, pickup_city, drop_province, drop_district, drop_city,
@@ -262,7 +273,7 @@ const seed = async () => {
 		 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			`MG-${Date.now()}`, customerUserId, 'Demo', 'Customer', '9800000002', 'customer@test.com',
-			'Bagmati', 'Kathmandu', 'Baneshwor', 'Bagmati', 'Lalitpur', 'Patan',
+			'Bagmati Province', 'Kathmandu', 'Baneshwor', 'Bagmati Province', 'Lalitpur', 'Patan',
 			'1 BHK', JSON.stringify(['Sofa', 'Bed']), 'Cargo Tempo', '2026-08-15', 'esewa',
 			'delivered', 'approved', adminId, vendorId, `TXN-${Date.now()}`, 'paid', 8.5, '3 hours',
 		],

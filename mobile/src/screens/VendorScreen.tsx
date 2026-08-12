@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { StackNavigationProp } from '@react-navigation/stack'
 import { VENDOR, TICKETS } from '../services/api'
 import { COLORS } from '../utils/theme'
+import { provinces, getDistricts } from '../utils/nepal'
 import type { RootStackParamList } from '../App'
 
 type Tab = 'jobs' | 'claim' | 'fleet' | 'tickets' | 'profile'
@@ -57,21 +58,25 @@ export default function VendorScreen() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [showAddVehicle, setShowAddVehicle] = useState(false)
   const [newVehicle, setNewVehicle] = useState({ ...emptyVehicle })
+  const [routes, setRoutes] = useState<any[]>([])
+  const [routeDraft, setRouteDraft] = useState({ from_province: '', from_district: '', to_province: '', to_district: '' })
   const navigation = useNavigation<Nav>()
 
   const reload = async () => {
     try {
-      const [shipRes, vehRes, tickRes, availRes, profRes] = await Promise.all([
+      const [shipRes, vehRes, tickRes, availRes, profRes, routeRes] = await Promise.all([
         VENDOR.getShipments(),
         VENDOR.getVehicles(),
         TICKETS.getMine(),
         VENDOR.getAvailable(),
         VENDOR.getProfile(),
+        VENDOR.getRoutes(),
       ])
       setShipments(shipRes.data.shipments || [])
       setVehicles(vehRes.data.vehicles || [])
       setTickets(tickRes.data.tickets || [])
       setAvailable(availRes.data.shipments || [])
+      setRoutes(routeRes.data.routes || [])
       const vendor = profRes.data?.vendor
       if (vendor) {
         setProfile(vendor)
@@ -196,6 +201,31 @@ export default function VendorScreen() {
     }
   }
 
+  const addRoute = async () => {
+    if (!routeDraft.from_province || !routeDraft.to_province) {
+      Alert.alert('Missing info', 'Pick both pickup and drop provinces')
+      return
+    }
+    try {
+      await VENDOR.addRoute(routeDraft)
+      setRouteDraft({ from_province: '', from_district: '', to_province: '', to_district: '' })
+      Alert.alert('Success', 'Route added')
+      await reload()
+    } catch {
+      Alert.alert('Error', 'Failed to add route')
+    }
+  }
+
+  const removeRoute = async (id: number) => {
+    try {
+      await VENDOR.removeRoute(id)
+      Alert.alert('Success', 'Route removed')
+      await reload()
+    } catch {
+      Alert.alert('Error', 'Failed to remove route')
+    }
+  }
+
   const visibleJobs = useMemo(() => {
     const filtered = statusFilter === 'all'
       ? shipments
@@ -245,7 +275,7 @@ export default function VendorScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
         <View style={styles.tabRow}>
           {(['jobs', 'claim', 'fleet', 'tickets', 'profile'] as Tab[]).map((t) => (
             <TouchableOpacity key={t} onPress={() => setTab(t)} style={tabStyle(t)}>
@@ -529,6 +559,70 @@ export default function VendorScreen() {
                 <Text style={styles.saveText}>{savingProfile ? 'Saving...' : 'Update Profile'}</Text>
               </TouchableOpacity>
             </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Coverage Routes</Text>
+              <Text style={styles.hint}>You match bookings only on the routes you cover. With no routes you match everything (legacy).</Text>
+              {routes.length === 0 ? (
+                <Text style={styles.hint}>No routes yet — you currently match every route. Add routes to control which jobs you receive.</Text>
+              ) : (
+                routes.map((r) => (
+                  <View key={r.id} style={styles.routeRow}>
+                    <Text style={styles.routeText}>{r.from_district || 'Whole province'} ({r.from_province}) → {r.to_district || 'Whole province'} ({r.to_province})</Text>
+                    <TouchableOpacity onPress={() => removeRoute(r.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={styles.routeRemove}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+              <Text style={styles.fieldLabel}>Pickup Province</Text>
+              <View style={styles.chipRow}>
+                {provinces.map((p) => (
+                  <TouchableOpacity key={p.id} onPress={() => setRouteDraft({ ...routeDraft, from_province: p.name, from_district: '' })}
+                    style={[styles.chip, routeDraft.from_province === p.name ? styles.chipActive : null]}>
+                    <Text style={[styles.chipText, routeDraft.from_province === p.name ? styles.chipTextActive : null]}>{p.name.replace(' Province', '')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.fieldLabel}>Pickup District (optional)</Text>
+              <View style={styles.chipRow}>
+                <TouchableOpacity onPress={() => setRouteDraft({ ...routeDraft, from_district: '' })}
+                  style={[styles.chip, routeDraft.from_district === '' ? styles.chipActive : null]}>
+                  <Text style={[styles.chipText, routeDraft.from_district === '' ? styles.chipTextActive : null]}>Whole province</Text>
+                </TouchableOpacity>
+                {routeDraft.from_province && getDistricts(routeDraft.from_province).map((d) => (
+                  <TouchableOpacity key={d} onPress={() => setRouteDraft({ ...routeDraft, from_district: d })}
+                    style={[styles.chip, routeDraft.from_district === d ? styles.chipActive : null]}>
+                    <Text style={[styles.chipText, routeDraft.from_district === d ? styles.chipTextActive : null]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.fieldLabel}>Drop Province</Text>
+              <View style={styles.chipRow}>
+                {provinces.map((p) => (
+                  <TouchableOpacity key={p.id} onPress={() => setRouteDraft({ ...routeDraft, to_province: p.name, to_district: '' })}
+                    style={[styles.chip, routeDraft.to_province === p.name ? styles.chipActive : null]}>
+                    <Text style={[styles.chipText, routeDraft.to_province === p.name ? styles.chipTextActive : null]}>{p.name.replace(' Province', '')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.fieldLabel}>Drop District (optional)</Text>
+              <View style={styles.chipRow}>
+                <TouchableOpacity onPress={() => setRouteDraft({ ...routeDraft, to_district: '' })}
+                  style={[styles.chip, routeDraft.to_district === '' ? styles.chipActive : null]}>
+                  <Text style={[styles.chipText, routeDraft.to_district === '' ? styles.chipTextActive : null]}>Whole province</Text>
+                </TouchableOpacity>
+                {routeDraft.to_province && getDistricts(routeDraft.to_province).map((d) => (
+                  <TouchableOpacity key={d} onPress={() => setRouteDraft({ ...routeDraft, to_district: d })}
+                    style={[styles.chip, routeDraft.to_district === d ? styles.chipActive : null]}>
+                    <Text style={[styles.chipText, routeDraft.to_district === d ? styles.chipTextActive : null]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity onPress={addRoute} style={styles.saveBtn}>
+                <Text style={styles.saveText}>Add Route</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </ScrollView>
@@ -541,7 +635,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: COLORS.forest[950], justifyContent: 'center', alignItems: 'center' },
   title: { color: COLORS.cream[50], fontSize: 22, fontWeight: '900', marginBottom: 16 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  tabRow: { flexDirection: 'row', gap: 8 },
+  tabBar: { marginBottom: 12, flexGrow: 0 },
+  tabRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
   tabActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
   tabText: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600' },
@@ -593,4 +688,14 @@ const styles = StyleSheet.create({
   typeChipTextActive: { color: COLORS.saffron[300] },
   saveBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 4 },
   saveText: { color: COLORS.forest[900], fontWeight: '700', fontSize: 15 },
+  hint: { color: COLORS.forest[400], fontSize: 12, marginBottom: 10, lineHeight: 18 },
+  fieldLabel: { color: COLORS.cream[200], fontSize: 13, fontWeight: '600', marginBottom: 8 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600] },
+  chipActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  chipText: { color: COLORS.forest[300], fontSize: 12, fontWeight: '600' },
+  chipTextActive: { color: COLORS.saffron[300] },
+  routeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[700], borderRadius: 4, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
+  routeText: { color: COLORS.cream[100], fontSize: 13, flex: 1 },
+  routeRemove: { color: '#ef7b7b', fontSize: 12, fontWeight: '600' },
 })

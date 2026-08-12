@@ -74,6 +74,7 @@ const TABLE_ORDER = [
 	'users',
 	'vendors',
 	'vendor_vehicles',
+	'vendor_routes',
 	'shipments',
 	'support_tickets',
 	'settings',

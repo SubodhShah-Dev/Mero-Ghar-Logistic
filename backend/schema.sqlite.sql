@@ -51,6 +51,24 @@ CREATE INDEX IF NOT EXISTS idx_vendor_vehicles_vendor ON vendor_vehicles (vendor
 
 CREATE INDEX IF NOT EXISTS idx_vendor_vehicles_type ON vendor_vehicles (vehicle_type);
 
+CREATE TABLE IF NOT EXISTS vendor_routes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  vendor_id INTEGER NOT NULL,
+  from_province TEXT NOT NULL,
+  from_district TEXT,
+  to_province TEXT NOT NULL,
+  to_district TEXT,
+  is_active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_routes_vendor ON vendor_routes (vendor_id);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_routes_from ON vendor_routes (from_province, from_district);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_routes_to ON vendor_routes (to_province, to_district);
+
 CREATE TABLE IF NOT EXISTS shipments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,

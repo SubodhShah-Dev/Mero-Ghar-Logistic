@@ -112,9 +112,20 @@ export const getAvailableShipmentsForVendor = async (
               SELECT vv.vehicle_type FROM vendor_vehicles vv
               WHERE vv.vendor_id = ? AND vv.is_active = 1 AND vv.status = 'available'
           )
+          AND (
+              NOT EXISTS (SELECT 1 FROM vendor_routes WHERE vendor_id = ?)
+              OR EXISTS (
+                  SELECT 1 FROM vendor_routes vr
+                  WHERE vr.vendor_id = ? AND vr.is_active = 1
+                    AND vr.from_province = s.pickup_province
+                    AND (vr.from_district IS NULL OR vr.from_district = s.pickup_district)
+                    AND vr.to_province = s.drop_province
+                    AND (vr.to_district IS NULL OR vr.to_district = s.drop_district)
+              )
+          )
         ORDER BY s.created_at ASC
         LIMIT ? OFFSET ?`,
-		[vendorId, Number(limit), Number(offset)],
+		[vendorId, vendorId, vendorId, Number(limit), Number(offset)],
 	);
 	return rows;
 };

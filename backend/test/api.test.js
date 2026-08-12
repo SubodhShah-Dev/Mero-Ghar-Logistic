@@ -264,10 +264,10 @@ const bookingPayload = (extra = {}) => ({
 	last_name: 'Tester',
 	mobile_number: '9840000001',
 	email: customerEmail,
-	pickup_province: 'Bagmati',
+	pickup_province: 'Bagmati Province',
 	pickup_district: 'Kathmandu',
 	pickup_city: 'Baluwatar',
-	drop_province: 'Bagmati',
+	drop_province: 'Bagmati Province',
 	drop_district: 'Lalitpur',
 	drop_city: 'Patan',
 	home_size: '2 BHK',
@@ -451,11 +451,19 @@ test('vendor B cannot modify vendor A vehicle status (scoped)', async () => {
 	assert.equal(attempt.status, 404, 'a mover cannot touch another mover vehicle');
 });
 
-test('vendor matching returns only trimmed public fields', async () => {
-	const res = await req('GET', `/api/vendor/matching?vehicle_type=${encodeURIComponent('Cargo Tempo')}`);
-	assert.equal(res.status, 200);
-	const vendors = res.body?.vendors || [];
-	assert.ok(vendors.some((v) => v.business_name === 'Himalayan Movers'), 'mover matches its vehicle type');
+test('vendor matching is route-aware and returns only trimmed public fields', async () => {
+	const covered = await req(
+		'GET',
+		`/api/vendor/matching?vehicle_type=${encodeURIComponent('Cargo Tempo')}` +
+			`&pickup_province=${encodeURIComponent('Bagmati Province')}&pickup_district=Kathmandu` +
+			`&drop_province=${encodeURIComponent('Bagmati Province')}&drop_district=Lalitpur`,
+	);
+	assert.equal(covered.status, 200);
+	const vendors = covered.body?.vendors || [];
+	assert.ok(
+		vendors.some((v) => v.business_name === 'Himalayan Movers'),
+		'mover matches its vehicle type on a route it covers',
+	);
 	for (const v of vendors) {
 		assert.ok(!('phone' in v), 'match payload hides phone');
 		assert.ok(!('email' in v), 'match payload hides email');
@@ -463,11 +471,60 @@ test('vendor matching returns only trimmed public fields', async () => {
 		assert.ok(!('driver_phone' in v), 'match payload hides driver phone');
 	}
 
-	const none = await req('GET', `/api/vendor/matching?vehicle_type=${encodeURIComponent('Mini Truck')}`);
+	const outside = await req(
+		'GET',
+		`/api/vendor/matching?vehicle_type=${encodeURIComponent('Cargo Tempo')}` +
+			`&pickup_province=${encodeURIComponent('Sudurpashchim Province')}&pickup_district=Doti` +
+			`&drop_province=${encodeURIComponent('Karnali Province')}&drop_district=Jumla`,
+	);
+	assert.equal(outside.body?.vendors?.length, 0, 'mover with routes does not appear on a route it does not cover');
+
+	const none = await req(
+		'GET',
+		`/api/vendor/matching?vehicle_type=${encodeURIComponent('Mini Truck')}` +
+			`&pickup_province=${encodeURIComponent('Bagmati Province')}&drop_province=${encodeURIComponent('Bagmati Province')}`,
+	);
 	assert.equal(none.body?.vendors?.length, 0, 'nobody offers a Mini Truck');
 
 	const missing = await req('GET', '/api/vendor/matching');
 	assert.equal(missing.status, 400);
+
+	const noRoute = await req(
+		'GET',
+		`/api/vendor/matching?vehicle_type=${encodeURIComponent('Cargo Tempo')}`,
+	);
+	assert.equal(noRoute.status, 400, 'pickup_province and drop_province are required');
+});
+
+test('vendor route CRUD', async () => {
+	const list = await req('GET', '/api/vendor/routes', undefined, vendorToken);
+	assert.equal(list.status, 200);
+	assert.ok(
+		list.body?.routes?.some((r) => r.from_province === 'Bagmati Province' && r.to_province === 'Bagmati Province'),
+		'seeded routes are listed',
+	);
+
+	const add = await req(
+		'POST',
+		'/api/vendor/routes',
+		{ from_province: 'Gandaki Province', from_district: 'Kaski', to_province: 'Lumbini Province', to_district: '' },
+		vendorToken,
+	);
+	assert.equal(add.status, 201);
+	assert.ok(add.body?.route?.id);
+
+	const bad = await req('POST', '/api/vendor/routes', { from_province: 'X' }, vendorToken);
+	assert.equal(bad.status, 400, 'to_province is required');
+
+	const del = await req('DELETE', `/api/vendor/routes/${add.body.route.id}`, undefined, vendorToken);
+	assert.equal(del.status, 200);
+
+	const after = await req('GET', '/api/vendor/routes', undefined, vendorToken);
+	assert.equal(
+		after.body?.routes?.some((r) => r.id === add.body.route.id),
+		false,
+		'deleted route is gone',
+	);
 });
 
 test('vendor sees their assigned shipments', async () => {

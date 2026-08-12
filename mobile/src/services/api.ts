@@ -46,6 +46,11 @@ export const VENDOR = {
   getProfile: () => api.get('/api/vendor/profile'),
   updateProfile: (data: Record<string, unknown>) => api.put('/api/vendor/profile', data),
   rejectShipment: (id: number) => api.put(`/api/vendor/shipments/${id}/reject`),
+  getMatching: (vehicleType: string, pickupProvince: string, dropProvince: string, pickupDistrict?: string, dropDistrict?: string) =>
+    api.get(`/api/vendor/matching?vehicle_type=${encodeURIComponent(vehicleType)}&pickup_province=${encodeURIComponent(pickupProvince)}&drop_province=${encodeURIComponent(dropProvince)}&pickup_district=${pickupDistrict ? encodeURIComponent(pickupDistrict) : ''}&drop_district=${dropDistrict ? encodeURIComponent(dropDistrict) : ''}`),
+  getRoutes: () => api.get('/api/vendor/routes'),
+  addRoute: (data: Record<string, unknown>) => api.post('/api/vendor/routes', data),
+  removeRoute: (id: number) => api.delete(`/api/vendor/routes/${id}`),
 }
 
 export const CHAT = {

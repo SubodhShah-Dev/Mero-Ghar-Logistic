@@ -12,7 +12,7 @@ import {
 	updateShipmentStatus as updateShipmentStatusModel,
 	getActiveShipmentsCountForVendor as getVendorActiveCount,
 } from '../models/shipmentModel.js';
-import { findMatchingVendors } from '../models/vendorModel.js';
+import { findMatchingVendors, vendorCoversRoute } from '../models/vendorModel.js';
 
 const INSERT_SHIPMENT_SQL = `INSERT INTO shipments (
 	booking_id, user_id, pickup_address, pickup_province, pickup_district, pickup_city, pickup_ward, pickup_floor, pickup_lane_access,
@@ -135,13 +135,32 @@ export const createShipment = asyncHandler(async (req, res) => {
 				);
 			}
 
+			// Mover must cover the pickup -> drop route (or have no routes yet).
+			const covers = await vendorCoversRoute(vendor_id, {
+				pickup_province,
+				pickup_district,
+				drop_province,
+				drop_district,
+			});
+			if (!covers) {
+				throw new HttpError(
+					400,
+					'Selected mover does not cover this route',
+				);
+			}
+
 			approvalStatus = 'approved';
 			assignedVendorId = vendor_id;
 		} else {
 			// No mover chosen: auto-assign the best matching available mover so the
 			// booking reaches a vendor without admin intervention. If none is free,
 			// the booking stays unassigned and appears in the vendors' claim pool.
-			const candidates = await findMatchingVendors(vehicle_type);
+			const candidates = await findMatchingVendors(vehicle_type, {
+				pickup_province,
+				pickup_district,
+				drop_province,
+				drop_district,
+			});
 			for (const candidate of candidates) {
 				const busy = await getVendorActiveCount(candidate.id);
 				if (busy === 0) {

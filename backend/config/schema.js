@@ -123,6 +123,27 @@ const TABLES = [
 		],
 	},
 	{
+		name: 'vendor_routes',
+		columns: [
+			{ name: 'id', ...COLUMN.id },
+			{ name: 'vendor_id', ...COLUMN.ref('vendors') },
+			{ name: 'from_province', ...COLUMN.varcharNotNull(100) },
+			{ name: 'from_district', ...COLUMN.varchar(100) },
+			{ name: 'to_province', ...COLUMN.varcharNotNull(100) },
+			{ name: 'to_district', ...COLUMN.varchar(100) },
+			{ name: 'is_active', ...COLUMN.boolean(), mysqlDefault: '1', sqliteDefault: '1' },
+			{ name: 'created_at', ...COLUMN.timestamp() },
+		],
+		constraints: [
+			'FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE',
+		],
+		indexes: [
+			{ name: 'idx_vendor_routes_vendor', cols: ['vendor_id'] },
+			{ name: 'idx_vendor_routes_from', cols: ['from_province', 'from_district'] },
+			{ name: 'idx_vendor_routes_to', cols: ['to_province', 'to_district'] },
+		],
+	},
+	{
 		name: 'shipments',
 		columns: [
 			{ name: 'id', ...COLUMN.id },

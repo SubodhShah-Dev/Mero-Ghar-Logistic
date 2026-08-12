@@ -15,6 +15,10 @@ import {
 	updateVehicleStatus,
 	removeVendorVehicle,
 	findMatchingVendors,
+	vendorCoversRoute,
+	getVendorRoutes,
+	addVendorRoute,
+	removeVendorRoute,
 } from '../models/vendorModel.js';
 
 import {
@@ -288,9 +292,30 @@ export const claimShipment = asyncHandler(async (req, res) => {
 		throw new HttpError(409, 'This job has already been claimed by another mover');
 	}
 
-	const matching = await findMatchingVendors(shipment.vehicle_type);
+	const matching = await findMatchingVendors(shipment.vehicle_type, {
+		pickup_province: shipment.pickup_province,
+		pickup_district: shipment.pickup_district,
+		drop_province: shipment.drop_province,
+		drop_district: shipment.drop_district,
+	});
 	if (!matching.some((m) => String(m.id) === String(vendor.id))) {
-		throw new HttpError(400, 'You do not have an available vehicle for this job');
+		throw new HttpError(
+			400,
+			'You do not have an available vehicle for this job or it is not on a route you cover',
+		);
+	}
+
+	const covers = await vendorCoversRoute(vendor.id, {
+		pickup_province: shipment.pickup_province,
+		pickup_district: shipment.pickup_district,
+		drop_province: shipment.drop_province,
+		drop_district: shipment.drop_district,
+	});
+	if (!covers) {
+		throw new HttpError(
+			400,
+			'This job is not on a route you cover. Add the route in your profile first.',
+		);
 	}
 
 	const busy = await getActiveShipmentsCountForVendor(vendor.id);
@@ -379,10 +404,62 @@ export const deleteVehicle = asyncHandler(async (req, res) => {
 // ── VENDOR MATCHING (for customers) ──
 
 export const matchingVendors = asyncHandler(async (req, res) => {
-	const { vehicle_type, pickup_province, drop_province } = req.query;
+	const { vehicle_type, pickup_province, pickup_district, drop_province, drop_district } = req.query;
 	if (!vehicle_type) {
 		throw new HttpError(400, 'vehicle_type is required');
 	}
-	const vendors = await findMatchingVendors(vehicle_type);
+	if (!pickup_province || !drop_province) {
+		throw new HttpError(400, 'pickup_province and drop_province are required');
+	}
+	const vendors = await findMatchingVendors(vehicle_type, {
+		pickup_province,
+		pickup_district: pickup_district || null,
+		drop_province,
+		drop_district: drop_district || null,
+	});
 	res.json({ success: true, vendors });
+});
+
+// ── VENDOR ROUTES CRUD ──
+
+export const getMyRoutes = asyncHandler(async (req, res) => {
+	const vendor = await getVendorByUserId(req.user.id);
+	if (!vendor) {
+		throw new HttpError(404, 'Vendor not found');
+	}
+	const routes = await getVendorRoutes(vendor.id);
+	res.json({ success: true, routes });
+});
+
+export const createRoute = asyncHandler(async (req, res) => {
+	const vendor = await getVendorByUserId(req.user.id);
+	if (!vendor) {
+		throw new HttpError(404, 'Vendor not found');
+	}
+	const { from_province, from_district, to_province, to_district } = req.body;
+	if (!from_province || !to_province) {
+		throw new HttpError(400, 'from_province and to_province are required');
+	}
+	const route = await addVendorRoute(vendor.id, {
+		from_province,
+		from_district: from_district || null,
+		to_province,
+		to_district: to_district || null,
+	});
+	if (!route) {
+		throw new HttpError(500, 'Failed to add route');
+	}
+	res.status(201).json({ success: true, message: 'Route added', route });
+});
+
+export const deleteRoute = asyncHandler(async (req, res) => {
+	const vendor = await getVendorByUserId(req.user.id);
+	if (!vendor) {
+		throw new HttpError(404, 'Vendor not found');
+	}
+	const removed = await removeVendorRoute(req.params.id, vendor.id);
+	if (!removed) {
+		throw new HttpError(404, 'Route not found');
+	}
+	res.json({ success: true, message: 'Route removed' });
 });

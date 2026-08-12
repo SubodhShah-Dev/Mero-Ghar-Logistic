@@ -83,6 +83,17 @@ export interface Vehicle {
   is_active: number
 }
 
+export interface VendorRoute {
+  id: number
+  vendor_id: number
+  from_province: string
+  from_district: string | null
+  to_province: string
+  to_district: string | null
+  is_active?: number
+  created_at?: string
+}
+
 export interface SupportTicket {
   id: number
   vendor_id: number

@@ -4,7 +4,8 @@ import { VENDOR, TICKETS } from '../services/api'
 import { useToast } from '../context/ToastContext'
 import ChatPanel from '../components/ChatPanel'
 import { ChartCard, Bars } from '../components/charts'
-import type { Shipment, Vehicle, SupportTicket } from '../types'
+import { provinces, districtsByProvince } from '../utils/nepal'
+import type { Shipment, Vehicle, SupportTicket, VendorRoute } from '../types'
 
 type Tab = 'jobs' | 'claim' | 'fleet' | 'tickets' | 'profile'
 
@@ -47,6 +48,8 @@ export default function VendorPage() {
     business_name: '', owner_name: '', phone: '', email: '', service_region: '', address: '', rating: 0, total_jobs: 0,
   })
   const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const [routes, setRoutes] = useState<VendorRoute[]>([])
+  const [routeDraft, setRouteDraft] = useState({ from_province: '', from_district: '', to_province: '', to_district: '' })
   const [ticketSubject, setTicketSubject] = useState('')
   const [ticketMessage, setTicketMessage] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
@@ -59,21 +62,23 @@ export default function VendorPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true)
-    const [sRes, vRes, pRes, tRes, aRes] = await Promise.allSettled([
+    const [sRes, vRes, pRes, tRes, aRes, rRes] = await Promise.allSettled([
       VENDOR.getShipments(),
       VENDOR.getVehicles(),
       VENDOR.getProfile(),
       TICKETS.getMine(),
       VENDOR.getAvailable(),
+      VENDOR.getRoutes(),
     ])
     if (sRes.status === 'fulfilled') setShipments(sRes.value.data.shipments || [])
     if (vRes.status === 'fulfilled') setVehicles(vRes.value.data.vehicles || [])
     if (pRes.status === 'fulfilled' && pRes.value.data.vendor) setProfile(pRes.value.data.vendor)
     if (tRes.status === 'fulfilled') setTickets(tRes.value.data.tickets || [])
     if (aRes.status === 'fulfilled') setAvailable(aRes.value.data.shipments || [])
-    const failed = [sRes, vRes, pRes, tRes, aRes].filter((r) => r.status === 'rejected').length
+    if (rRes.status === 'fulfilled') setRoutes(rRes.value.data.routes || [])
+    const failed = [sRes, vRes, pRes, tRes, aRes, rRes].filter((r) => r.status === 'rejected').length
     if (failed > 0) {
-      showToast(`Failed to load ${failed} of 5 data sources`, 'red')
+      showToast(`Failed to load ${failed} of 6 data sources`, 'red')
     }
     setLoading(false)
   }, [showToast])
@@ -145,6 +150,31 @@ export default function VendorPage() {
       showToast('Failed to update profile', 'red')
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  const addRoute = async () => {
+    if (!routeDraft.from_province || !routeDraft.to_province) {
+      showToast('Pick both pickup and drop provinces', 'red')
+      return
+    }
+    try {
+      await VENDOR.addRoute(routeDraft)
+      showToast('Route added', 'green')
+      setRouteDraft({ from_province: '', from_district: '', to_province: '', to_district: '' })
+      loadAll()
+    } catch {
+      showToast('Failed to add route', 'red')
+    }
+  }
+
+  const removeRoute = async (id: number) => {
+    try {
+      await VENDOR.removeRoute(id)
+      showToast('Route removed', 'green')
+      loadAll()
+    } catch {
+      showToast('Failed to remove route', 'red')
     }
   }
 
@@ -615,6 +645,70 @@ export default function VendorPage() {
                   <button onClick={saveProfile} disabled={savingProfile}
                     className="bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold px-6 py-3 rounded-sm text-sm transition-all min-h-[44px] disabled:opacity-50">
                     {savingProfile ? 'Saving...' : 'Update Profile'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-forest-900 border border-forest-700 rounded-sm p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-cream-50 font-bold">Coverage Routes</h2>
+                    <p className="text-forest-400 text-sm">You appear in booking results only on routes you cover. With no routes you match everything (legacy).</p>
+                  </div>
+                </div>
+
+                {routes.length === 0 ? (
+                  <p className="text-forest-400 text-sm">No routes declared — you currently match every route. Add routes below to control which jobs you receive.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {routes.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between bg-forest-800 border border-forest-700 rounded-sm px-4 py-3">
+                        <span className="text-cream-100 text-sm">
+                          {r.from_district || 'Whole province'} ({r.from_province}) → {r.to_district || 'Whole province'} ({r.to_province})
+                        </span>
+                        <button onClick={() => removeRoute(r.id)}
+                          className="text-xs text-red-300 hover:text-red-200 transition-colors px-2 py-1">
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Pickup Province</label>
+                    <select value={routeDraft.from_province} onChange={(e) => setRouteDraft({ ...routeDraft, from_province: e.target.value, from_district: '' })} className={inputCls}>
+                      <option value="">Select province</option>
+                      {provinces.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Pickup District <span className="text-forest-400">(optional)</span></label>
+                    <select value={routeDraft.from_district} onChange={(e) => setRouteDraft({ ...routeDraft, from_district: e.target.value })} className={inputCls} disabled={!routeDraft.from_province}>
+                      <option value="">Whole province</option>
+                      {routeDraft.from_province && districtsByProvince((provinces.find((p) => p.name === routeDraft.from_province) || { id: '' }).id).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Drop Province</label>
+                    <select value={routeDraft.to_province} onChange={(e) => setRouteDraft({ ...routeDraft, to_province: e.target.value, to_district: '' })} className={inputCls}>
+                      <option value="">Select province</option>
+                      {provinces.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-cream-200 text-sm font-medium mb-1.5">Drop District <span className="text-forest-400">(optional)</span></label>
+                    <select value={routeDraft.to_district} onChange={(e) => setRouteDraft({ ...routeDraft, to_district: e.target.value })} className={inputCls} disabled={!routeDraft.to_province}>
+                      <option value="">Whole province</option>
+                      {routeDraft.to_province && districtsByProvince((provinces.find((p) => p.name === routeDraft.to_province) || { id: '' }).id).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={addRoute}
+                    className="bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold px-6 py-3 rounded-sm text-sm transition-all min-h-[44px]">
+                    Add Route
                   </button>
                 </div>
               </div>

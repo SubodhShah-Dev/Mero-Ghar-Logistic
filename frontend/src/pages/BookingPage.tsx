@@ -152,13 +152,13 @@ export default function BookingPage() {
       const vehicle = form.vehicle_type
       const prov = form.pickup_province
       const matchProv = form.drop_province
-      VENDOR.getMatching(vehicle, prov, matchProv)
+      VENDOR.getMatching(vehicle, prov, matchProv, form.pickup_district, form.drop_district)
         .then(({ data }) => setMatchingVendors(data.vendors || []))
         .catch(() => setMatchingVendors([]))
     } else {
       setMatchingVendors([])
     }
-  }, [form.vehicle_type, form.pickup_province, form.drop_province])
+  }, [form.vehicle_type, form.pickup_province, form.drop_province, form.pickup_district, form.drop_district])
 
   useEffect(() => {
     if (user && !touched.has('step5')) {
@@ -223,10 +223,6 @@ export default function BookingPage() {
 
   const nextStep = () => {
     if (!validateStep(step)) return
-    if (step === 2 && matchingVendors.length > 0 && !selectedVendor) {
-      showToast('Please select a mover from the list', 'red')
-      return
-    }
     setStep((s) => Math.min(s + 1, steps.length))
     setErrors({})
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -505,6 +501,18 @@ export default function BookingPage() {
                   <h3 className="font-display font-bold text-lg text-cream-50 mb-3">Available Movers</h3>
                   <p className="text-forest-400 text-xs mb-3">Select your preferred mover for this route</p>
                   <div className="grid gap-3">
+                    <button type="button" onClick={() => setSelectedVendor(null)}
+                      className={`text-left px-5 py-4 rounded-sm border-2 transition-all ${
+                        selectedVendor === null
+                          ? 'border-saffron-400 bg-saffron-400/10'
+                          : 'border-forest-600 bg-forest-800 hover:border-forest-400'
+                      }`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-sm text-cream-50">Auto-match — we pick the best mover</span>
+                        <span className="text-xs text-saffron-400">Recommended</span>
+                      </div>
+                      <span className="text-xs text-forest-400">No choice needed; the best-rated available mover on this route gets the job.</span>
+                    </button>
                     {matchingVendors.map((v) => (
                       <button key={v.id} type="button" onClick={() => setSelectedVendor(v.id)}
                         className={`text-left px-5 py-4 rounded-sm border-2 transition-all ${

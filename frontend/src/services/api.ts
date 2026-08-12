@@ -79,10 +79,13 @@ export const VENDOR = {
   updateVehicleStatus: (id: number, status: string) =>
     api.put(`/api/vendor/vehicles/${id}/status`, { status }),
   deleteVehicle: (id: number) => api.delete(`/api/vendor/vehicles/${id}`),
-  getMatching: (vehicleType: string, pickupProvince: string, dropProvince: string) =>
-    api.get(`/api/vendor/matching?vehicle_type=${encodeURIComponent(vehicleType)}&pickup_province=${encodeURIComponent(pickupProvince)}&drop_province=${encodeURIComponent(dropProvince)}`),
+  getMatching: (vehicleType: string, pickupProvince: string, dropProvince: string, pickupDistrict?: string, dropDistrict?: string) =>
+    api.get(`/api/vendor/matching?vehicle_type=${encodeURIComponent(vehicleType)}&pickup_province=${encodeURIComponent(pickupProvince)}&drop_province=${encodeURIComponent(dropProvince)}&pickup_district=${pickupDistrict ? encodeURIComponent(pickupDistrict) : ''}&drop_district=${dropDistrict ? encodeURIComponent(dropDistrict) : ''}`),
   getAvailable: () => api.get('/api/vendor/available'),
   claim: (id: number) => api.put(`/api/vendor/shipments/${id}/claim`),
+  getRoutes: () => api.get('/api/vendor/routes'),
+  addRoute: (data: Record<string, string>) => api.post('/api/vendor/routes', data),
+  removeRoute: (id: number) => api.delete(`/api/vendor/routes/${id}`),
 }
 
 export const CHAT = {

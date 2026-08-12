@@ -6,7 +6,7 @@ import {
 import { SHIPMENTS, ADMIN } from '../services/api'
 import { COLORS } from '../utils/theme'
 
-type Tab = 'overview' | 'shipments' | 'settings'
+type Tab = 'overview' | 'shipments' | 'vendors' | 'settings'
 type Filter = 'all' | 'pending' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -60,6 +60,16 @@ export default function AdminScreen() {
   const onRefresh = () => {
     setRefreshing(true)
     load()
+  }
+
+  const toggleVendorStatus = async (id: number, next: string) => {
+    try {
+      await ADMIN.updateVendorStatus(id, next)
+      Alert.alert('Success', `Mover ${next === 'active' ? 'activated' : 'deactivated'}`)
+      await load()
+    } catch {
+      Alert.alert('Error', 'Failed to update mover status')
+    }
   }
 
   const saveSettings = async () => {
@@ -125,9 +135,9 @@ export default function AdminScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.tabRow}>
-        {(['overview', 'shipments', 'settings'] as Tab[]).map((t) => (
+        {(['overview', 'shipments', 'vendors', 'settings'] as Tab[]).map((t) => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} style={tabStyle(t)}>
-            <Text style={tabTextStyle(t)}>{t === 'overview' ? 'Overview' : t === 'shipments' ? `Shipments (${shipments.length})` : 'Settings'}</Text>
+            <Text style={tabTextStyle(t)}>{t === 'overview' ? 'Overview' : t === 'shipments' ? `Shipments (${shipments.length})` : t === 'vendors' ? `Vendors (${vendors.length})` : 'Settings'}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -220,6 +230,33 @@ export default function AdminScreen() {
           </>
         )}
 
+        {tab === 'vendors' && (
+          <>
+            <Text style={styles.title}>Movers</Text>
+            {vendors.length === 0 ? (
+              <Text style={styles.empty}>No movers registered.</Text>
+            ) : (
+              vendors.map((v) => (
+                <View key={v.id} style={styles.card}>
+                  <View style={styles.cardRow}>
+                    <Text style={styles.idText}>{v.business_name}</Text>
+                    <Text style={[styles.statusText, { color: v.status === 'active' ? '#4caf7d' : COLORS.saffron[300] }]}>{v.status}</Text>
+                  </View>
+                  <Text style={styles.route}>{v.service_region || 'No region'} · {v.rating || '—'}★ · {v.total_jobs || 0} jobs</Text>
+                  <Text style={styles.customer}>{v.owner_name || ''}{v.phone ? ` · ${v.phone}` : ''}</Text>
+                  <TouchableOpacity
+                    onPress={() => toggleVendorStatus(v.id, v.status === 'active' ? 'inactive' : 'active')}
+                    style={v.status === 'active' ? styles.redBtn : styles.greenBtn}>
+                    <Text style={v.status === 'active' ? styles.redBtnText : styles.btnText}>
+                      {v.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </>
+        )}
+
         {tab === 'settings' && (
           <>
             <Text style={styles.title}>Settings</Text>
@@ -273,6 +310,10 @@ const styles = StyleSheet.create({
   hBarTrack: { flex: 1, height: 18, backgroundColor: COLORS.forest[800], borderRadius: 4, overflow: 'hidden' },
   hBarFill: { height: '100%', borderRadius: 4 },
   hBarValue: { width: 30, textAlign: 'right', color: COLORS.cream[200], fontSize: 12, fontWeight: '600' },
+  redBtn: { backgroundColor: 'rgba(220,38,38,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', marginTop: 10 },
+  redBtnText: { color: '#ef7b7b', fontWeight: '600', fontSize: 13 },
+  greenBtn: { backgroundColor: 'rgba(76,175,125,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', marginTop: 10 },
+  btnText: { color: '#4caf7d', fontWeight: '600', fontSize: 13 },
   vBarRow: { flexDirection: 'row', alignItems: 'flex-end', height: 140, marginTop: 8 },
   vBarCol: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
   vBarValue: { color: COLORS.cream[200], fontSize: 10, fontWeight: '600', marginBottom: 4 },

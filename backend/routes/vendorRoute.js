@@ -15,6 +15,9 @@ import {
 	updateVehicleStatusCtrl,
 	deleteVehicle,
 	matchingVendors,
+	getMyRoutes,
+	createRoute,
+	deleteRoute,
 } from '../controllers/vendorController.js';
 import { authenticate, requireRole, optionalAuth } from '../middleware/auth.js';
 
@@ -35,6 +38,10 @@ router.get('/vehicles', authenticate, requireRole('vendor'), getMyVehicles);
 router.post('/vehicles', authenticate, requireRole('vendor'), addVehicle);
 router.put('/vehicles/:id/status', authenticate, requireRole('vendor', 'admin'), updateVehicleStatusCtrl);
 router.delete('/vehicles/:id', authenticate, requireRole('vendor'), deleteVehicle);
+
+router.get('/routes', authenticate, requireRole('vendor', 'admin'), getMyRoutes);
+router.post('/routes', authenticate, requireRole('vendor'), createRoute);
+router.delete('/routes/:id', authenticate, requireRole('vendor'), deleteRoute);
 
 router.get('/matching', matchingVendors);
 

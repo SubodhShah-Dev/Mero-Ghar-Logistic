@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import { SHIPMENTS, PAYMENT } from '../services/api'
+import { SHIPMENTS, PAYMENT, VENDOR } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { COLORS, FONTS } from '../utils/theme'
 import { provinces, getDistricts } from '../utils/nepal'
@@ -137,6 +137,8 @@ export default function BookingScreen() {
   const [payMobile, setPayMobile] = useState('')
   const [payPassword, setPayPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [matchingVendors, setMatchingVendors] = useState<Array<{ id: number; business_name: string; rating: number; total_jobs: number; service_region: string }>>([])
+  const [selectedVendor, setSelectedVendor] = useState<number | null>(null)
 
   const steps = ['Location', 'Items', 'Vehicle', 'Extras', 'Contact']
 
@@ -267,6 +269,16 @@ export default function BookingScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: true })
   }
 
+  useEffect(() => {
+    if (form.vehicle_type && form.pickup_province && form.drop_province && step === 2) {
+      VENDOR.getMatching(form.vehicle_type, form.pickup_province, form.drop_province, form.pickup_district, form.drop_district)
+        .then(({ data }) => setMatchingVendors(data.vendors || []))
+        .catch(() => setMatchingVendors([]))
+    } else {
+      setMatchingVendors([])
+    }
+  }, [form.vehicle_type, form.pickup_province, form.drop_province, form.pickup_district, form.drop_district, step])
+
   const handleSubmit = async () => {
     if (!validateStep(4)) return
     setSubmitting(true)
@@ -276,6 +288,7 @@ export default function BookingScreen() {
         user_id: user?.id || null,
         selected_items: form.selected_items,
         add_on_services: form.add_on_services,
+        vendor_id: matchingVendors.length > 0 ? selectedVendor : null,
       })
       const data = res.data
       if (!data.success) {
@@ -472,6 +485,28 @@ export default function BookingScreen() {
             })}
             {renderError('vehicle_type')}
             <Text style={styles.hint}>Estimate shown; final quote is confirmed by your mover after booking.</Text>
+            {form.vehicle_type && matchingVendors.length > 0 && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.sectionTitle}>Available Movers</Text>
+                <Text style={styles.hint}>Pick a mover for this route, or auto-match and we'll choose the best one.</Text>
+                <TouchableOpacity onPress={() => setSelectedVendor(null)} style={[styles.moverCard, selectedVendor === null ? styles.moverCardActive : null]}>
+                  <Text style={[styles.moverName, selectedVendor === null ? styles.moverNameActive : null]}>Auto-match — we pick the best mover</Text>
+                  <Text style={styles.moverMeta}>Best-rated available mover on this route gets the job.</Text>
+                </TouchableOpacity>
+                {matchingVendors.map((v) => (
+                  <TouchableOpacity key={v.id} onPress={() => setSelectedVendor(v.id)} style={[styles.moverCard, selectedVendor === v.id ? styles.moverCardActive : null]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={[styles.moverName, selectedVendor === v.id ? styles.moverNameActive : null]}>{v.business_name}</Text>
+                      <Text style={styles.moverRating}>★ {v.rating} ({v.total_jobs} jobs)</Text>
+                    </View>
+                    <Text style={styles.moverMeta}>{v.service_region || 'No region specified'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {form.vehicle_type && matchingVendors.length === 0 && (
+              <Text style={styles.hint}>No movers available for this route yet — we'll match one after you submit.</Text>
+            )}
           </>
         )}
 
@@ -739,6 +774,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: 4,
+  },
+  moverCard: {
+    backgroundColor: COLORS.forest[800],
+    borderWidth: 2,
+    borderColor: COLORS.forest[600],
+    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  moverCardActive: {
+    borderColor: COLORS.saffron[400],
+    backgroundColor: 'rgba(245, 166, 35, 0.1)',
+  },
+  moverName: {
+    color: COLORS.cream[50],
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  moverNameActive: {
+    color: COLORS.saffron[300],
+  },
+  moverRating: {
+    color: COLORS.saffron[400],
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  moverMeta: {
+    color: COLORS.forest[400],
+    fontSize: 12,
+    marginTop: 2,
   },
   hint: {
     color: COLORS.forest[400],
