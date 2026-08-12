@@ -1,61 +1,115 @@
-import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import {
+  View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity,
+  TextInput, RefreshControl, Alert,
+} from 'react-native'
 import { SHIPMENTS, ADMIN } from '../services/api'
 import { COLORS } from '../utils/theme'
 
-type Filter = 'all' | 'pending' | 'approved' | 'delivered'
+type Tab = 'overview' | 'shipments' | 'settings'
+type Filter = 'all' | 'pending' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled'
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: '#f5a623',
+  accepted: '#5aa9e6',
+  in_transit: '#b07cc6',
+  delivered: '#4caf7d',
+  cancelled: '#e74c3c',
+}
+
+const FILTERS: Filter[] = ['all', 'pending', 'accepted', 'in_transit', 'delivered', 'cancelled']
+
+const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+const money = (v: number) => `NPR ${v.toLocaleString()}`
 
 export default function AdminScreen() {
+  const [tab, setTab] = useState<Tab>('overview')
   const [shipments, setShipments] = useState<any[]>([])
+  const [vendors, setVendors] = useState<any[]>([])
+  const [settings, setSettings] = useState<Record<string, string>>({})
+  const [draftSettings, setDraftSettings] = useState<Record<string, string>>({})
   const [filter, setFilter] = useState<Filter>('all')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
-      const res = await SHIPMENTS.getAll()
-      setShipments(res.data.shipments || [])
+      const [sRes, vRes, stRes] = await Promise.all([
+        SHIPMENTS.getAll(),
+        ADMIN.getVendors(),
+        ADMIN.getSettings(),
+      ])
+      setShipments(sRes.data.shipments || [])
+      setVendors(vRes.data.vendors || [])
+      const raw: Record<string, string> = stRes.data.settings || {}
+      const norm: Record<string, string> = {}
+      for (const [k, v] of Object.entries(raw)) norm[k] = String(v)
+      setSettings(norm)
+      setDraftSettings(norm)
     } catch {} finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
-  const approveShipment = async (id: number) => {
+  const onRefresh = () => {
+    setRefreshing(true)
+    load()
+  }
+
+  const saveSettings = async () => {
+    setSaving(true)
     try {
-      await ADMIN.approveShipment(id)
-      Alert.alert('Success', 'Shipment approved')
-      await load()
-    } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Failed to approve')
+      const changed = Object.entries(draftSettings).filter(([k, v]) => settings[k] !== v)
+      await Promise.all(changed.map(([key, value]) => ADMIN.updateSettings(key, value)))
+      setSettings({ ...draftSettings })
+      Alert.alert('Success', 'Settings saved')
+    } catch {
+      Alert.alert('Error', 'Failed to save settings')
+    } finally {
+      setSaving(false)
     }
   }
 
-  const rejectShipment = async (id: number) => {
-    Alert.alert('Reject shipment?', 'This will mark the booking as rejected.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reject',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await ADMIN.rejectShipment(id)
-            Alert.alert('Success', 'Shipment rejected')
-            await load()
-          } catch (e: any) {
-            Alert.alert('Error', e?.response?.data?.message || 'Failed to reject')
-          }
-        },
-      },
-    ])
-  }
+  const activeVendors = vendors.filter((v) => v.status === 'active')
+  const totalRevenue = shipments
+    .filter((s) => s.payment_status === 'paid' && s.final_quote)
+    .reduce((sum, s) => sum + (s.final_quote || 0), 0)
+  const deliveredCount = shipments.filter((s) => s.status === 'delivered').length
+  const inTransitCount = shipments.filter((s) => s.status === 'in_transit').length
+  const pendingCount = shipments.filter((s) => s.status === 'pending').length
+  const completionRate = shipments.length > 0 ? Math.round((deliveredCount / shipments.length) * 100) : 0
 
-  const visible = shipments.filter((s) => {
-    if (filter === 'all') return true
-    return s.status === filter || s.approval_status === filter
-  })
+  const statusDist = useMemo(() => {
+    return (Object.keys(STATUS_COLORS) as Filter[])
+      .map((status) => ({ status, value: shipments.filter((s) => s.status === status).length }))
+      .filter((d) => d.value > 0)
+  }, [shipments])
+  const maxStatus = Math.max(1, ...statusDist.map((d) => d.value))
+
+  const days = useMemo(() => {
+    const now = new Date()
+    const out: { label: string; value: number }[] = []
+    const byDay = new Map<string, number>()
+    for (const s of shipments) {
+      if (!s.created_at) continue
+      const key = dayKey(new Date(s.created_at))
+      byDay.set(key, (byDay.get(key) || 0) + 1)
+    }
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+      out.push({ label: d.getDate().toString(), value: byDay.get(dayKey(d)) || 0 })
+    }
+    return out
+  }, [shipments])
+  const maxDay = Math.max(1, ...days.map((d) => d.value))
+
+  const visible = shipments.filter((s) => filter === 'all' || s.status === filter)
 
   if (loading) {
     return (
@@ -65,74 +119,134 @@ export default function AdminScreen() {
     )
   }
 
-  const filters: Filter[] = ['all', 'pending', 'approved', 'delivered']
+  const tabStyle = (t: Tab) => [styles.tab, tab === t && styles.tabActive]
+  const tabTextStyle = (t: Tab) => [styles.tabText, tab === t && styles.tabTextActive]
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNum}>{shipments.length}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNum}>{shipments.filter((s) => s.status === 'pending' && s.approval_status === 'pending').length}</Text>
-          <Text style={styles.statLabel}>Unmatched</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNum}>{shipments.filter((s) => s.status === 'delivered').length}</Text>
-          <Text style={styles.statLabel}>Delivered</Text>
-        </View>
-      </View>
-
-      <View style={styles.filterRow}>
-        {filters.map((f) => (
-          <TouchableOpacity key={f} onPress={() => setFilter(f)}
-            style={[styles.filterChip, filter === f && styles.filterChipActive]}>
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+    <View style={styles.container}>
+      <View style={styles.tabRow}>
+        {(['overview', 'shipments', 'settings'] as Tab[]).map((t) => (
+          <TouchableOpacity key={t} onPress={() => setTab(t)} style={tabStyle(t)}>
+            <Text style={tabTextStyle(t)}>{t === 'overview' ? 'Overview' : t === 'shipments' ? `Shipments (${shipments.length})` : 'Settings'}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <Text style={[styles.title, { marginTop: 8 }]}>All Shipments</Text>
-      <Text style={{ color: COLORS.forest[500], fontSize: 12, marginBottom: 12 }}>
-        Approve/Reject only shows for unmatched bookings — no mover was auto-assigned.
-      </Text>
-      {visible.length === 0 ? (
-        <Text style={{ color: COLORS.forest[400], fontSize: 15 }}>No shipments here.</Text>
-      ) : (
-        visible.map((s: any) => (
-          <View key={s.id} style={styles.card}>
-            <View style={styles.cardRow}>
-              <Text style={styles.idText}>{s.booking_id}</Text>
-              <Text style={styles.statusText}>{s.status}</Text>
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} contentContainerStyle={{ paddingBottom: 24 }}>
+        {tab === 'overview' && (
+          <>
+            <Text style={styles.title}>Overview</Text>
+
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}><Text style={styles.statNum}>{shipments.length}</Text><Text style={styles.statLabel}>Total</Text></View>
+              <View style={styles.statCard}><Text style={[styles.statNum, { color: '#f5a623' }]}>{pendingCount}</Text><Text style={styles.statLabel}>Pending</Text></View>
+              <View style={styles.statCard}><Text style={[styles.statNum, { color: '#5aa9e6' }]}>{inTransitCount}</Text><Text style={styles.statLabel}>In Transit</Text></View>
             </View>
-            <Text style={styles.routeText}>{s.pickup_city} → {s.drop_city}</Text>
-            <Text style={styles.customerText}>{s.first_name} {s.last_name} · {s.mobile_number}</Text>
-            {s.payment_status !== 'pending' && (
-              <Text style={{ color: COLORS.saffron[300], fontSize: 12, marginTop: 4 }}>
-                Payment: {s.payment_status}
-              </Text>
-            )}
-            <Text style={{ color: COLORS.forest[400], fontSize: 12, marginTop: 2 }}>
-              Approval: {s.approval_status}{s.vendor_name ? ` · Mover: ${s.vendor_name}` : ''}
-            </Text>
-            {s.approval_status === 'pending' && s.status === 'pending' && (
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <TouchableOpacity onPress={() => approveShipment(s.id)}
-                  style={[styles.actionBtn, { backgroundColor: '#4caf7d' }]}>
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Approve</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => rejectShipment(s.id)}
-                  style={[styles.actionBtn, { backgroundColor: '#c0393b' }]}>
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Reject</Text>
-                </TouchableOpacity>
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}><Text style={[styles.statNum, { color: '#4caf7d' }]}>{deliveredCount}</Text><Text style={styles.statLabel}>Delivered</Text></View>
+              <View style={styles.statCard}><Text style={[styles.statNum, { color: COLORS.saffron[300] }]}>{completionRate}%</Text><Text style={styles.statLabel}>Completion</Text></View>
+              <View style={styles.statCard}><Text style={[styles.statNum, { color: '#b07cc6' }]}>{vendors.length}</Text><Text style={styles.statLabel}>Vendors</Text></View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Revenue</Text>
+              <Text style={styles.revenue}>{money(totalRevenue)}</Text>
+              <Text style={styles.cardSub}>from {shipments.filter((s) => s.payment_status === 'paid').length} paid shipments · {activeVendors.length} active movers</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Status Distribution</Text>
+              {statusDist.length === 0 ? (
+                <Text style={styles.empty}>No shipments yet.</Text>
+              ) : (
+                statusDist.map((d) => (
+                  <View key={d.status} style={styles.hBarRow}>
+                    <Text style={[styles.hBarLabel, { color: STATUS_COLORS[d.status] }]}>{d.status.replace('_', ' ')}</Text>
+                    <View style={styles.hBarTrack}>
+                      <View style={[styles.hBarFill, { backgroundColor: STATUS_COLORS[d.status], width: `${Math.max((d.value / maxStatus) * 100, 4)}%` }]} />
+                    </View>
+                    <Text style={styles.hBarValue}>{d.value}</Text>
+                  </View>
+                ))
+              )}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Shipments</Text>
+              <Text style={styles.cardSub}>Last 7 days</Text>
+              <View style={styles.vBarRow}>
+                {days.map((d) => (
+                  <View key={d.label} style={styles.vBarCol}>
+                    <Text style={styles.vBarValue}>{d.value}</Text>
+                    <View style={styles.vBarTrack}>
+                      <View style={[styles.vBarFill, { height: `${Math.max((d.value / maxDay) * 100, d.value > 0 ? 8 : 2)}%` }]} />
+                    </View>
+                    <Text style={styles.vBarLabel}>{d.label}</Text>
+                  </View>
+                ))}
               </View>
+            </View>
+          </>
+        )}
+
+        {tab === 'shipments' && (
+          <>
+            <Text style={styles.title}>All Shipments</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              <View style={styles.filterRow}>
+                {FILTERS.map((f) => (
+                  <TouchableOpacity key={f} onPress={() => setFilter(f)} style={[styles.filterChip, filter === f && styles.filterChipActive]}>
+                    <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f.replace('_', ' ')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+            {visible.length === 0 ? (
+              <Text style={styles.empty}>No shipments here.</Text>
+            ) : (
+              visible.map((s) => (
+                <View key={s.id} style={styles.card}>
+                  <View style={styles.cardRow}>
+                    <Text style={styles.idText}>{s.booking_id}</Text>
+                    <Text style={[styles.statusText, { color: STATUS_COLORS[s.status] || COLORS.saffron[300] }]}>{s.status}</Text>
+                  </View>
+                  <Text style={styles.route}>{s.pickup_city} → {s.drop_city}</Text>
+                  <Text style={styles.customer}>{s.first_name} {s.last_name} · {s.mobile_number}</Text>
+                  <Text style={styles.customer}>Approval: {s.approval_status}{s.vendor_name ? ` · Mover: ${s.vendor_name}` : ''}</Text>
+                  <Text style={styles.customer}>Payment: {s.payment_status}{s.final_quote ? ` · ${money(s.final_quote)}` : ''}</Text>
+                </View>
+              ))
             )}
-          </View>
-        ))
-      )}
-    </ScrollView>
+          </>
+        )}
+
+        {tab === 'settings' && (
+          <>
+            <Text style={styles.title}>Settings</Text>
+            {Object.entries(draftSettings).length === 0 ? (
+              <Text style={styles.empty}>No settings configured.</Text>
+            ) : (
+              <>
+                {Object.entries(draftSettings).map(([key, value]) => (
+                  <View key={key} style={styles.card}>
+                    <Text style={styles.cardSub}>{key}</Text>
+                    <TextInput
+                      value={value}
+                      onChangeText={(v) => setDraftSettings((prev) => ({ ...prev, [key]: v }))}
+                      style={styles.input}
+                      placeholderTextColor={COLORS.forest[400]}
+                    />
+                  </View>
+                ))}
+                <TouchableOpacity onPress={saveSettings} disabled={saving} style={styles.saveBtn}>
+                  <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save All'}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </View>
   )
 }
 
@@ -140,20 +254,45 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.forest[950], padding: 16 },
   center: { flex: 1, backgroundColor: COLORS.forest[950], justifyContent: 'center', alignItems: 'center' },
   title: { color: COLORS.cream[50], fontSize: 22, fontWeight: '900', marginBottom: 16 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
+  tabActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  tabText: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: COLORS.saffron[300] },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   statCard: { flex: 1, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], borderRadius: 4, padding: 16, alignItems: 'center' },
-  statNum: { color: COLORS.saffron[400], fontSize: 28, fontWeight: '900' },
+  statNum: { color: COLORS.saffron[400], fontSize: 26, fontWeight: '900' },
   statLabel: { color: COLORS.forest[400], fontSize: 12, marginTop: 4 },
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  card: { backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], borderRadius: 4, padding: 16, marginBottom: 12 },
+  cardTitle: { color: COLORS.cream[50], fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  cardSub: { color: COLORS.forest[400], fontSize: 12, marginBottom: 10 },
+  revenue: { color: COLORS.saffron[400], fontSize: 26, fontWeight: '900' },
+  empty: { color: COLORS.forest[400], fontSize: 15 },
+  hBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 4 },
+  hBarLabel: { width: 90, fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
+  hBarTrack: { flex: 1, height: 18, backgroundColor: COLORS.forest[800], borderRadius: 4, overflow: 'hidden' },
+  hBarFill: { height: '100%', borderRadius: 4 },
+  hBarValue: { width: 30, textAlign: 'right', color: COLORS.cream[200], fontSize: 12, fontWeight: '600' },
+  vBarRow: { flexDirection: 'row', alignItems: 'flex-end', height: 140, marginTop: 8 },
+  vBarCol: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
+  vBarValue: { color: COLORS.cream[200], fontSize: 10, fontWeight: '600', marginBottom: 4 },
+  vBarTrack: { width: 22, flex: 1, backgroundColor: COLORS.forest[800], borderRadius: 4, justifyContent: 'flex-end', overflow: 'hidden' },
+  vBarFill: { width: '100%', backgroundColor: 'rgba(245,166,35,0.85)', borderRadius: 4 },
+  vBarLabel: { color: COLORS.forest[500], fontSize: 10, marginTop: 4 },
+  filterRow: { flexDirection: 'row', gap: 8 },
   filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
   filterChipActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
-  filterText: { color: COLORS.forest[300], fontSize: 12, fontWeight: '600', textTransform: 'capitalize' as const },
+  filterText: { color: COLORS.forest[300], fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
   filterTextActive: { color: COLORS.saffron[300] },
-  card: { backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], borderRadius: 4, padding: 16, marginBottom: 12 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   idText: { color: COLORS.cream[50], fontSize: 14, fontWeight: '700' },
-  statusText: { color: COLORS.saffron[300], fontSize: 12, fontWeight: '600', textTransform: 'capitalize' as const },
-  routeText: { color: COLORS.forest[300], fontSize: 14, marginBottom: 4 },
-  customerText: { color: COLORS.forest[400], fontSize: 13 },
-  actionBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 4 },
+  statusText: { color: COLORS.saffron[300], fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
+  route: { color: COLORS.forest[300], fontSize: 14, marginBottom: 4 },
+  customer: { color: COLORS.forest[400], fontSize: 13, marginBottom: 2 },
+  input: {
+    backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4,
+    color: COLORS.cream[50], paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+  },
+  saveBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 4 },
+  saveText: { color: COLORS.forest[900], fontWeight: '700', fontSize: 15 },
 })

@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
-  LayoutDashboard, Truck, Users, Settings, Ticket, Check, X,
-  MapPin, Calendar, CreditCard, BadgeCheck, Package,
+  LayoutDashboard, Truck, Users, Settings, Ticket, BadgeCheck,
+  CreditCard, Calendar,
 } from 'lucide-react'
 import { ADMIN, AUTH, SHIPMENTS, TICKETS } from '../services/api'
 import { useToast } from '../context/ToastContext'
+import { ChartCard, Bars, HBars, Donut } from '../components/charts'
 import type { Shipment, Vendor as VendorType, SupportTicket } from '../types'
 
 type Tab = 'dashboard' | 'shipments' | 'vendors' | 'users' | 'settings' | 'tickets'
@@ -19,6 +20,14 @@ type AdminUser = {
 }
 
 const statusFilterOptions = ['all', 'pending', 'accepted', 'in_transit', 'delivered', 'cancelled']
+
+const statusColors: Record<string, string> = {
+  pending: '#f5a623',
+  accepted: '#5aa9e6',
+  in_transit: '#b07cc6',
+  delivered: '#4caf7d',
+  cancelled: '#e74c3c',
+}
 
 const statusBadge = (status: string) => {
   const map: Record<string, string> = {
@@ -40,6 +49,14 @@ const approvalBadge = (status: string) => {
   return map[status] || 'bg-forest-700 text-forest-300'
 }
 
+const money = (value: number) => `NPR ${value.toLocaleString()}`
+
+const monthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+const dayKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const [shipments, setShipments] = useState<Shipment[]>([])
@@ -49,7 +66,6 @@ export default function AdminPage() {
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({})
   const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [statusFilter, setStatusFilter] = useState('all')
-  const [vendorForApproval, setVendorForApproval] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const { showToast } = useToast()
@@ -82,6 +98,7 @@ export default function AdminPage() {
   }, [showToast])
 
   const toggleVendorStatus = async (id: number, currentStatus: string) => {
+    if (currentStatus === 'banned') return
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
     try {
       await ADMIN.updateVendorStatus(id, newStatus)
@@ -90,29 +107,6 @@ export default function AdminPage() {
     } catch {
       showToast('Failed to update vendor', 'red')
     }
-  }
-
-  const approveShipment = async (id: number) => {
-    const vendorId = Number(vendorForApproval[id])
-    if (!vendorId) {
-      showToast('Select a vendor to assign first', 'red')
-      return
-    }
-    try {
-      await ADMIN.approveShipment(id, vendorId)
-      showToast('Shipment approved', 'green')
-      loadAll()
-    } catch (err: unknown) {
-      showToast((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to approve', 'red')
-    }
-  }
-
-  const rejectShipment = async (id: number) => {
-    try {
-      await ADMIN.rejectShipment(id)
-      showToast('Shipment rejected', 'green')
-      loadAll()
-    } catch { showToast('Failed to reject', 'red') }
   }
 
   const saveSettings = async () => {
@@ -157,8 +151,6 @@ export default function AdminPage() {
   ]
 
   const activeVendors = vendors.filter((v) => v.status === 'active')
-
-  const pendingApprovals = shipments.filter((s) => s.approval_status === 'pending')
   const recentShipments = [...shipments].sort((a, b) => b.id - a.id).slice(0, 6)
   const filteredShipments = statusFilter === 'all'
     ? shipments
@@ -168,9 +160,69 @@ export default function AdminPage() {
     .filter((s) => s.payment_status === 'paid' && s.final_quote)
     .reduce((sum, s) => sum + (s.final_quote || 0), 0)
   const deliveredCount = shipments.filter((s) => s.status === 'delivered').length
+  const inTransitCount = shipments.filter((s) => s.status === 'in_transit').length
+  const pendingCount = shipments.filter((s) => s.status === 'pending').length
   const completionRate = shipments.length > 0
     ? Math.round((deliveredCount / shipments.length) * 100)
     : 0
+
+  const stats = useMemo(() => {
+    const now = new Date()
+
+    // Status distribution
+    const statusDist = (Object.keys(statusColors) as string[]).map((status) => ({
+      label: status,
+      value: shipments.filter((s) => s.status === status).length,
+      color: statusColors[status],
+    })).filter((d) => d.value > 0)
+
+    // Shipments per day, last 14 days
+    const days: { key: string; label: string; value: number }[] = []
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+      days.push({ key: dayKey(d), label: d.getDate().toString(), value: 0 })
+    }
+    const byDay = new Map<string, number>()
+    for (const s of shipments) {
+      if (!s.created_at) continue
+      const key = dayKey(new Date(s.created_at))
+      byDay.set(key, (byDay.get(key) || 0) + 1)
+    }
+    for (const d of days) d.value = byDay.get(d.key) || 0
+
+    // Monthly revenue, last 6 months
+    const months: { key: string; label: string; value: number }[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      months.push({
+        key: monthKey(d),
+        label: d.toLocaleString('en', { month: 'short' }),
+        value: 0,
+      })
+    }
+    const revByMonth = new Map<string, number>()
+    for (const s of shipments) {
+      if (s.payment_status !== 'paid' || !s.final_quote || !s.created_at) continue
+      const key = monthKey(new Date(s.created_at))
+      revByMonth.set(key, (revByMonth.get(key) || 0) + (s.final_quote || 0))
+    }
+    for (const m of months) m.value = revByMonth.get(m.key) || 0
+
+    // Vehicle-type mix
+    const vehicleMix = new Map<string, number>()
+    for (const s of shipments) {
+      if (!s.vehicle_type) continue
+      vehicleMix.set(s.vehicle_type, (vehicleMix.get(s.vehicle_type) || 0) + 1)
+    }
+
+    // Top vendors by completed jobs
+    const topVendors = [...vendors]
+      .sort((a, b) => b.total_jobs - a.total_jobs)
+      .slice(0, 5)
+      .map((v) => ({ label: v.business_name, value: v.total_jobs }))
+
+    return { statusDist, days, months, vehicleMix, topVendors }
+  }, [shipments, vendors])
 
   if (loading) {
     return (
@@ -215,13 +267,15 @@ export default function AdminPage() {
         <main className="flex-1 pt-6 pb-12 min-w-0">
           {tab === 'dashboard' && (
             <div className="space-y-6">
-              <h1 className="font-display font-black text-2xl text-cream-50">Dashboard</h1>
+              <div className="flex items-center justify-between">
+                <h1 className="font-display font-black text-2xl text-cream-50">Dashboard</h1>
+              </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: 'Total Shipments', value: shipments.length, color: 'bg-saffron-400/10 border-saffron-400/30 text-saffron-400' },
-                  { label: 'Unmatched (No Mover)', value: pendingApprovals.length, color: 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400' },
-                  { label: 'In Transit', value: shipments.filter((s) => s.status === 'in_transit').length, color: 'bg-blue-400/10 border-blue-400/30 text-blue-400' },
+                  { label: 'Pending', value: pendingCount, color: 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400' },
+                  { label: 'In Transit', value: inTransitCount, color: 'bg-blue-400/10 border-blue-400/30 text-blue-400' },
                   { label: 'Delivered', value: deliveredCount, color: 'bg-green-400/10 border-green-400/30 text-green-400' },
                   { label: 'Vendors', value: vendors.length, color: 'bg-purple-400/10 border-purple-400/30 text-purple-400' },
                   { label: 'Active Vendors', value: activeVendors.length, color: 'bg-teal-400/10 border-teal-400/30 text-teal-400' },
@@ -240,63 +294,49 @@ export default function AdminPage() {
                   <CreditCard className="w-5 h-5 text-saffron-400" />
                   <p className="text-sm text-forest-300">
                     Collected revenue:{' '}
-                    <span className="text-cream-50 font-bold text-lg">NPR {totalRevenue.toLocaleString()}</span>
+                    <span className="text-cream-50 font-bold text-lg">{money(totalRevenue)}</span>
                     <span className="text-forest-500"> from {shipments.filter((s) => s.payment_status === 'paid').length} paid shipments</span>
                   </p>
                 </div>
               )}
 
               <div className="grid lg:grid-cols-2 gap-6">
-                {/* Unmatched bookings (fallback approval) */}
-                <div className="bg-forest-900 border border-forest-700 rounded-sm p-5">
-                  <h2 className="font-display font-bold text-base text-cream-50 mb-1 flex items-center gap-2">
-                    <Check className="w-4 h-4 text-saffron-400" /> Unmatched Bookings ({pendingApprovals.length})
-                  </h2>
-                  <p className="text-forest-500 text-xs mb-3">
-                    No mover was auto-assigned. Approve + assign a vendor to route it directly, or reject it.
-                  </p>
-                  {pendingApprovals.length === 0 ? (
-                    <p className="text-forest-400 text-sm">All bookings auto-assigned a mover. Nothing needs attention.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {pendingApprovals.map((s) => (
-                        <div key={s.id} className="bg-forest-800 border border-forest-600 rounded-sm p-4 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-cream-50 truncate">{s.first_name} {s.last_name}</p>
-                            <p className="text-xs text-forest-400 truncate flex items-center gap-1">
-                              <MapPin className="w-3 h-3 shrink-0" /> {s.pickup_city} → {s.drop_city} · {s.vehicle_type}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <select
-                              value={vendorForApproval[s.id] || ''}
-                              onChange={(e) => setVendorForApproval((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                              className="bg-forest-900 border border-forest-600 rounded-sm px-2 py-1.5 text-xs text-cream-50 outline-none focus:border-saffron-400 max-w-[140px]">
-                              <option value="">Assign vendor</option>
-                              {activeVendors.map((v) => (
-                                <option key={v.id} value={v.id}>{v.business_name}</option>
-                              ))}
-                            </select>
-                            <button onClick={() => approveShipment(s.id)} title="Approve"
-                              className="p-1.5 bg-green-400/20 text-green-300 rounded hover:bg-green-400/30">
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => rejectShipment(s.id)} title="Reject"
-                              className="p-1.5 bg-red-400/20 text-red-300 rounded hover:bg-red-400/30">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <ChartCard title="Shipments" subtitle="Last 14 days">
+                  <Bars data={stats.days} />
+                </ChartCard>
+                <ChartCard title="Status Distribution" subtitle="All shipments by current status">
+                  {stats.statusDist.length === 0
+                    ? <p className="text-forest-400 text-sm">No shipments yet.</p>
+                    : <Donut segments={stats.statusDist} centerLabel={String(shipments.length)} />}
+                </ChartCard>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-6">
+                <ChartCard title="Monthly Revenue" subtitle="Paid shipments, last 6 months">
+                  {stats.months.some((m) => m.value > 0)
+                    ? <Bars data={stats.months} format={money} />
+                    : <p className="text-forest-400 text-sm">No revenue recorded yet.</p>}
+                </ChartCard>
+                <ChartCard title="Top Movers" subtitle="By completed jobs">
+                  {stats.topVendors.length === 0
+                    ? <p className="text-forest-400 text-sm">No movers registered.</p>
+                    : <HBars data={stats.topVendors} />}
+                </ChartCard>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-6">
+                <ChartCard title="Vehicle Mix" subtitle="Requested vehicle types">
+                  {stats.vehicleMix.size === 0
+                    ? <p className="text-forest-400 text-sm">No bookings yet.</p>
+                    : (
+                      <HBars
+                        data={[...stats.vehicleMix.entries()].map(([label, value]) => ({ label, value }))}
+                      />
+                    )}
+                </ChartCard>
 
                 {/* Recent shipments */}
-                <div className="bg-forest-900 border border-forest-700 rounded-sm p-5">
-                  <h2 className="font-display font-bold text-base text-cream-50 mb-3 flex items-center gap-2">
-                    <Package className="w-4 h-4 text-saffron-400" /> Recent Shipments
-                  </h2>
+                <ChartCard title="Recent Shipments">
                   {recentShipments.length === 0 ? (
                     <p className="text-forest-400 text-sm">No shipments yet.</p>
                   ) : (
@@ -315,7 +355,7 @@ export default function AdminPage() {
                       ))}
                     </div>
                   )}
-                </div>
+                </ChartCard>
               </div>
             </div>
           )}
@@ -352,7 +392,6 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-3">Payment</th>
                         <th className="text-left py-3 px-3">Approval</th>
                         <th className="text-left py-3 px-3">Status</th>
-                        <th className="text-left py-3 px-3">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -376,31 +415,6 @@ export default function AdminPage() {
                           </td>
                           <td className="py-3 px-3">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusBadge(s.status)}`}>{s.status}</span>
-                          </td>
-                          <td className="py-3 px-3">
-                            {s.approval_status === 'pending' ? (
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={vendorForApproval[s.id] || ''}
-                                  onChange={(e) => setVendorForApproval((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                                  className="bg-forest-900 border border-forest-600 rounded-sm px-1.5 py-1 text-xs text-cream-50 outline-none focus:border-saffron-400 max-w-[120px]">
-                                  <option value="">Vendor</option>
-                                  {activeVendors.map((v) => (
-                                    <option key={v.id} value={v.id}>{v.business_name}</option>
-                                  ))}
-                                </select>
-                                <button onClick={() => approveShipment(s.id)} title="Approve"
-                                  className="p-1.5 bg-green-400/20 text-green-300 rounded hover:bg-green-400/30">
-                                  <Check className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => rejectShipment(s.id)} title="Reject"
-                                  className="p-1.5 bg-red-400/20 text-red-300 rounded hover:bg-red-400/30">
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-forest-500 text-xs">—</span>
-                            )}
                           </td>
                         </tr>
                       ))}
@@ -448,14 +462,18 @@ export default function AdminPage() {
                             }`}>{v.status}</span>
                           </td>
                           <td className="py-3 px-3">
-                            <button onClick={() => toggleVendorStatus(v.id, v.status)}
-                              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                                v.status === 'active'
-                                  ? 'bg-red-400/20 text-red-300 hover:bg-red-400/30'
-                                  : 'bg-green-400/20 text-green-300 hover:bg-green-400/30'
-                              }`}>
-                              {v.status === 'active' ? 'Deactivate' : 'Activate'}
-                            </button>
+                            {v.status === 'banned' ? (
+                              <span className="px-3 py-1.5 rounded text-xs font-medium bg-red-400/20 text-red-300">Banned</span>
+                            ) : (
+                              <button onClick={() => toggleVendorStatus(v.id, v.status)}
+                                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                                  v.status === 'active'
+                                    ? 'bg-red-400/20 text-red-300 hover:bg-red-400/30'
+                                    : 'bg-green-400/20 text-green-300 hover:bg-green-400/30'
+                                }`}>
+                                {v.status === 'active' ? 'Deactivate' : 'Activate'}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

@@ -55,12 +55,7 @@ export const SHIPMENTS = {
 }
 
 export const ADMIN = {
-  getPendingShipments: () => api.get('/api/admin/shipments/pending'),
   getShipmentsByStatus: (status: string) => api.get(`/api/admin/shipments/status/${status}`),
-  approveShipment: (id: number, vendorId?: number) =>
-    api.put(`/api/admin/shipments/${id}/approve`, { vendor_id: vendorId }),
-  rejectShipment: (id: number, reason?: string) =>
-    api.put(`/api/admin/shipments/${id}/reject`, { reason }),
   getVendors: () => api.get('/api/admin/vendors'),
   getActiveVendors: () => api.get('/api/admin/vendors/active'),
   updateVendorStatus: (id: number, status: string) =>

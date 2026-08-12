@@ -43,6 +43,9 @@ export const VENDOR = {
   deleteVehicle: (id: number) => api.delete(`/api/vendor/vehicles/${id}`),
   getAvailable: () => api.get('/api/vendor/available'),
   claim: (id: number) => api.put(`/api/vendor/shipments/${id}/claim`),
+  getProfile: () => api.get('/api/vendor/profile'),
+  updateProfile: (data: Record<string, unknown>) => api.put('/api/vendor/profile', data),
+  rejectShipment: (id: number) => api.put(`/api/vendor/shipments/${id}/reject`),
 }
 
 export const CHAT = {
@@ -52,12 +55,9 @@ export const CHAT = {
 }
 
 export const ADMIN = {
-  getPendingShipments: () => api.get('/api/admin/shipments/pending'),
   getShipmentsByStatus: (status: string) => api.get(`/api/admin/shipments/status/${status}`),
   getVendors: () => api.get('/api/admin/vendors'),
   getActiveVendors: () => api.get('/api/admin/vendors/active'),
-  approveShipment: (id: number) => api.put(`/api/admin/shipments/${id}/approve`),
-  rejectShipment: (id: number) => api.put(`/api/admin/shipments/${id}/reject`),
   updateVendorStatus: (id: number, status: string) =>
     api.put(`/api/admin/vendors/${id}/status`, { status }),
   getSettings: () => api.get('/api/settings'),

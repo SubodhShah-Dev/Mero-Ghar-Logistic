@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
-import { Truck, Package, Plus, X, User, Ticket, Star, Send, MessageCircle, MapPin } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import { Truck, Package, Plus, X, User, Ticket, Star, Send, MessageCircle, MapPin, ChevronDown, ChevronUp, Wallet } from 'lucide-react'
 import { VENDOR, TICKETS } from '../services/api'
 import { useToast } from '../context/ToastContext'
 import ChatPanel from '../components/ChatPanel'
+import { ChartCard, Bars } from '../components/charts'
 import type { Shipment, Vehicle, SupportTicket } from '../types'
 
 type Tab = 'jobs' | 'claim' | 'fleet' | 'tickets' | 'profile'
@@ -16,6 +17,24 @@ const statusBadge = (status: string) => {
     cancelled: 'bg-red-400/20 text-red-300',
   }
   return map[status] || 'bg-forest-700 text-forest-300'
+}
+
+const jobStatusFilter = ['all', 'pending', 'accepted', 'in_transit', 'delivered', 'cancelled']
+
+const monthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+const money = (value: number) => `NPR ${value.toLocaleString()}`
+
+const parseList = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map(String)
+  if (typeof value !== 'string' || !value) return []
+  let cur: unknown = value
+  for (let i = 0; i < 3; i++) {
+    try { cur = JSON.parse(cur as string) } catch { break }
+  }
+  if (Array.isArray(cur)) return cur.map(String)
+  return typeof cur === 'string' && cur ? [cur] : []
 }
 
 export default function VendorPage() {
@@ -33,6 +52,8 @@ export default function VendorPage() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showAddVehicle, setShowAddVehicle] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [expandedId, setExpandedId] = useState<number | null>(null)
   const [newVehicle, setNewVehicle] = useState({ name: '', plate_number: '', vehicle_type: '', capacity_tonnes: 0, driver_name: '', driver_phone: '' })
   const { showToast } = useToast()
 
@@ -67,7 +88,8 @@ export default function VendorPage() {
       }
       if (actions[action]) {
         await actions[action]()
-        showToast(`Job ${action}ed`, 'green')
+        const verbs: Record<string, string> = { accept: 'accepted', start: 'started', complete: 'completed', reject: 'rejected' }
+        showToast(`Job ${verbs[action] || action}`, 'green')
         loadAll()
       }
     } catch { showToast('Failed to update', 'red') }
@@ -97,6 +119,14 @@ export default function VendorPage() {
       showToast('Vehicle removed', 'green')
       loadAll()
     } catch { showToast('Failed to remove vehicle', 'red') }
+  }
+
+  const toggleVehicleStatus = async (id: number, status: string) => {
+    try {
+      await VENDOR.updateVehicleStatus(id, status)
+      showToast(`Vehicle set to ${status}`, 'green')
+      loadAll()
+    } catch { showToast('Failed to update vehicle', 'red') }
   }
 
   const saveProfile = async () => {
@@ -147,7 +177,46 @@ export default function VendorPage() {
   const activeJobs = shipments.filter((s) => ['accepted', 'in_transit'].includes(s.status)).length
   const deliveredJobs = shipments.filter((s) => s.status === 'delivered').length
   const availableVehicles = vehicles.filter((v) => v.status === 'available').length
-  const totalQuotes = shipments.reduce((sum, s) => sum + (s.final_quote || 0), 0)
+  const totalEarned = shipments
+    .filter((s) => s.status === 'delivered' && s.final_quote)
+    .reduce((sum, s) => sum + (s.final_quote || 0), 0)
+  const completionRate = shipments.length > 0
+    ? Math.round((deliveredJobs / shipments.length) * 100)
+    : 0
+
+  const visibleJobs = useMemo(() => {
+    const filtered = statusFilter === 'all'
+      ? shipments
+      : shipments.filter((s) => s.status === statusFilter)
+    return [...filtered].sort((a, b) => {
+      const da = a.move_date ? new Date(a.move_date).getTime() : 0
+      const db = b.move_date ? new Date(b.move_date).getTime() : 0
+      if (da !== db) return da - db
+      return (a.id || 0) - (b.id || 0)
+    })
+  }, [shipments, statusFilter])
+
+  const earnings = useMemo(() => {
+    const now = new Date()
+    const months: { label: string; key: string; value: number }[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      months.push({ label: d.toLocaleString('en', { month: 'short' }), key: monthKey(d), value: 0 })
+    }
+    const byMonth = new Map<string, number>()
+    for (const s of shipments) {
+      if (s.status !== 'delivered' || !s.final_quote || !s.created_at) continue
+      const key = monthKey(new Date(s.created_at))
+      byMonth.set(key, (byMonth.get(key) || 0) + (s.final_quote || 0))
+    }
+    for (const m of months) m.value = byMonth.get(m.key) || 0
+    return months
+  }, [shipments])
+
+  const pickupFull = (s: Shipment) =>
+    [s.pickup_ward, s.pickup_city, s.pickup_district, s.pickup_province].filter(Boolean).join(', ')
+  const dropFull = (s: Shipment) =>
+    [s.drop_ward, s.drop_city, s.drop_district, s.drop_province].filter(Boolean).join(', ')
 
   if (loading) {
     return (
@@ -197,7 +266,7 @@ export default function VendorPage() {
                   { label: 'Active Jobs', value: activeJobs, color: 'bg-blue-400/10 border-blue-400/30 text-blue-400' },
                   { label: 'Delivered', value: deliveredJobs, color: 'bg-green-400/10 border-green-400/30 text-green-400' },
                   { label: 'Available Fleet', value: `${availableVehicles}/${vehicles.length}`, color: 'bg-teal-400/10 border-teal-400/30 text-teal-400' },
-                  { label: 'Total Quotes', value: totalQuotes ? `NPR ${totalQuotes.toLocaleString()}` : '—', color: 'bg-saffron-400/10 border-saffron-400/30 text-saffron-400' },
+                  { label: 'Completion Rate', value: `${completionRate}%`, color: 'bg-purple-400/10 border-purple-400/30 text-purple-400' },
                 ].map((s) => (
                   <div key={s.label} className={`${s.color} border rounded-sm p-5`}>
                     <p className="text-xl font-black">{s.value}</p>
@@ -206,11 +275,40 @@ export default function VendorPage() {
                 ))}
               </div>
 
-              {shipments.length === 0 ? (
-                <p className="text-forest-400 text-sm">No jobs assigned yet.</p>
+              {/* Earnings */}
+              <ChartCard
+                title="Monthly Earnings"
+                subtitle="Delivered jobs, last 6 months"
+                action={
+                  <div className="flex items-center gap-2 bg-saffron-400/10 border border-saffron-400/30 text-saffron-400 px-3 py-1.5 rounded-sm">
+                    <Wallet className="w-4 h-4" />
+                    <span className="text-sm font-black">{money(totalEarned)}</span>
+                    <span className="text-xs opacity-80">earned</span>
+                  </div>
+                }
+              >
+                {earnings.some((m) => m.value > 0)
+                  ? <Bars data={earnings} format={money} />
+                  : <p className="text-forest-400 text-sm">No delivered jobs yet — earnings appear here once you complete moves.</p>}
+              </ChartCard>
+
+              {/* Status filter */}
+              <div className="flex gap-1 flex-wrap">
+                {jobStatusFilter.map((opt) => (
+                  <button key={opt} onClick={() => setStatusFilter(opt)}
+                    className={`px-3 py-1.5 rounded text-xs font-medium transition-all capitalize ${
+                      statusFilter === opt ? 'bg-saffron-400 text-forest-900' : 'bg-forest-800 text-forest-400 hover:text-cream-50'
+                    }`}>
+                    {opt.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+
+              {visibleJobs.length === 0 ? (
+                <p className="text-forest-400 text-sm">No jobs{statusFilter !== 'all' ? ` with status "${statusFilter}"` : ''} assigned yet.</p>
               ) : (
                 <div className="space-y-4">
-                  {shipments.map((s) => (
+                  {visibleJobs.map((s) => (
                     <div key={s.id} className="bg-forest-900 border border-forest-700 rounded-sm p-6">
                       <div className="flex items-start justify-between gap-4 mb-3">
                         <div>
@@ -219,6 +317,25 @@ export default function VendorPage() {
                         </div>
                         <span className={`px-2.5 py-1 rounded text-xs font-medium ${statusBadge(s.status)}`}>{s.status}</span>
                       </div>
+
+                      {/* Progress strip */}
+                      {['pending', 'accepted', 'in_transit'].includes(s.status) && (
+                        <div className="flex items-center gap-1 mb-4">
+                          {['pending', 'accepted', 'in_transit', 'delivered'].map((step, i) => {
+                            const order = ['pending', 'accepted', 'in_transit', 'delivered']
+                            const done = order.indexOf(s.status) >= i
+                            return (
+                              <div key={step} className="flex-1 flex items-center gap-1">
+                                <div className={`flex-1 h-1 rounded ${done ? 'bg-saffron-400' : 'bg-forest-700'}`} />
+                                <span className={`text-[10px] capitalize ${done ? 'text-saffron-300' : 'text-forest-600'}`}>
+                                  {step.replace('_', ' ')}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-3 text-sm text-forest-300 mb-4">
                         <div><span className="text-forest-500">Customer:</span> {s.first_name} {s.last_name}</div>
                         <div><span className="text-forest-500">Phone:</span> {s.mobile_number}</div>
@@ -227,6 +344,29 @@ export default function VendorPage() {
                         {s.final_quote ? <div><span className="text-forest-500">Quote:</span> NPR {s.final_quote.toLocaleString()}</div> : null}
                         {s.payment_status ? <div><span className="text-forest-500">Payment:</span> <span className="capitalize">{s.payment_status}</span></div> : null}
                       </div>
+
+                      {expandedId === s.id && (
+                        <div className="grid sm:grid-cols-2 gap-3 text-sm text-forest-300 border-t border-forest-700 pt-4 mb-4">
+                          <div>
+                            <p className="text-forest-500 text-xs uppercase tracking-wide mb-1">Pickup</p>
+                            <p className="text-cream-200">{s.pickup_address || pickupFull(s)}</p>
+                            {s.pickup_floor && <p className="text-forest-400 text-xs mt-0.5">Floor: {s.pickup_floor} · Lane access: {s.pickup_lane_access || '—'}</p>}
+                          </div>
+                          <div>
+                            <p className="text-forest-500 text-xs uppercase tracking-wide mb-1">Drop-off</p>
+                            <p className="text-cream-200">{s.drop_address || dropFull(s)}</p>
+                            {s.drop_floor && <p className="text-forest-400 text-xs mt-0.5">Floor: {s.drop_floor}</p>}
+                          </div>
+                          {s.selected_items && (
+                            <div><span className="text-forest-500">Items:</span> {parseList(s.selected_items).join(', ') || '—'}</div>
+                          )}
+                          {s.add_on_services && <div><span className="text-forest-500">Add-ons:</span> {parseList(s.add_on_services).join(', ') || '—'}</div>}
+                          {s.special_notes && <div className="sm:col-span-2"><span className="text-forest-500">Notes:</span> {s.special_notes}</div>}
+                          {s.alternate_mobile && <div><span className="text-forest-500">Alt Phone:</span> {s.alternate_mobile}</div>}
+                          {s.preferred_time_slot && <div><span className="text-forest-500">Time Slot:</span> {s.preferred_time_slot}</div>}
+                        </div>
+                      )}
+
                       <div className="flex gap-2 flex-wrap">
                         {s.status === 'pending' && (
                           <>
@@ -247,6 +387,11 @@ export default function VendorPage() {
                         <button onClick={() => setChatFor(s.id)}
                           className="flex items-center gap-1.5 bg-blue-400/20 text-blue-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-blue-400/30 transition-colors">
                           <MessageCircle className="w-3.5 h-3.5" /> Chat
+                        </button>
+                        <button onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                          className="flex items-center gap-1.5 bg-forest-800 text-forest-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-forest-700 transition-colors">
+                          {expandedId === s.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          {expandedId === s.id ? 'Less' : 'Details'}
                         </button>
                       </div>
                     </div>
@@ -287,6 +432,8 @@ export default function VendorPage() {
                         <div><span className="text-forest-500">Phone:</span> {s.mobile_number}</div>
                         <div><span className="text-forest-500">Move Date:</span> {s.move_date}</div>
                         <div><span className="text-forest-500">Vehicle:</span> {s.vehicle_type}</div>
+                        <div className="col-span-2"><span className="text-forest-500">Route:</span> {s.pickup_province} → {s.drop_province}</div>
+                        {s.home_size ? <div><span className="text-forest-500">Home Size:</span> {s.home_size}</div> : null}
                         {s.final_quote ? <div><span className="text-forest-500">Quote:</span> NPR {s.final_quote.toLocaleString()}</div> : null}
                       </div>
                       <button onClick={() => claimJob(s.id)}
@@ -325,6 +472,17 @@ export default function VendorPage() {
                           v.status === 'in_use' ? 'bg-saffron-400/20 text-saffron-300' :
                           'bg-red-400/20 text-red-300'
                         }`}>{v.status}</span>
+                        {v.status === 'available' ? (
+                          <button onClick={() => toggleVehicleStatus(v.id, 'maintenance')}
+                            className="px-2.5 py-1 rounded text-xs font-medium bg-saffron-400/20 text-saffron-300 hover:bg-saffron-400/30 transition-colors">
+                            Set Maintenance
+                          </button>
+                        ) : v.status === 'maintenance' ? (
+                          <button onClick={() => toggleVehicleStatus(v.id, 'available')}
+                            className="px-2.5 py-1 rounded text-xs font-medium bg-green-400/20 text-green-300 hover:bg-green-400/30 transition-colors">
+                            Mark Available
+                          </button>
+                        ) : null}
                         <button onClick={() => deleteVehicle(v.id)}
                           className="p-1.5 text-red-400 hover:bg-red-400/10 rounded transition-colors">
                           <X className="w-4 h-4" />

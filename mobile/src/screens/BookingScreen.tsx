@@ -274,8 +274,8 @@ export default function BookingScreen() {
       const res = await SHIPMENTS.create({
         ...form,
         user_id: user?.id || null,
-        selected_items: JSON.stringify(form.selected_items),
-        add_on_services: JSON.stringify(form.add_on_services),
+        selected_items: form.selected_items,
+        add_on_services: form.add_on_services,
       })
       const data = res.data
       if (!data.success) {

@@ -187,23 +187,42 @@ test('guest email lookup returns trimmed fields without PII', async () => {
 	assert.equal('pickup_address' in row, false);
 });
 
-test('admin can approve and assign a vendor', async () => {
-	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
-	const vendor = vendors.body?.vendors?.[0];
-	assert.ok(vendor, 'a vendor exists');
+test('no admin approval is needed and admin assignment endpoints are gone', async () => {
+	// The seed mover only owns a Cargo Tempo, so this Mini Truck booking stays
+	// pending for the claim pool — and there is no admin route to assign it.
+	const detail = await req('GET', `/api/shipment/${shipment.shipment_id}`, undefined, customerToken);
+	assert.equal(detail.body?.shipment?.approval_status, 'pending');
+	assert.equal(detail.body?.shipment?.assigned_vendor_id, null);
 
-	const res = await req(
+	const goneApprove = await req(
 		'PUT',
 		`/api/admin/shipments/${shipment.shipment_id}/approve`,
-		{ vendor_id: vendor.id },
+		{ vendor_id: 1 },
 		adminToken,
 	);
-	assert.equal(res.status, 200);
-	assert.equal(res.body?.success, true);
+	assert.equal(goneApprove.status, 404, 'admin approve endpoint has been removed');
+
+	const goneReject = await req(
+		'PUT',
+		`/api/admin/shipments/${shipment.shipment_id}/reject`,
+		{},
+		adminToken,
+	);
+	assert.equal(goneReject.status, 404, 'admin reject endpoint has been removed');
 });
 
+let lifecycleShipment;
 test('vendor runs the full job lifecycle', async () => {
-	const shipId = shipment.shipment_id;
+	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
+	const active = vendors.body?.vendors?.find((v) => v.status === 'active');
+	assert.ok(active, 'an active mover exists');
+
+	// Choosing an active mover auto-approves and assigns the booking directly.
+	lifecycleShipment = await createAndPayBooking({
+		vehicle_type: 'Cargo Tempo',
+		vendor_id: active.id,
+	});
+	const shipId = lifecycleShipment.shipment_id;
 	const accept = await req('PUT', `/api/vendor/shipments/${shipId}/accept`, {}, vendorToken);
 	assert.equal(accept.status, 200, 'accept succeeds');
 
@@ -455,26 +474,22 @@ test('vendor sees their assigned shipments', async () => {
 	const res = await req('GET', '/api/vendor/shipments', undefined, vendorToken);
 	assert.equal(res.status, 200);
 	assert.ok(
-		res.body?.shipments?.some((s) => s.id === shipment.shipment_id),
+		res.body?.shipments?.some((s) => s.id === lifecycleShipment.shipment_id),
 		'delivered job appears in vendor list',
 	);
 });
 
 let secondShipment;
 test('a vendor can reject an assigned job and it returns to the pending queue', async () => {
-	secondShipment = await createAndPayBooking();
-
 	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
 	const active = vendors.body?.vendors?.find((v) => v.status === 'active');
 	assert.ok(active, 'an active mover exists');
 
-	const approve = await req(
-		'PUT',
-		`/api/admin/shipments/${secondShipment.shipment_id}/approve`,
-		{ vendor_id: active.id },
-		adminToken,
-	);
-	assert.equal(approve.status, 200);
+	// Choosing an active mover auto-approves the booking at creation time.
+	secondShipment = await createAndPayBooking({
+		vehicle_type: 'Cargo Tempo',
+		vendor_id: active.id,
+	});
 
 	const reject = await req(
 		'PUT',
@@ -644,44 +659,17 @@ test('customer and assigned mover can chat, outsiders are blocked', async () => 
 	assert.equal(cancel.status, 200);
 });
 
-let adminRejectedShipment;
-test('admin can reject a booking with a reason', async () => {
-	adminRejectedShipment = await createAndPayBooking();
-	const res = await req(
-		'PUT',
-		`/api/admin/shipments/${adminRejectedShipment.shipment_id}/reject`,
-		{ reason: 'Incomplete address' },
-		adminToken,
-	);
-	assert.equal(res.status, 200);
-
-	const detail = await req('GET', `/api/shipment/${adminRejectedShipment.shipment_id}`, undefined, customerToken);
-	assert.equal(detail.body?.shipment?.approval_status, 'rejected');
-});
-
-test('admin can reject a booking without a reason (no 500)', async () => {
-	const booking = await createAndPayBooking();
-	const res = await req(
-		'PUT',
-		`/api/admin/shipments/${booking.shipment_id}/reject`,
-		{},
-		adminToken,
-	);
-	assert.equal(res.status, 200, 'reject without reason succeeds');
-	assert.equal(res.body?.success, true);
-});
-
-test('admin pending/status filters and direct status update', async () => {
-	const pending = await req('GET', '/api/admin/shipments/pending', undefined, adminToken);
+test('admin status filters and direct status update', async () => {
+	const pending = await req('GET', '/api/admin/shipments/status/pending', undefined, adminToken);
 	assert.ok(
 		pending.body?.shipments?.some((s) => s.id === secondShipment.shipment_id),
 		'vendor-rejected job is back in the pending queue',
 	);
 
-	const rejected = await req('GET', '/api/admin/shipments/status/rejected', undefined, adminToken);
+	const approved = await req('GET', '/api/admin/shipments/status/approved', undefined, adminToken);
 	assert.ok(
-		rejected.body?.shipments?.some((s) => s.id === adminRejectedShipment.shipment_id),
-		'rejected filter shows the rejected booking',
+		approved.body?.shipments?.some((s) => s.id === lifecycleShipment.shipment_id),
+		'approved filter shows the approved booking',
 	);
 
 	const invalidFilter = await req('GET', '/api/admin/shipments/status/bogus', undefined, adminToken);
@@ -714,12 +702,10 @@ test('customer can list their own bookings', async () => {
 	assert.ok(res.body?.shipments?.some((s) => s.id === shipment.shipment_id));
 });
 
-test('admin mover lifecycle, inactive guard, and approve guard', async () => {
+test('admin mover lifecycle and inactive guard', async () => {
 	const all = await req('GET', '/api/admin/vendors', undefined, adminToken);
 	const seed = all.body?.vendors?.find((v) => v.business_name === 'Himalayan Movers');
 	assert.ok(seed, 'seed mover present in admin listing');
-
-	const toApprove = await createAndPayBooking();
 
 	const deactivate = await req(
 		'PUT',
@@ -737,14 +723,6 @@ test('admin mover lifecycle, inactive guard, and approve guard', async () => {
 	);
 	assert.equal(bookingAttempt.status, 400, 'inactive mover cannot be auto-assigned');
 
-	const approveBlocked = await req(
-		'PUT',
-		`/api/admin/shipments/${toApprove.shipment_id}/approve`,
-		{ vendor_id: seed.id },
-		adminToken,
-	);
-	assert.equal(approveBlocked.status, 400, 'inactive mover cannot be assigned during approval');
-
 	const reactivate = await req(
 		'PUT',
 		`/api/admin/vendors/${seed.id}/status`,
@@ -759,13 +737,13 @@ test('admin mover lifecycle, inactive guard, and approve guard', async () => {
 	const badStatus = await req('PUT', `/api/admin/vendors/${seed.id}/status`, { status: 'greased' }, adminToken);
 	assert.equal(badStatus.status, 400);
 
-	const approveOk = await req(
-		'PUT',
-		`/api/admin/shipments/${toApprove.shipment_id}/approve`,
-		{ vendor_id: seed.id },
-		adminToken,
+	const bookingAfter = await req(
+		'POST',
+		'/api/shipment/create',
+		bookingPayload({ vehicle_type: 'Cargo Tempo', vendor_id: seed.id }),
+		customerToken,
 	);
-	assert.equal(approveOk.status, 200, 'reactivated mover can be assigned');
+	assert.equal(bookingAfter.status, 201, 'reactivated mover can be auto-assigned again');
 });
 
 test('admin can resolve and close support tickets', async () => {

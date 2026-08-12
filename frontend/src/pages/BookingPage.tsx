@@ -252,9 +252,9 @@ export default function BookingPage() {
         ...form,
         user_id: user?.id || null,
         vendor_id: matchingVendors.length > 0 ? selectedVendor : null,
-        selected_items: JSON.stringify(form.selected_items),
-        add_on_services: JSON.stringify(form.add_on_services),
-        preferred_contact: JSON.stringify(form.preferred_contact),
+        selected_items: form.selected_items,
+        add_on_services: form.add_on_services,
+        preferred_contact: form.preferred_contact,
       }
       const res = await SHIPMENTS.create(payload)
       const data = res.data

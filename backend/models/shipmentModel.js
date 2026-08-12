@@ -72,22 +72,6 @@ export const updateShipmentStatus = async (id, status, finalQuote = null) => {
 	return result.affectedRows > 0;
 };
 
-// Get pending shipments for admin
-export const getPendingShipments = async ({ page = 1, limit = 50 } = {}) => {
-	const offset = (page - 1) * limit;
-	const [rows] = await pool.execute(
-		`SELECT s.*, 
-               ${NAME_CONCAT} as customer_name,
-               s.mobile_number as customer_phone
-        FROM shipments s 
-        WHERE s.approval_status = 'pending' 
-        ORDER BY s.created_at ASC
-        LIMIT ? OFFSET ?`,
-		[Number(limit), Number(offset)],
-	);
-	return rows;
-};
-
 // Get shipments for vendor
 export const getShipmentsForVendor = async (vendorId, { page = 1, limit = 50 } = {}) => {
 	const offset = (page - 1) * limit;
@@ -142,35 +126,6 @@ export const claimShipmentForVendor = async (shipmentId, vendorId) => {
          SET assigned_vendor_id = ?, approval_status = 'approved', status = 'pending'
          WHERE id = ? AND approval_status = 'pending' AND assigned_vendor_id IS NULL`,
 		[vendorId, shipmentId],
-	);
-	return result.affectedRows > 0;
-};
-
-// Approve shipment
-export const approveShipment = async (shipmentId, vendorId, adminId) => {
-	const [result] = await pool.execute(
-		`UPDATE shipments 
-         SET approval_status = 'approved', 
-             assigned_vendor_id = ?, 
-             approved_by = ?, 
-             approved_at = CURRENT_TIMESTAMP,
-             status = 'pending'
-         WHERE id = ? AND approval_status = 'pending'`,
-		[vendorId, adminId, shipmentId],
-	);
-	return result.affectedRows > 0;
-};
-
-// Reject shipment
-export const rejectShipment = async (shipmentId, adminId, reason) => {
-	const [result] = await pool.execute(
-		`UPDATE shipments 
-         SET approval_status = 'rejected', 
-             approved_by = ?, 
-             approved_at = CURRENT_TIMESTAMP,
-             special_notes = ${dialect === 'mysql' ? "CONCAT(COALESCE(special_notes, ''), ' | Rejected: ', ?)" : "(COALESCE(special_notes, '') || ' | Rejected: ' || ?)"}
-         WHERE id = ? AND approval_status = 'pending'`,
-		[adminId, reason, shipmentId],
 	);
 	return result.affectedRows > 0;
 };
