@@ -30,8 +30,9 @@ Seeded automatically on first run (and whenever the `users` table is empty):
 
 | Role | Email | Password |
 |---|---|---|
-| Admin | `admin@test.com` | `adminpass123` |
-| Vendor (Mover) | `vendor@test.com` | `vendorpass123` |
+| Super Admin (global) | `admin@test.com` | `adminpass123` |
+| Branch Admin ×7 (one per province) | `branchadmin@test.com` (Bagmati) · `ba.koshi@test.com` … `ba.sudurpashchim@test.com` | `branchadminpass123` |
+| Regional Vendor ×7 (one per province) | `vendor@test.com` (Bagmati) · `vendor.koshi@test.com` … `vendor.sudurpashchim@test.com` | `vendorpass123` |
 | Customer | `customer@test.com` | `customerpass123` |
 
 These are **demo credentials only** — do not reuse real accounts.

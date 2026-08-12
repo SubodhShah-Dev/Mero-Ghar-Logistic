@@ -94,15 +94,60 @@ const seed = async () => {
 	const bagmatiBranchId = branchRows['Bagmati Province'];
 
 	const adminId = await insertUser('Admin User', 'admin@test.com', adminPass, 'super_admin', null);
-	const vendorUserId = await insertUser('Himalayan Movers', 'vendor@test.com', vendorPass, 'vendor', '9800000001');
 	const customerUserId = await insertUser('Demo Customer', 'customer@test.com', customerPass, 'user', '9800000002');
+
+	// One Branch Admin + one active regional Vendor for every province except
+	// Bagmati (which uses the documented demo accounts below). Local-only routes
+	// keep the route-aware vendor matching in the integration suite stable.
+	// Format:
+	// [branch, slug, business, owner, adminEmail, vendorEmail, adminPhone, vendorPhone, address, fromA, fromB, fromC]
+	const regions = [
+		['Koshi Province', 'koshi', 'Koshi Movers', 'Kiran Rai', 'ba.koshi@test.com', 'vendor.koshi@test.com', '9810000001', '9820000001', 'Birtamod, Jhapa', 'Jhapa', 'Morang', 'Sunsari'],
+		['Madhesh Province', 'madhesh', 'Madhesh Movers', 'Sarita Yadav', 'ba.madhesh@test.com', 'vendor.madhesh@test.com', '9810000002', '9820000002', 'Janakpur, Dhanusha', 'Siraha', 'Saptari', 'Dhanusha'],
+		['Gandaki Province', 'gandaki', 'Gandaki Movers', 'Prakash Thapa', 'ba.gandaki@test.com', 'vendor.gandaki@test.com', '9810000003', '9820000003', 'Pokhara, Kaski', 'Kaski', 'Tanahun', 'Syangja'],
+		['Lumbini Province', 'lumbini', 'Lumbini Movers', 'Gita K.C.', 'ba.lumbini@test.com', 'vendor.lumbini@test.com', '9810000004', '9820000004', 'Bhairahawa, Rupandehi', 'Rupandehi', 'Kapilvastu', 'Dang'],
+		['Karnali Province', 'karnali', 'Karnali Movers', 'Bikash Bista', 'ba.karnali@test.com', 'vendor.karnali@test.com', '9810000005', '9820000005', 'Birendranagar, Surkhet', 'Surkhet', 'Salyan', 'Jumla'],
+		['Sudurpashchim Province', 'sudurpashchim', 'Sudurpashchim Movers', 'Nirmala Saud', 'ba.sudurpashchim@test.com', 'vendor.sudurpashchim@test.com', '9810000006', '9820000006', 'Dhangadhi, Kailali', 'Kailali', 'Kanchanpur', 'Doti'],
+	];
+	for (const [idx, [name, slug, businessName, ownerName, adminEmail, vendorEmail, adminPhone, vendorPhone, address, dA, dB, dC]] of regions.entries()) {
+		const regionalAdminId = await insertUser(`${name} Branch Admin`, adminEmail, branchAdminPass, 'branch_admin', adminPhone);
+		await execute('INSERT INTO user_branches (user_id, branch_id) VALUES (?, ?)', [regionalAdminId, branchRows[name]]);
+
+		const regionalVendorUserId = await insertUser(businessName, vendorEmail, vendorPass, 'vendor', vendorPhone);
+		const [rv] = await execute(
+			`INSERT INTO vendors (user_id, branch_id, business_name, owner_name, phone, email, service_region, address, status, rating, total_jobs, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[regionalVendorUserId, branchRows[name], businessName, ownerName, vendorPhone, vendorEmail, name, address, 'active', 4.0, 3, new Date(Date.parse('2026-08-12T10:00:00Z') + idx * 60000).toISOString().slice(0, 19).replace('T', ' ')],
+		);
+		const regionalVendorId = rv.insertId;
+		await execute(
+			`INSERT INTO vendor_vehicles (vendor_id, name, plate_number, vehicle_type, capacity_tonnes, driver_name, driver_phone, status, is_active)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[regionalVendorId, 'Tata Ace', `${slug.slice(0, 2).toUpperCase()} 1 ${slug.slice(0, 2).toUpperCase()} ${idx + 1001}`, 'Cargo Tempo', 1.0, `${businessName} Driver`, vendorPhone, 'available', 1],
+		);
+		await execute(
+			`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
+			 VALUES (?, ?, ?, ?, ?)`,
+			[regionalVendorId, name, dA, name, dB],
+		);
+		await execute(
+			`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
+			 VALUES (?, ?, ?, ?, ?)`,
+			[regionalVendorId, name, dC, name, dA],
+		);
+	}
+
+	// Bagmati pair — created last so Himalayan Movers is the most recent vendor row
+	// and appears first in admin listings (created_at DESC); route-aware tests rely
+	// on it being the picked active mover for Bagmati bookings.
+	const vendorUserId = await insertUser('Himalayan Movers', 'vendor@test.com', vendorPass, 'vendor', '9800000001');
 	const branchAdminUserId = await insertUser('Bagmati Branch Admin', 'branchadmin@test.com', branchAdminPass, 'branch_admin', '9800000003');
 	await execute('INSERT INTO user_branches (user_id, branch_id) VALUES (?, ?)', [branchAdminUserId, bagmatiBranchId]);
 
 	const [vendorResult] = await execute(
-		`INSERT INTO vendors (user_id, branch_id, business_name, owner_name, phone, email, service_region, address, status, rating, total_jobs)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		[vendorUserId, bagmatiBranchId, 'Himalayan Movers', 'Ramesh Shrestha', '9800000001', 'vendor@test.com', 'Kathmandu Valley', 'Baneshwor, Kathmandu', 'active', 4.5, 12],
+		`INSERT INTO vendors (user_id, branch_id, business_name, owner_name, phone, email, service_region, address, status, rating, total_jobs, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		[vendorUserId, bagmatiBranchId, 'Himalayan Movers', 'Ramesh Shrestha', '9800000001', 'vendor@test.com', 'Kathmandu Valley', 'Baneshwor, Kathmandu', 'active', 4.5, 12, '2026-08-12 12:00:00'],
 	);
 	const vendorId = vendorResult.insertId;
 
@@ -137,7 +182,7 @@ const seed = async () => {
 			'delivered', 'approved', adminId, vendorId, `TXN-${Date.now()}`, 'paid', 8.5, '3 hours',
 		],
 	);
-	console.log('[db] demo data seeded (admin@test.com / adminpass123, branchadmin@test.com / branchadminpass123)');
+	console.log('[db] demo data seeded: admin@test.com / adminpass123 (super_admin); ba.<province>@test.com + branchadmin@test.com / branchadminpass123 (branch_admin); vendor.<province>@test.com + vendor@test.com / vendorpass123 (vendor); customer@test.com / customerpass123 (user)');
 };
 
 const insertUser = async (name, email, password, role, phone) => {
