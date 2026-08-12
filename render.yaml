@@ -1,0 +1,31 @@
+services:
+  # Backend API (Express + Node, free tier). Data lives in a free, always-on
+  # MySQL-compatible database (TiDB Cloud Starter) so it survives redeploys —
+  # unlike SQLite, which Render's free tier would wipe on every deploy.
+  - type: web
+    name: meroghar-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Point these mysql2 env vars at your TiDB Cloud Starter instance.
+      # TiDB requires TLS, so DB_SSL=true is mandatory.
+      #  Example (fill in from TiDB Cloud > cluster > Connect):
+      #    MYSQLHOST=gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+      #    MYSQLPORT=4000
+      #    MYSQLUSER=<user>.root
+      #    MYSQLPASSWORD=<password>
+      #    MYSQL_DATABASE=meroghar_db
+      - key: DB_SSL
+        value: "true"
+      # Seed demo accounts (admin/vendor/customer @test.com). Keep true for a
+      # showcase; runs only when the users table is empty.
+      - key: SEED_DEMO_DATA
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true

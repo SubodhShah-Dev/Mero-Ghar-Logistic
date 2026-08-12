@@ -122,6 +122,26 @@ Requires XAMPP MySQL running; the suite uses a disposable `meroghar_test` databa
 - CI (GitHub Actions): every push to `main` builds a release APK; a push of tag `v*` creates a GitHub Release with the APK attached.
 - CI uses Node 22 and installs the NDK/CMake toolchain in the runner.
 
+## Free cloud deploy (no PC needed, anywhere in the world)
+
+The release APK points at `https://meroghar-backend.onrender.com` (`mobile/src/config.ts`:
+`PROD_API_URL`). Keeping that URL alive for free requires two free services:
+
+1. **TiDB Cloud Starter** — free, always-on, MySQL-compatible DB (5 GiB row + 50M
+   Request Units/month, no credit card). This replaces XAMPP in the cloud so demo
+   data survives redeploys.
+   - Export your local data once: `sudo /opt/lampp/lampp startmysql` then
+     `bash backend/scripts/export-for-tidb.sh`
+   - Create a Starter cluster, import the dump with its CLI as the script prints.
+2. **Render (free tier)** — deploys the backend from this repo. In the Render
+   dashboard: **New → Blueprint**, point it at this repo, and it reads
+   `render.yaml`. Add the TiDB `MYSQLHOST/MYSQLPORT/MYSQLUSER/MYSQLPASSWORD/MYSQL_DATABASE`
+   env vars (`DB_SSL=true`) in the service settings.
+
+- Render free spins down after ~15 min idle → the next request wakes it in ~1 min.
+  That's fine for demo day: open the app ~1 min before presenting.
+- Everything (DB, backend, CI, releases) stays at $0 while inside free quotas.
+
 ---
 
 ## Architecture & commentary

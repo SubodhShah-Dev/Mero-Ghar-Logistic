@@ -8,6 +8,7 @@ node_modules/
 *.hprof
 *.keystore
 !debug.keystore
+backend/meroghar-export.sql
 
 # Build outputs
 mobile/android/app/build/

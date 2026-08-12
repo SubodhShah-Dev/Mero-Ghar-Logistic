@@ -5,6 +5,11 @@ import { ddlFor } from './schema.js';
 
 dotenv.config();
 
+const usesTls = () =>
+	process.env.DB_SSL === 'true' ||
+	process.env.MYSQL_SSL === 'true' ||
+	process.env.MYSQL_SSL_MODE === 'REQUIRED';
+
 const mysqlConfig = (database) => ({
 	host: process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1',
 	user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
@@ -16,6 +21,8 @@ const mysqlConfig = (database) => ({
 	queueLimit: 0,
 	connectTimeout: 5000,
 	decimalNumbers: true,
+	// Public MySQL-compatible clouds (TiDB Cloud Starter) require TLS.
+	ssl: usesTls() ? { rejectUnauthorized: false } : undefined,
 });
 
 const DB_NAME = process.env.MYSQL_DATABASE || process.env.DB_NAME || 'meroghar_db';

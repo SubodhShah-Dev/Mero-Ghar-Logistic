@@ -17,7 +17,7 @@ const DEFAULT_PORT = 5000
 // a run of backend/scripts/tunnel.sh alive and paste the printed
 // https://<random>.trycloudflare.com URL here, then rebuild the APK.
 // The tunnel URL changes each time the script restarts — update it and rebuild.
-const PROD_API_URL = 'https://release-rejected-louisiana-subsidiary.trycloudflare.com'
+const PROD_API_URL = 'https://meroghar-backend.onrender.com'
 
 function resolveDevHost(): string {
   try {
