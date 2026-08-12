@@ -76,8 +76,8 @@ export default function AdminScreen() {
           <Text style={styles.statLabel}>Total</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNum}>{shipments.filter((s) => s.status === 'pending').length}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
+          <Text style={styles.statNum}>{shipments.filter((s) => s.status === 'pending' && s.approval_status === 'pending').length}</Text>
+          <Text style={styles.statLabel}>Unmatched</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statNum}>{shipments.filter((s) => s.status === 'delivered').length}</Text>
@@ -95,6 +95,9 @@ export default function AdminScreen() {
       </View>
 
       <Text style={[styles.title, { marginTop: 8 }]}>All Shipments</Text>
+      <Text style={{ color: COLORS.forest[500], fontSize: 12, marginBottom: 12 }}>
+        Approve/Reject only shows for unmatched bookings — no mover was auto-assigned.
+      </Text>
       {visible.length === 0 ? (
         <Text style={{ color: COLORS.forest[400], fontSize: 15 }}>No shipments here.</Text>
       ) : (
@@ -111,6 +114,9 @@ export default function AdminScreen() {
                 Payment: {s.payment_status}
               </Text>
             )}
+            <Text style={{ color: COLORS.forest[400], fontSize: 12, marginTop: 2 }}>
+              Approval: {s.approval_status}{s.vendor_name ? ` · Mover: ${s.vendor_name}` : ''}
+            </Text>
             {s.approval_status === 'pending' && s.status === 'pending' && (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                 <TouchableOpacity onPress={() => approveShipment(s.id)}

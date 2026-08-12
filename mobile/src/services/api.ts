@@ -41,6 +41,14 @@ export const VENDOR = {
   updateVehicleStatus: (id: number, status: string) =>
     api.put(`/api/vendor/vehicles/${id}/status`, { status }),
   deleteVehicle: (id: number) => api.delete(`/api/vendor/vehicles/${id}`),
+  getAvailable: () => api.get('/api/vendor/available'),
+  claim: (id: number) => api.put(`/api/vendor/shipments/${id}/claim`),
+}
+
+export const CHAT = {
+  getMessages: (id: number) => api.get(`/api/shipment/${id}/messages`),
+  sendMessage: (id: number, message: string) =>
+    api.post(`/api/shipment/${id}/messages`, { message }),
 }
 
 export const ADMIN = {

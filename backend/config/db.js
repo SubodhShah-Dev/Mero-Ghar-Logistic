@@ -86,7 +86,13 @@ const openSqlite = () => {
 	sqliteDb.exec('PRAGMA journal_mode = WAL');
 };
 
+// node:sqlite rejects `undefined` bindings; treat them as NULL so callers that
+// pass optional fields (e.g. reject reason, vendor_id) never crash with a 500.
+const normalizeParams = (params = []) =>
+	params.map((p) => (p === undefined ? null : p));
+
 const sqliteExec = (query, params = []) => {
+	params = normalizeParams(params);
 	const stmt = sqliteDb.prepare(query);
 	if (IS_READ.test(query)) {
 		return [stmt.all(...params), []];

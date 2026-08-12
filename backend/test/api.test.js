@@ -659,6 +659,18 @@ test('admin can reject a booking with a reason', async () => {
 	assert.equal(detail.body?.shipment?.approval_status, 'rejected');
 });
 
+test('admin can reject a booking without a reason (no 500)', async () => {
+	const booking = await createAndPayBooking();
+	const res = await req(
+		'PUT',
+		`/api/admin/shipments/${booking.shipment_id}/reject`,
+		{},
+		adminToken,
+	);
+	assert.equal(res.status, 200, 'reject without reason succeeds');
+	assert.equal(res.body?.success, true);
+});
+
 test('admin pending/status filters and direct status update', async () => {
 	const pending = await req('GET', '/api/admin/shipments/pending', undefined, adminToken);
 	assert.ok(

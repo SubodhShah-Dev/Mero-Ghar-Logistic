@@ -86,6 +86,14 @@ export const VENDOR = {
   deleteVehicle: (id: number) => api.delete(`/api/vendor/vehicles/${id}`),
   getMatching: (vehicleType: string, pickupProvince: string, dropProvince: string) =>
     api.get(`/api/vendor/matching?vehicle_type=${encodeURIComponent(vehicleType)}&pickup_province=${encodeURIComponent(pickupProvince)}&drop_province=${encodeURIComponent(dropProvince)}`),
+  getAvailable: () => api.get('/api/vendor/available'),
+  claim: (id: number) => api.put(`/api/vendor/shipments/${id}/claim`),
+}
+
+export const CHAT = {
+  getMessages: (id: number) => api.get(`/api/shipment/${id}/messages`),
+  sendMessage: (id: number, message: string) =>
+    api.post(`/api/shipment/${id}/messages`, { message }),
 }
 
 export const CHATBOT = {

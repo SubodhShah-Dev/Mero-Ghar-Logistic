@@ -1,30 +1,38 @@
 import React, { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, TextInput } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { StackNavigationProp } from '@react-navigation/stack'
 import { VENDOR, TICKETS } from '../services/api'
 import { COLORS } from '../utils/theme'
+import type { RootStackParamList } from '../App'
 
-type Tab = 'jobs' | 'fleet' | 'tickets'
+type Tab = 'jobs' | 'claim' | 'fleet' | 'tickets'
+type Nav = StackNavigationProp<RootStackParamList, 'Vendor'>
 
 export default function VendorScreen() {
   const [tab, setTab] = useState<Tab>('jobs')
   const [shipments, setShipments] = useState<any[]>([])
+  const [available, setAvailable] = useState<any[]>([])
   const [vehicles, setVehicles] = useState<any[]>([])
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const navigation = useNavigation<Nav>()
 
   const reload = async () => {
     try {
-      const [shipRes, vehRes, tickRes] = await Promise.all([
+      const [shipRes, vehRes, tickRes, availRes] = await Promise.all([
         VENDOR.getShipments(),
         VENDOR.getVehicles(),
         TICKETS.getMine(),
+        VENDOR.getAvailable(),
       ])
       setShipments(shipRes.data.shipments || [])
       setVehicles(vehRes.data.vehicles || [])
       setTickets(tickRes.data.tickets || [])
+      setAvailable(availRes.data.shipments || [])
     } catch {} finally {
       setLoading(false)
     }
@@ -48,6 +56,24 @@ export default function VendorScreen() {
     } catch {
       Alert.alert('Error', 'Failed to update')
     }
+  }
+
+  const claimJob = async (id: number) => {
+    try {
+      await VENDOR.claim(id)
+      Alert.alert('Success', 'Job claimed — it is now in your Jobs')
+      await reload()
+    } catch {
+      Alert.alert('Error', 'Failed to claim job')
+    }
+  }
+
+  const openChat = (id: number, bookingId?: string) => {
+    navigation.navigate('Chat', {
+      shipmentId: id,
+      senderRole: 'vendor',
+      title: `${bookingId || `Job #${id}`} · Customer`,
+    })
   }
 
   const submitTicket = async () => {
@@ -96,10 +122,10 @@ export default function VendorScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.tabRow}>
-        {(['jobs', 'fleet', 'tickets'] as Tab[]).map((t) => (
+        {(['jobs', 'claim', 'fleet', 'tickets'] as Tab[]).map((t) => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} style={tabStyle(t)}>
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'jobs' ? `Jobs (${shipments.length})` : t === 'fleet' ? `Fleet (${vehicles.length})` : `Support (${tickets.length})`}
+              {t === 'jobs' ? `Jobs (${shipments.length})` : t === 'claim' ? `Claim (${available.length})` : t === 'fleet' ? `Fleet (${vehicles.length})` : `Support (${tickets.length})`}
             </Text>
           </TouchableOpacity>
         ))}
@@ -143,7 +169,39 @@ export default function VendorScreen() {
                       <Text style={styles.btnText}>Mark Delivered</Text>
                     </TouchableOpacity>
                   )}
+                  <TouchableOpacity onPress={() => openChat(s.id, s.booking_id)}
+                    style={styles.blueBtn}>
+                    <Text style={styles.blueBtnText}>Chat</Text>
+                  </TouchableOpacity>
                 </View>
+              </View>
+            ))
+          )}
+        </>
+      )}
+
+      {tab === 'claim' && (
+        <>
+          <Text style={{ color: COLORS.forest[300], fontSize: 14, marginBottom: 12 }}>
+            Bookings no mover could auto-assign. Claim one that matches your fleet.
+          </Text>
+          {available.length === 0 ? (
+            <Text style={{ color: COLORS.forest[400], fontSize: 15 }}>Nothing in the pool right now.</Text>
+          ) : (
+            available.map((s: any) => (
+              <View key={s.id} style={styles.card}>
+                <View style={styles.cardRow}>
+                  <Text style={styles.idText}>{s.booking_id}</Text>
+                  <Text style={styles.statusText}>Available</Text>
+                </View>
+                <Text style={styles.route}>{s.pickup_city} → {s.drop_city}</Text>
+                <Text style={styles.detail}>Customer: {s.first_name} {s.last_name}</Text>
+                <Text style={styles.detail}>Phone: {s.mobile_number}</Text>
+                <Text style={styles.detail}>Move Date: {s.move_date}</Text>
+                {s.final_quote ? <Text style={styles.quote}>NPR {s.final_quote.toLocaleString()}</Text> : null}
+                <TouchableOpacity onPress={() => claimJob(s.id)} style={styles.goldBtn}>
+                  <Text style={[styles.btnText, { color: COLORS.forest[900] }]}>Claim Job</Text>
+                </TouchableOpacity>
               </View>
             ))
           )}
@@ -243,5 +301,7 @@ const styles = StyleSheet.create({
   input: { backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4, color: COLORS.cream[50], paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 10 },
   greenBtn: { backgroundColor: 'rgba(76,175,125,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start' },
   goldBtn: { backgroundColor: 'rgba(245,166,35,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start' },
+  blueBtn: { backgroundColor: 'rgba(64,145,210,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start' },
+  blueBtnText: { color: '#5aa9e6', fontWeight: '600', fontSize: 13 },
   btnText: { color: '#4caf7d', fontWeight: '600', fontSize: 13 },
 })

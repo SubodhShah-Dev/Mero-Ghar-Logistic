@@ -12,6 +12,7 @@ import BookingScreen from './screens/BookingScreen'
 import MyBookingsScreen from './screens/MyBookingsScreen'
 import AdminScreen from './screens/AdminScreen'
 import VendorScreen from './screens/VendorScreen'
+import ChatScreen from './screens/ChatScreen'
 
 export type RootStackParamList = {
   Home: undefined
@@ -21,6 +22,7 @@ export type RootStackParamList = {
   MyBookings: undefined
   Admin: undefined
   Vendor: undefined
+  Chat: { shipmentId: number; senderRole: 'customer' | 'vendor'; title?: string }
 }
 
 const Stack = createStackNavigator<RootStackParamList>()
@@ -53,6 +55,7 @@ function AppNavigator() {
           </RoleGuard>
         )}
       </Stack.Screen>
+      <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'Chat' }} />
     </Stack.Navigator>
   )
 }

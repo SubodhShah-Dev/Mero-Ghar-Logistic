@@ -220,7 +220,7 @@ export default function AdminPage() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: 'Total Shipments', value: shipments.length, color: 'bg-saffron-400/10 border-saffron-400/30 text-saffron-400' },
-                  { label: 'Pending Approval', value: pendingApprovals.length, color: 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400' },
+                  { label: 'Unmatched (No Mover)', value: pendingApprovals.length, color: 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400' },
                   { label: 'In Transit', value: shipments.filter((s) => s.status === 'in_transit').length, color: 'bg-blue-400/10 border-blue-400/30 text-blue-400' },
                   { label: 'Delivered', value: deliveredCount, color: 'bg-green-400/10 border-green-400/30 text-green-400' },
                   { label: 'Vendors', value: vendors.length, color: 'bg-purple-400/10 border-purple-400/30 text-purple-400' },
@@ -247,13 +247,16 @@ export default function AdminPage() {
               )}
 
               <div className="grid lg:grid-cols-2 gap-6">
-                {/* Pending approvals */}
+                {/* Unmatched bookings (fallback approval) */}
                 <div className="bg-forest-900 border border-forest-700 rounded-sm p-5">
-                  <h2 className="font-display font-bold text-base text-cream-50 mb-3 flex items-center gap-2">
-                    <Check className="w-4 h-4 text-saffron-400" /> Pending Approvals ({pendingApprovals.length})
+                  <h2 className="font-display font-bold text-base text-cream-50 mb-1 flex items-center gap-2">
+                    <Check className="w-4 h-4 text-saffron-400" /> Unmatched Bookings ({pendingApprovals.length})
                   </h2>
+                  <p className="text-forest-500 text-xs mb-3">
+                    No mover was auto-assigned. Approve + assign a vendor to route it directly, or reject it.
+                  </p>
                   {pendingApprovals.length === 0 ? (
-                    <p className="text-forest-400 text-sm">Nothing waiting for approval. Nice.</p>
+                    <p className="text-forest-400 text-sm">All bookings auto-assigned a mover. Nothing needs attention.</p>
                   ) : (
                     <div className="space-y-3">
                       {pendingApprovals.map((s) => (

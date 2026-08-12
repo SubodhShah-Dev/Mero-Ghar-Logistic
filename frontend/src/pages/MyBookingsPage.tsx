@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Package, Clock } from 'lucide-react'
+import { Package, Clock, MessageCircle } from 'lucide-react'
 import { SHIPMENTS } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import ChatPanel from '../components/ChatPanel'
 import type { Shipment } from '../types'
 
 const statusColors: Record<string, string> = {
@@ -17,6 +18,7 @@ export default function MyBookingsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
+  const [chatFor, setChatFor] = useState<number | null>(null)
   const { user } = useAuth()
   const { showToast } = useToast()
 
@@ -102,6 +104,7 @@ export default function MyBookingsPage() {
                     <div>
                       <p className="text-forest-500 text-xs uppercase tracking-wide mb-0.5">Mover</p>
                       <p className="text-cream-200">{s.vendor_name}</p>
+                      {s.vendor_phone && <p className="text-forest-400 text-xs">{s.vendor_phone}</p>}
                     </div>
                   )}
                   <div>
@@ -115,9 +118,24 @@ export default function MyBookingsPage() {
                     </div>
                   )}
                 </div>
+                {s.vendor_name && (
+                  <button onClick={() => setChatFor(s.id)}
+                    className="mt-4 flex items-center gap-2 bg-blue-400/20 text-blue-300 px-4 py-2.5 rounded-sm text-xs font-medium hover:bg-blue-400/30 transition-colors min-h-[44px]">
+                    <MessageCircle className="w-4 h-4" /> Chat with your mover
+                  </button>
+                )}
               </div>
             ))}
           </div>
+        )}
+
+        {chatFor !== null && (
+          <ChatPanel
+            shipmentId={chatFor}
+            senderRole="customer"
+            title="Chat with your mover"
+            onClose={() => setChatFor(null)}
+          />
         )}
       </div>
     </div>

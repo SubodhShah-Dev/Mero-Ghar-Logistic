@@ -85,7 +85,7 @@ export const approveShipmentRequest = asyncHandler(async (req, res) => {
 
 export const rejectShipmentRequest = asyncHandler(async (req, res) => {
 	const { id } = req.params;
-	const { reason } = req.body;
+	const reason = String(req.body?.reason ?? '').trim();
 	const adminId = req.user.id;
 
 	const rejected = await rejectShipment(id, adminId, reason);

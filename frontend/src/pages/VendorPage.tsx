@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react'
-import { Truck, Package, Plus, X, User, Ticket, Star, Send } from 'lucide-react'
+import { Truck, Package, Plus, X, User, Ticket, Star, Send, MessageCircle, MapPin } from 'lucide-react'
 import { VENDOR, TICKETS } from '../services/api'
 import { useToast } from '../context/ToastContext'
+import ChatPanel from '../components/ChatPanel'
 import type { Shipment, Vehicle, SupportTicket } from '../types'
 
-type Tab = 'jobs' | 'fleet' | 'tickets' | 'profile'
+type Tab = 'jobs' | 'claim' | 'fleet' | 'tickets' | 'profile'
 
 const statusBadge = (status: string) => {
   const map: Record<string, string> = {
@@ -20,6 +21,8 @@ const statusBadge = (status: string) => {
 export default function VendorPage() {
   const [tab, setTab] = useState<Tab>('jobs')
   const [shipments, setShipments] = useState<Shipment[]>([])
+  const [available, setAvailable] = useState<Shipment[]>([])
+  const [chatFor, setChatFor] = useState<number | null>(null)
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [profile, setProfile] = useState({
     business_name: '', owner_name: '', phone: '', email: '', service_region: '', address: '', rating: 0, total_jobs: 0,
@@ -35,19 +38,21 @@ export default function VendorPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true)
-    const [sRes, vRes, pRes, tRes] = await Promise.allSettled([
+    const [sRes, vRes, pRes, tRes, aRes] = await Promise.allSettled([
       VENDOR.getShipments(),
       VENDOR.getVehicles(),
       VENDOR.getProfile(),
       TICKETS.getMine(),
+      VENDOR.getAvailable(),
     ])
     if (sRes.status === 'fulfilled') setShipments(sRes.value.data.shipments || [])
     if (vRes.status === 'fulfilled') setVehicles(vRes.value.data.vehicles || [])
     if (pRes.status === 'fulfilled' && pRes.value.data.vendor) setProfile(pRes.value.data.vendor)
     if (tRes.status === 'fulfilled') setTickets(tRes.value.data.tickets || [])
-    const failed = [sRes, vRes, pRes, tRes].filter((r) => r.status === 'rejected').length
+    if (aRes.status === 'fulfilled') setAvailable(aRes.value.data.shipments || [])
+    const failed = [sRes, vRes, pRes, tRes, aRes].filter((r) => r.status === 'rejected').length
     if (failed > 0) {
-      showToast(`Failed to load ${failed} of 4 data sources`, 'red')
+      showToast(`Failed to load ${failed} of 5 data sources`, 'red')
     }
     setLoading(false)
   }, [showToast])
@@ -66,6 +71,14 @@ export default function VendorPage() {
         loadAll()
       }
     } catch { showToast('Failed to update', 'red') }
+  }
+
+  const claimJob = async (id: number) => {
+    try {
+      await VENDOR.claim(id)
+      showToast('Job claimed — it is now in your Jobs', 'green')
+      loadAll()
+    } catch { showToast('Failed to claim job', 'red') }
   }
 
   const addVehicle = async () => {
@@ -123,6 +136,7 @@ export default function VendorPage() {
 
   const tabs = [
     { id: 'jobs' as Tab, icon: Package, label: 'Jobs' },
+    { id: 'claim' as Tab, icon: MessageCircle, label: 'Claim Pool' },
     { id: 'fleet' as Tab, icon: Truck, label: 'Fleet' },
     { id: 'tickets' as Tab, icon: Ticket, label: 'Support' },
     { id: 'profile' as Tab, icon: User, label: 'Profile' },
@@ -213,7 +227,7 @@ export default function VendorPage() {
                         {s.final_quote ? <div><span className="text-forest-500">Quote:</span> NPR {s.final_quote.toLocaleString()}</div> : null}
                         {s.payment_status ? <div><span className="text-forest-500">Payment:</span> <span className="capitalize">{s.payment_status}</span></div> : null}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         {s.status === 'pending' && (
                           <>
                             <button onClick={() => updateShipmentStatus(s.id, 'accept')}
@@ -230,7 +244,55 @@ export default function VendorPage() {
                           <button onClick={() => updateShipmentStatus(s.id, 'complete')}
                             className="bg-green-400/20 text-green-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-green-400/30 transition-colors">Mark Delivered</button>
                         )}
+                        <button onClick={() => setChatFor(s.id)}
+                          className="flex items-center gap-1.5 bg-blue-400/20 text-blue-300 px-4 py-2 rounded-sm text-xs font-medium hover:bg-blue-400/30 transition-colors">
+                          <MessageCircle className="w-3.5 h-3.5" /> Chat
+                        </button>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'claim' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="font-display font-black text-2xl text-cream-50">Claim Pool</h1>
+                <p className="text-forest-400 text-sm mt-1">
+                  Bookings no mover could auto-assign. Match your vehicle type, then claim one to take the job.
+                </p>
+              </div>
+
+              {available.length === 0 ? (
+                <div className="bg-forest-900 border border-forest-700 rounded-sm p-10 text-center">
+                  <MapPin className="w-10 h-10 text-forest-600 mx-auto mb-3" />
+                  <p className="text-forest-400 text-sm">Nothing in the pool right now.</p>
+                  <p className="text-forest-500 text-xs mt-1">Check back later for new bookings.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {available.map((s) => (
+                    <div key={s.id} className="bg-forest-900 border border-forest-700 rounded-sm p-6">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div>
+                          <p className="font-semibold text-cream-50 text-sm">{s.booking_id}</p>
+                          <p className="text-forest-400 text-xs">{s.pickup_city} → {s.drop_city}</p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded text-xs font-medium bg-saffron-400/20 text-saffron-300">Available</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm text-forest-300 mb-4">
+                        <div><span className="text-forest-500">Customer:</span> {s.first_name} {s.last_name}</div>
+                        <div><span className="text-forest-500">Phone:</span> {s.mobile_number}</div>
+                        <div><span className="text-forest-500">Move Date:</span> {s.move_date}</div>
+                        <div><span className="text-forest-500">Vehicle:</span> {s.vehicle_type}</div>
+                        {s.final_quote ? <div><span className="text-forest-500">Quote:</span> NPR {s.final_quote.toLocaleString()}</div> : null}
+                      </div>
+                      <button onClick={() => claimJob(s.id)}
+                        className="flex items-center gap-2 bg-saffron-400 hover:bg-saffron-300 text-forest-900 font-bold px-5 py-2.5 rounded-sm text-sm transition-all min-h-[44px]">
+                        <Package className="w-4 h-4" /> Claim Job
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -402,6 +464,15 @@ export default function VendorPage() {
           )}
         </main>
       </div>
+
+      {chatFor !== null && (
+        <ChatPanel
+          shipmentId={chatFor}
+          senderRole="vendor"
+          title={`Job ${chatFor} · Customer Chat`}
+          onClose={() => setChatFor(null)}
+        />
+      )}
     </div>
   )
 }

@@ -50,6 +50,7 @@ export interface Shipment {
   payment_status: string
   assigned_vendor_id: number | null
   vendor_name?: string
+  vendor_phone?: string
   approval_status: string
   created_at: string
 }

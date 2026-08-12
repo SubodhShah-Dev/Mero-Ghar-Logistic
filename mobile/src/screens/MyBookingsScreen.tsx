@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { StackNavigationProp } from '@react-navigation/stack'
 import { SHIPMENTS } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { COLORS } from '../utils/theme'
+import type { RootStackParamList } from '../App'
+
+type Nav = StackNavigationProp<RootStackParamList, 'MyBookings'>
 
 export default function MyBookingsScreen() {
   const [shipments, setShipments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
+  const navigation = useNavigation<Nav>()
 
   useEffect(() => {
     if (!user) {
@@ -49,7 +55,20 @@ export default function MyBookingsScreen() {
             </View>
             <Text style={styles.route}>{s.pickup_city} → {s.drop_city}</Text>
             <Text style={styles.detail}>Vehicle: {s.vehicle_type}</Text>
+            {s.vendor_name && (
+              <View style={styles.vendorBlock}>
+                <Text style={styles.detail}>Mover: {s.vendor_name}</Text>
+                {s.vendor_phone && <Text style={styles.detail}>Phone: {s.vendor_phone}</Text>}
+              </View>
+            )}
             {s.final_quote && <Text style={styles.quote}>NPR {s.final_quote.toLocaleString()}</Text>}
+            {s.vendor_name && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Chat', { shipmentId: s.id, senderRole: 'customer', title: `Chat with ${s.vendor_name}` })}
+                style={styles.chatBtn}>
+                <Text style={styles.chatBtnText}>Chat with your mover</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ))
       )}
@@ -67,4 +86,7 @@ const styles = StyleSheet.create({
   route: { color: COLORS.forest[300], fontSize: 14, marginBottom: 4 },
   detail: { color: COLORS.forest[400], fontSize: 13, marginBottom: 2 },
   quote: { color: COLORS.saffron[400], fontSize: 15, fontWeight: '700' },
+  vendorBlock: { marginTop: 6 },
+  chatBtn: { backgroundColor: 'rgba(64,145,210,0.2)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 4, marginTop: 12, alignSelf: 'flex-start' },
+  chatBtnText: { color: '#5aa9e6', fontWeight: '600', fontSize: 13 },
 })
