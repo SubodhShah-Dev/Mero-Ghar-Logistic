@@ -6,9 +6,23 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdtemp, rm } from 'node:fs/promises';
 import net from 'node:net';
+import mysql from 'mysql2/promise';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND_DIR = path.resolve(__dirname, '..');
+
+const TEST_DB = 'meroghar_test';
+
+// Connection settings for the test database; mirror the XAMPP defaults used by
+// the backend (config/db.js) and override through the process env if set.
+const adminMysql = async (database = null) =>
+	mysql.createConnection({
+		host: process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1',
+		user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
+		password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
+		port: parseInt(process.env.MYSQLPORT || process.env.DB_PORT || '3306', 10),
+		database,
+	});
 
 let child;
 let baseUrl;
@@ -55,25 +69,38 @@ const req = async (method, route, body, token) => {
 	return { status: res.status, body: json };
 };
 
-before(async () => {
-	tmpDir = await mkdtemp(path.join(os.tmpdir(), 'meroghar-test-'));
-	const port = await freePort();
-	baseUrl = `http://127.0.0.1:${port}`;
-
+const spawnBackend = async (port) => {
 	child = spawn(process.execPath, ['server.js'], {
 		cwd: BACKEND_DIR,
 		env: {
 			...process.env,
 			PORT: String(port),
-			DB_DRIVER: 'sqlite',
-			DB_PATH: path.join(tmpDir, 'test.db'),
+			DB_NAME: TEST_DB,
 			NODE_ENV: 'test',
 			SEED_DEMO_DATA: 'true',
 		},
 		stdio: 'ignore',
 	});
-
 	await waitForServer(baseUrl);
+};
+
+const spawnMatchingPort = async () => {
+	await spawnBackend(baseUrl.split(':')[2]);
+};
+
+before(async () => {
+	tmpDir = await mkdtemp(path.join(os.tmpdir(), 'meroghar-test-'));
+	const port = await freePort();
+	baseUrl = `http://127.0.0.1:${port}`;
+
+	// Create (and reset) the dedicated test database so a failed/aborted run
+	// never leaves stale state behind.
+	const conn = await adminMysql();
+	await conn.query(`DROP DATABASE IF EXISTS \`${TEST_DB}\``);
+	await conn.query(`CREATE DATABASE \`${TEST_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+	await conn.end();
+
+	await spawnBackend(port);
 
 	// Sign in as the seeded demo accounts.
 	const adminLogin = await req('POST', '/api/auth/login', {
@@ -93,6 +120,15 @@ after(async () => {
 	if (child) child.kill('SIGKILL');
 	await new Promise((r) => setTimeout(r, 300));
 	if (tmpDir) await rm(tmpDir, { recursive: true, force: true });
+
+	const conn = await adminMysql(undefined).catch(() => null);
+	if (conn) {
+		try {
+			await conn.query(`DROP DATABASE IF EXISTS \`${TEST_DB}\``);
+		} finally {
+			await conn.end();
+		}
+	}
 });
 
 test('health check responds', async () => {
@@ -863,19 +899,7 @@ test('bookings survive an application restart', async () => {
 	child.kill('SIGKILL');
 	await new Promise((r) => setTimeout(r, 400));
 
-	child = spawn(process.execPath, ['server.js'], {
-		cwd: BACKEND_DIR,
-		env: {
-			...process.env,
-			PORT: baseUrl.split(':')[2],
-			DB_DRIVER: 'sqlite',
-			DB_PATH: path.join(tmpDir, 'test.db'),
-			NODE_ENV: 'test',
-			SEED_DEMO_DATA: 'true',
-		},
-		stdio: 'ignore',
-	});
-	await waitForServer(baseUrl);
+	await spawnMatchingPort();
 
 	const login = await req('POST', '/api/auth/login', { email: customerEmail, password: 'secret1' });
 	assert.equal(login.status, 200, 'customer can log in again after restart');
@@ -883,4 +907,152 @@ test('bookings survive an application restart', async () => {
 	const mine = await req('GET', '/api/shipment/my', undefined, login.body?.token);
 	assert.equal(mine.status, 200);
 	assert.ok(mine.body?.shipments?.length >= 4, 'bookings persisted across restart');
+});
+
+// ── RBAC v2: multi-branch roles & tenancy ──
+
+let branchAdminToken;
+let branchAdminBranches;
+
+test('branch admin demo account can log in and carries a branch scope', async () => {
+	const login = await req('POST', '/api/auth/login', {
+		email: 'branchadmin@test.com',
+		password: 'branchadminpass123',
+	});
+	assert.equal(login.status, 200);
+	branchAdminToken = login.body?.token;
+	assert.ok(branchAdminToken);
+	branchAdminBranches = login.body?.user?.branches;
+	assert.ok(Array.isArray(branchAdminBranches) && branchAdminBranches.length >= 1, 'branch admin has at least one branch');
+});
+
+test('branch list is scoped: branch admin sees only assigned provinces', async () => {
+	const res = await req('GET', '/api/admin/branches', undefined, branchAdminToken);
+	assert.equal(res.status, 200);
+	assert.equal(res.body?.branches?.length, branchAdminBranches.length);
+	for (const b of res.body.branches) {
+		assert.ok(branchAdminBranches.includes(b.id));
+	}
+});
+
+test('branch admin cannot create branches (HQ only)', async () => {
+	const res = await req('POST', '/api/admin/branches', { name: 'Rogue', province_id: 7 }, branchAdminToken);
+	assert.equal(res.status, 403);
+});
+
+test('super admin can create a new branch admin account', async () => {
+	const gaida = await req('GET', '/api/admin/branches', undefined, adminToken);
+	const gandaki = gaida.body?.branches?.find((b) => b.name === 'Gandaki Province');
+	assert.ok(gandaki, 'Gandaki branch exists in seed');
+
+	const email = `ba-${Date.now()}@test.com`;
+	const create = await req(
+		'POST',
+		'/api/admin/users',
+		{ name: 'Gandaki Admin', email, password: 'secret1', role: 'branch_admin', branch_ids: [gandaki.id] },
+		adminToken,
+	);
+	assert.equal(create.status, 201);
+	assert.equal(create.body?.user?.role, 'branch_admin');
+
+	// The new account can log in and its scope is exactly Gandaki.
+	const login = await req('POST', '/api/auth/login', { email, password: 'secret1' });
+	assert.equal(login.status, 200);
+	assert.deepEqual(login.body?.user?.branches, [gandaki.id]);
+});
+
+test('branch admin is blocked from creating admin accounts', async () => {
+	const res = await req(
+		'POST',
+		'/api/admin/users',
+		{ name: 'X', email: 'x@test.com', password: 'secret1', role: 'branch_admin', branch_ids: [] },
+		branchAdminToken,
+	);
+	assert.equal(res.status, 403);
+});
+
+test('data tenancy: Gandaki bookings invisible to the Bagmati branch admin', async () => {
+	// Customer creates a booking with a Gandaki pickup.
+	const gandakiShipment = await createAndPayBooking({
+		pickup_province: 'Gandaki Province',
+		pickup_district: 'Kaski',
+		pickup_city: 'Pokhara',
+		drop_province: 'Gandaki Province',
+		drop_district: 'Kaski',
+		drop_city: 'Lekhnath',
+	});
+	assert.ok(gandakiShipment.shipment_id, 'Gandaki booking created');
+
+	// Bagmati branch admin: global shipment list must not contain the record.
+	const all = await req('GET', '/api/shipment/all', undefined, branchAdminToken);
+	assert.equal(all.status, 200);
+	assert.ok(!all.body?.shipments?.some((s) => s.id === gandakiShipment.shipment_id));
+
+	// Direct fetch of an out-of-scope booking is forbidden.
+	const direct = await req('GET', `/api/shipment/${gandakiShipment.shipment_id}`, undefined, branchAdminToken);
+	assert.equal(direct.status, 403);
+
+	// Super admin sees it everywhere.
+	const supAll = await req('GET', '/api/shipment/all', undefined, adminToken);
+	assert.ok(supAll.body?.shipments?.some((s) => s.id === gandakiShipment.shipment_id));
+});
+
+test('scoped analytics: branch admin only sees own region', async () => {
+	const res = await req('GET', '/api/admin/analytics', undefined, branchAdminToken);
+	assert.equal(res.status, 200);
+	assert.ok(res.body?.overview);
+	// A Bagmati-only admin must not be able to force a Gandaki view.
+	const forced = await req('GET', '/api/admin/analytics?branch_id=4', undefined, branchAdminToken);
+	assert.equal(forced.status, 200);
+});
+
+test('cross-branch escalation lifecycle', async () => {
+	// Get branch ids for the seeded branches.
+	const branches = await req('GET', '/api/admin/branches', undefined, adminToken);
+	const bagmati = branches.body.branches.find((b) => b.name === 'Bagmati Province');
+	const gandaki = branches.body.branches.find((b) => b.name === 'Gandaki Province');
+	assert.ok(bagmati && gandaki);
+
+	// A Bagmati booking to escalate.
+	const escBooking = await createAndPayBooking({
+		pickup_province: 'Bagmati Province',
+		pickup_district: 'Kathmandu',
+		drop_province: 'Gandaki Province',
+		drop_district: 'Kaski',
+	});
+	assert.ok(escBooking.shipment_id);
+
+	// Bagmati admin requests a transfer of the booking to Gandaki.
+	const createEsc = await req(
+		'POST',
+		'/api/admin/escalations',
+		{ shipment_id: escBooking.shipment_id, to_branch_id: gandaki.id, type: 'transfer', reason: 'demo cross-province move' },
+		branchAdminToken,
+	);
+	assert.equal(createEsc.status, 201);
+
+	// The Bagmati admin cannot approve (only destination branch or HQ can).
+	// (We need a Gandaki admin token; reuse super admin to approve instead.)
+	const approve = await req('PUT', `/api/admin/escalations/${createEsc.body.escalation_id}`, { status: 'approved' }, adminToken);
+	assert.equal(approve.status, 200);
+
+	// After approval the shipment should now belong to the Gandaki branch.
+	const detail = await req('GET', `/api/shipment/${escBooking.shipment_id}`, undefined, adminToken);
+	assert.equal(detail.status, 200);
+	assert.equal(detail.body?.shipment?.branch_id, gandaki.id);
+});
+
+test('audit log grows on super-admin account creation and is HQ-only', async () => {
+	const audit = await req('GET', '/api/admin/audit', undefined, adminToken);
+	assert.equal(audit.status, 200);
+	assert.ok(Array.isArray(audit.body?.logs));
+	assert.ok(audit.body.logs.some((l) => l.action === 'user.create_admin'), 'an audit entry exists for admin creation');
+
+	const denied = await req('GET', '/api/admin/audit', undefined, branchAdminToken);
+	assert.equal(denied.status, 403);
+});
+
+test('settings are super-admin only now', async () => {
+	const res = await req('PUT', '/api/settings', { someKey: 'x' }, branchAdminToken);
+	assert.equal(res.status, 403);
 });

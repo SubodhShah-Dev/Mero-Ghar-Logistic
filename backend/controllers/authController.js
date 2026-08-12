@@ -4,12 +4,17 @@ import {
 	findUserByEmail,
 	verifyPassword,
 	getAllUsers,
+	getUserBranches,
 } from '../models/authModel.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 import { EMAIL_REGEX, PHONE_REGEX } from '../utils/validation.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'meroghar-jwt-secret-change-in-production';
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('Refusing to start in production without JWT_SECRET set');
+  process.exit(1);
+}
 
 const PASSWORD_MIN_LENGTH = 6;
 
@@ -69,8 +74,10 @@ export const loginUser = asyncHandler(async (req, res) => {
 		throw new HttpError(401, 'Invalid email or password');
 	}
 
+	const branches = await getUserBranches(user.id, user.role);
+
 	const token = jwt.sign(
-		{ id: user.id, email: user.email, role: user.role },
+		{ id: user.id, email: user.email, role: user.role, branches },
 		JWT_SECRET,
 		{ expiresIn: '7d' }
 	);
@@ -81,7 +88,7 @@ export const loginUser = asyncHandler(async (req, res) => {
 		success: true,
 		message: 'Login successful',
 		token,
-		user: userWithoutPassword,
+		user: { ...userWithoutPassword, branches },
 	});
 });
 

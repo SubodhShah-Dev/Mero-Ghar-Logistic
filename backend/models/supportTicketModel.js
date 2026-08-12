@@ -26,17 +26,42 @@ export const getTicketsByVendor = async (vendorId) => {
 	}
 };
 
-export const getAllTickets = async () => {
+export const getAllTickets = async (branchFilter = null) => {
 	try {
+		const params = [];
+		let where = 'WHERE 1 = 1';
+		if (branchFilter?.restricted) {
+			where = `WHERE v.branch_id IN (${branchFilter.params.map(() => '?').join(', ')})`;
+			params.push(...branchFilter.params);
+		}
 		const [rows] = await pool.execute(
-			`SELECT st.*, v.business_name FROM support_tickets st
+			`SELECT st.*, v.business_name, b.name AS branch_name
+       FROM support_tickets st
        JOIN vendors v ON v.id = st.vendor_id
+       LEFT JOIN branches b ON b.id = v.branch_id
+       ${where}
        ORDER BY st.created_at DESC`,
+			params,
 		);
 		return rows;
 	} catch (error) {
 		console.error('Error fetching all tickets:', error);
 		return [];
+	}
+};
+
+export const getTicketById = async (id) => {
+	try {
+		const [rows] = await pool.execute(
+			`SELECT st.*, v.branch_id, v.business_name FROM support_tickets st
+       JOIN vendors v ON v.id = st.vendor_id
+       WHERE st.id = ?`,
+			[id],
+		);
+		return rows[0];
+	} catch (error) {
+		console.error('Error fetching ticket:', error);
+		return null;
 	}
 };
 

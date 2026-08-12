@@ -45,14 +45,14 @@ function AppNavigator() {
       <Stack.Screen name="MyBookings" component={MyBookingsScreen} options={{ title: 'My Bookings' }} />
       <Stack.Screen name="Admin" options={{ title: 'Admin' }}>
         {() => (
-          <RoleGuard role="admin">
+          <RoleGuard roles={['super_admin', 'branch_admin']}>
             <AdminScreen />
           </RoleGuard>
         )}
       </Stack.Screen>
       <Stack.Screen name="Vendor" options={{ title: 'Vendor Portal' }}>
         {() => (
-          <RoleGuard role="vendor">
+          <RoleGuard roles="vendor">
             <VendorScreen />
           </RoleGuard>
         )}

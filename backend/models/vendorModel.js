@@ -1,15 +1,24 @@
 import pool from '../config/db.js';
 
-export const getAllVendors = async ({ page = 1, limit = 50 } = {}) => {
+export const getAllVendors = async ({ page = 1, limit = 50, branchFilter = null } = {}) => {
 	try {
 		const offset = (page - 1) * limit;
-		const [rows] = await pool.execute(`
-            SELECT v.*, u.email as user_email, u.name as user_name 
-            FROM vendors v 
-            JOIN users u ON v.user_id = u.id 
+		const params = [];
+		let where = 'WHERE 1 = 1';
+		if (branchFilter?.restricted) {
+			where += ` AND v.branch_id IN (${branchFilter.params.map(() => '?').join(', ')})`;
+			params.push(...branchFilter.params);
+		}
+		const [rows] = await pool.execute(
+			`SELECT v.*, u.email as user_email, u.name as user_name, b.name as branch_name
+            FROM vendors v
+            JOIN users u ON v.user_id = u.id
+            LEFT JOIN branches b ON b.id = v.branch_id
+            ${where}
             ORDER BY v.created_at DESC
-            LIMIT ${limit} OFFSET ${offset}
-        `);
+            LIMIT ${limit} OFFSET ${offset}`,
+			params,
+		);
 		return rows;
 	} catch (error) {
 		console.error('Error in getAllVendors:', error);
@@ -17,15 +26,23 @@ export const getAllVendors = async ({ page = 1, limit = 50 } = {}) => {
 	}
 };
 
-export const getActiveVendors = async () => {
+export const getActiveVendors = async (branchFilter = null) => {
 	try {
-		const [rows] = await pool.execute(`
-            SELECT v.*, u.email as user_email, u.name as user_name 
-            FROM vendors v 
-            JOIN users u ON v.user_id = u.id 
-            WHERE v.status = 'active'
-            ORDER BY v.rating DESC
-        `);
+		let where = `WHERE v.status = 'active'`;
+		const params = [];
+		if (branchFilter?.restricted) {
+			where += ` AND v.branch_id IN (${branchFilter.params.map(() => '?').join(', ')})`;
+			params.push(...branchFilter.params);
+		}
+		const [rows] = await pool.execute(
+			`SELECT v.*, u.email as user_email, u.name as user_name, b.name as branch_name
+            FROM vendors v
+            JOIN users u ON v.user_id = u.id
+            LEFT JOIN branches b ON b.id = v.branch_id
+            ${where}
+            ORDER BY v.rating DESC`,
+			params,
+		);
 		return rows;
 	} catch (error) {
 		console.error('Error in getActiveVendors:', error);

@@ -1,118 +1,106 @@
-// Single source of truth for the database schema.
-// Each table lists its columns with both a MySQL and a SQLite definition so the
-// two databases can never drift apart. `ddlFor(dialect)` emits the DDL for one
-// of the two dialects. `backend/scripts/export-schema.js` regenerates the
-// committed schema.sql / schema.sqlite.sql files from this module.
+// Single source of truth for the MySQL database schema.
+// `ddlFor()` emits the DDL used at startup; the committed backend/schema.sql is
+// regenerated from this module by backend/scripts/export-schema.js.
 
 const COLUMN = {
-	id: {
-		mysql: 'INT AUTO_INCREMENT PRIMARY KEY',
-		sqlite: 'INTEGER PRIMARY KEY AUTOINCREMENT',
-	},
-	ref: (name) => ({
-		mysql: 'INT NOT NULL',
-		sqlite: 'INTEGER NOT NULL',
-	}),
-	nullableRef: (name) => ({
-		mysql: 'INT',
-		sqlite: 'INTEGER',
-	}),
-	varchar: (n) => ({
-		mysql: `VARCHAR(${n})`,
-		sqlite: 'TEXT',
-	}),
-	varcharNotNull: (n) => ({
-		mysql: `VARCHAR(${n}) NOT NULL`,
-		sqlite: 'TEXT NOT NULL',
-	}),
-	text: () => ({ mysql: 'TEXT', sqlite: 'TEXT' }),
-	textNotNull: () => ({ mysql: 'TEXT NOT NULL', sqlite: 'TEXT NOT NULL' }),
-	decimal: (p, s) => ({
-		mysql: `DECIMAL(${p},${s})`,
-		sqlite: 'NUMERIC',
-	}),
-	boolean: () => ({
-		mysql: 'TINYINT(1)',
-		sqlite: 'INTEGER',
-	}),
-	timestamp: () => ({
-		mysql: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-		sqlite: "TEXT DEFAULT CURRENT_TIMESTAMP",
-	}),
-	timestampOnUpdate: () => ({
-		mysql: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
-		sqlite: "TEXT DEFAULT CURRENT_TIMESTAMP",
-	}),
-	date: () => ({ mysql: 'DATE', sqlite: 'TEXT' }),
-	datetime: () => ({ mysql: 'DATETIME', sqlite: 'TEXT' }),
+	id: 'INT AUTO_INCREMENT PRIMARY KEY',
+	ref: () => 'INT NOT NULL',
+	nullableRef: () => 'INT',
+	varchar: (n) => `VARCHAR(${n})`,
+	varcharNotNull: (n) => `VARCHAR(${n}) NOT NULL`,
+	text: () => 'TEXT',
+	textNotNull: () => 'TEXT NOT NULL',
+	decimal: (p, s) => `DECIMAL(${p},${s})`,
+	boolean: () => 'TINYINT(1)',
+	timestamp: () => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+	timestampOnUpdate: () => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
+	date: () => 'DATE',
+	datetime: () => 'DATETIME',
 };
 
-const UNIQUE = (col) => ({
-	mysql: `VARCHAR(255) NOT NULL UNIQUE`,
-	sqlite: 'TEXT NOT NULL UNIQUE',
-});
-
-// Define a column whose type is shared but which needs extra per-dialect
-// attributes (defaults, checks). Kept explicit so both files match.
-const column = (def) => def;
+const UNIQUE = () => 'VARCHAR(255) NOT NULL UNIQUE';
 
 const TABLES = [
 	{
 		name: 'users',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{ name: 'name', ...COLUMN.varcharNotNull(255) },
-			{ name: 'email', ...UNIQUE('email') },
-			{ name: 'password', ...COLUMN.varcharNotNull(255) },
-			{
-				name: 'role',
-				mysql: "ENUM('user','vendor','admin') DEFAULT 'user'",
-				sqlite: "TEXT DEFAULT 'user' CHECK (role IN ('user','vendor','admin'))",
-			},
-			{ name: 'phone', ...COLUMN.varchar(20) },
-			{ name: 'created_at', ...COLUMN.timestamp() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'name', type: COLUMN.varcharNotNull(255) },
+			{ name: 'email', type: UNIQUE() },
+			{ name: 'password', type: COLUMN.varcharNotNull(255) },
+			{ name: 'role', type: "ENUM('user','vendor','branch_admin','super_admin')", def: "'user'" },
+			{ name: 'phone', type: COLUMN.varchar(20) },
+			{ name: 'created_at', type: COLUMN.timestamp() },
 		],
 		constraints: [],
 		indexes: [],
 	},
 	{
-		name: 'vendors',
+		name: 'branches',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{ name: 'user_id', ...COLUMN.ref('users') },
-			{ name: 'business_name', ...COLUMN.varchar(255) },
-			{ name: 'owner_name', ...COLUMN.varchar(255) },
-			{ name: 'phone', ...COLUMN.varchar(20) },
-			{ name: 'email', ...COLUMN.varchar(255) },
-			{ name: 'service_region', ...COLUMN.text() },
-			{ name: 'address', ...COLUMN.text() },
-			{ name: 'status', ...COLUMN.varchar(50), mysqlDefault: "'pending'", sqliteDefault: "'pending'" },
-			{ name: 'rating', ...COLUMN.decimal(3, 2), mysqlDefault: '0.00', sqliteDefault: '0.00' },
-			{ name: 'total_jobs', mysql: 'INT', sqlite: 'INTEGER', mysqlDefault: '0', sqliteDefault: '0' },
-			{ name: 'created_at', ...COLUMN.timestamp() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'name', type: COLUMN.varcharNotNull(100) },
+			{ name: 'province_id', type: 'INT NOT NULL UNIQUE' },
+			{ name: 'is_active', type: COLUMN.boolean(), def: '1' },
+			{ name: 'created_at', type: COLUMN.timestamp() },
+		],
+		constraints: ['UNIQUE (name)'],
+		indexes: [],
+	},
+	{
+		name: 'user_branches',
+		columns: [
+			{ name: 'user_id', type: COLUMN.ref() },
+			{ name: 'branch_id', type: COLUMN.ref() },
 		],
 		constraints: [
 			'FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
+			'FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE',
+			'PRIMARY KEY (user_id, branch_id)',
+		],
+		indexes: [],
+	},
+	{
+		name: 'vendors',
+		columns: [
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'user_id', type: COLUMN.ref() },
+			{ name: 'branch_id', type: COLUMN.nullableRef() },
+			{ name: 'business_name', type: COLUMN.varchar(255) },
+			{ name: 'owner_name', type: COLUMN.varchar(255) },
+			{ name: 'phone', type: COLUMN.varchar(20) },
+			{ name: 'email', type: COLUMN.varchar(255) },
+			{ name: 'service_region', type: COLUMN.text() },
+			{ name: 'address', type: COLUMN.text() },
+			{ name: 'status', type: COLUMN.varchar(50), def: "'pending'" },
+			{ name: 'rating', type: COLUMN.decimal(3, 2), def: '0.00' },
+			{ name: 'total_jobs', type: 'INT', def: '0' },
+			{ name: 'created_at', type: COLUMN.timestamp() },
+		],
+		constraints: [
+			'FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
+			'FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL',
 		],
 		indexes: [
 			{ name: 'idx_vendors_user', cols: ['user_id'] },
 			{ name: 'idx_vendors_status', cols: ['status'] },
+			{ name: 'idx_vendors_branch', cols: ['branch_id'] },
 		],
 	},
 	{
 		name: 'vendor_vehicles',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{ name: 'vendor_id', ...COLUMN.ref('vendors') },
-			{ name: 'name', ...COLUMN.varchar(100) },
-			{ name: 'plate_number', ...COLUMN.varchar(50) },
-			{ name: 'vehicle_type', ...COLUMN.varchar(50) },
-			{ name: 'capacity_tonnes', ...COLUMN.decimal(5, 2), mysqlDefault: '0', sqliteDefault: '0' },
-			{ name: 'driver_name', ...COLUMN.varchar(100) },
-			{ name: 'driver_phone', ...COLUMN.varchar(20) },
-			{ name: 'status', ...COLUMN.varchar(50), mysqlDefault: "'available'", sqliteDefault: "'available'" },
-			{ name: 'is_active', ...COLUMN.boolean(), mysqlDefault: '1', sqliteDefault: '1' },
-			{ name: 'created_at', ...COLUMN.timestamp() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'vendor_id', type: COLUMN.ref() },
+			{ name: 'name', type: COLUMN.varchar(100) },
+			{ name: 'plate_number', type: COLUMN.varchar(50) },
+			{ name: 'vehicle_type', type: COLUMN.varchar(50) },
+			{ name: 'capacity_tonnes', type: COLUMN.decimal(5, 2), def: '0' },
+			{ name: 'driver_name', type: COLUMN.varchar(100) },
+			{ name: 'driver_phone', type: COLUMN.varchar(20) },
+			{ name: 'status', type: COLUMN.varchar(50), def: "'available'" },
+			{ name: 'is_active', type: COLUMN.boolean(), def: '1' },
+			{ name: 'created_at', type: COLUMN.timestamp() },
 		],
 		constraints: [
 			'FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE',
@@ -125,14 +113,14 @@ const TABLES = [
 	{
 		name: 'vendor_routes',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{ name: 'vendor_id', ...COLUMN.ref('vendors') },
-			{ name: 'from_province', ...COLUMN.varcharNotNull(100) },
-			{ name: 'from_district', ...COLUMN.varchar(100) },
-			{ name: 'to_province', ...COLUMN.varcharNotNull(100) },
-			{ name: 'to_district', ...COLUMN.varchar(100) },
-			{ name: 'is_active', ...COLUMN.boolean(), mysqlDefault: '1', sqliteDefault: '1' },
-			{ name: 'created_at', ...COLUMN.timestamp() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'vendor_id', type: COLUMN.ref() },
+			{ name: 'from_province', type: COLUMN.varcharNotNull(100) },
+			{ name: 'from_district', type: COLUMN.varchar(100) },
+			{ name: 'to_province', type: COLUMN.varcharNotNull(100) },
+			{ name: 'to_district', type: COLUMN.varchar(100) },
+			{ name: 'is_active', type: COLUMN.boolean(), def: '1' },
+			{ name: 'created_at', type: COLUMN.timestamp() },
 		],
 		constraints: [
 			'FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE',
@@ -146,58 +134,61 @@ const TABLES = [
 	{
 		name: 'shipments',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{ name: 'user_id', ...COLUMN.nullableRef('users') },
-			{ name: 'booking_id', ...COLUMN.varchar(50), unique: true },
-			{ name: 'first_name', ...COLUMN.varchar(100) },
-			{ name: 'last_name', ...COLUMN.varchar(100) },
-			{ name: 'mobile_number', ...COLUMN.varchar(20) },
-			{ name: 'alternate_mobile', ...COLUMN.varchar(20) },
-			{ name: 'email', ...COLUMN.varchar(255) },
-			{ name: 'pickup_province', ...COLUMN.varchar(100) },
-			{ name: 'pickup_district', ...COLUMN.varchar(100) },
-			{ name: 'pickup_city', ...COLUMN.varchar(100) },
-			{ name: 'pickup_ward', ...COLUMN.varchar(50) },
-			{ name: 'pickup_floor', ...COLUMN.varchar(50) },
-			{ name: 'pickup_lane_access', ...COLUMN.varchar(50) },
-			{ name: 'pickup_address', ...COLUMN.text() },
-			{ name: 'drop_province', ...COLUMN.varchar(100) },
-			{ name: 'drop_district', ...COLUMN.varchar(100) },
-			{ name: 'drop_city', ...COLUMN.varchar(100) },
-			{ name: 'drop_ward', ...COLUMN.varchar(50) },
-			{ name: 'drop_floor', ...COLUMN.varchar(50) },
-			{ name: 'drop_address', ...COLUMN.text() },
-			{ name: 'home_size', ...COLUMN.varchar(50) },
-			{ name: 'selected_items', ...COLUMN.text() },
-			{ name: 'fragile_items', ...COLUMN.text() },
-			{ name: 'vehicle_type', ...COLUMN.varchar(100) },
-			{ name: 'add_on_services', ...COLUMN.text() },
-			{ name: 'move_date', ...COLUMN.date() },
-			{ name: 'alternate_date', ...COLUMN.date() },
-			{ name: 'preferred_time_slot', ...COLUMN.varchar(50) },
-			{ name: 'move_reason', ...COLUMN.varchar(255) },
-			{ name: 'preferred_contact', ...COLUMN.text() },
-			{ name: 'payment_method', ...COLUMN.varchar(50) },
-			{ name: 'how_found_us', ...COLUMN.varchar(255) },
-			{ name: 'special_notes', ...COLUMN.text() },
-			{ name: 'status', ...COLUMN.varchar(50), mysqlDefault: "'pending'", sqliteDefault: "'pending'" },
-			{ name: 'final_quote', ...COLUMN.decimal(12, 2) },
-			{ name: 'distance_km', ...COLUMN.decimal(10, 2) },
-			{ name: 'estimated_duration', ...COLUMN.varchar(50) },
-			{ name: 'transaction_id', ...COLUMN.varchar(100) },
-			{ name: 'payment_status', ...COLUMN.varchar(50), mysqlDefault: "'pending'", sqliteDefault: "'pending'" },
-			{ name: 'assigned_vendor_id', ...COLUMN.nullableRef('vendors') },
-			{ name: 'approval_status', ...COLUMN.varchar(50), mysqlDefault: "'pending'", sqliteDefault: "'pending'" },
-			{ name: 'approved_by', ...COLUMN.nullableRef('users') },
-			{ name: 'approved_at', ...COLUMN.datetime() },
-			{ name: 'created_at', ...COLUMN.timestamp() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'user_id', type: COLUMN.nullableRef() },
+			{ name: 'branch_id', type: COLUMN.ref() },
+			{ name: 'booking_id', type: COLUMN.varchar(50), unique: true },
+			{ name: 'first_name', type: COLUMN.varchar(100) },
+			{ name: 'last_name', type: COLUMN.varchar(100) },
+			{ name: 'mobile_number', type: COLUMN.varchar(20) },
+			{ name: 'alternate_mobile', type: COLUMN.varchar(20) },
+			{ name: 'email', type: COLUMN.varchar(255) },
+			{ name: 'pickup_province', type: COLUMN.varchar(100) },
+			{ name: 'pickup_district', type: COLUMN.varchar(100) },
+			{ name: 'pickup_city', type: COLUMN.varchar(100) },
+			{ name: 'pickup_ward', type: COLUMN.varchar(50) },
+			{ name: 'pickup_floor', type: COLUMN.varchar(50) },
+			{ name: 'pickup_lane_access', type: COLUMN.varchar(50) },
+			{ name: 'pickup_address', type: COLUMN.text() },
+			{ name: 'drop_province', type: COLUMN.varchar(100) },
+			{ name: 'drop_district', type: COLUMN.varchar(100) },
+			{ name: 'drop_city', type: COLUMN.varchar(100) },
+			{ name: 'drop_ward', type: COLUMN.varchar(50) },
+			{ name: 'drop_floor', type: COLUMN.varchar(50) },
+			{ name: 'drop_address', type: COLUMN.text() },
+			{ name: 'home_size', type: COLUMN.varchar(50) },
+			{ name: 'selected_items', type: COLUMN.text() },
+			{ name: 'fragile_items', type: COLUMN.text() },
+			{ name: 'vehicle_type', type: COLUMN.varchar(100) },
+			{ name: 'add_on_services', type: COLUMN.text() },
+			{ name: 'move_date', type: COLUMN.date() },
+			{ name: 'alternate_date', type: COLUMN.date() },
+			{ name: 'preferred_time_slot', type: COLUMN.varchar(50) },
+			{ name: 'move_reason', type: COLUMN.varchar(255) },
+			{ name: 'preferred_contact', type: COLUMN.text() },
+			{ name: 'payment_method', type: COLUMN.varchar(50) },
+			{ name: 'how_found_us', type: COLUMN.varchar(255) },
+			{ name: 'special_notes', type: COLUMN.text() },
+			{ name: 'status', type: COLUMN.varchar(50), def: "'pending'" },
+			{ name: 'final_quote', type: COLUMN.decimal(12, 2) },
+			{ name: 'distance_km', type: COLUMN.decimal(10, 2) },
+			{ name: 'estimated_duration', type: COLUMN.varchar(50) },
+			{ name: 'transaction_id', type: COLUMN.varchar(100) },
+			{ name: 'payment_status', type: COLUMN.varchar(50), def: "'pending'" },
+			{ name: 'assigned_vendor_id', type: COLUMN.nullableRef() },
+			{ name: 'approval_status', type: COLUMN.varchar(50), def: "'pending'" },
+			{ name: 'approved_by', type: COLUMN.nullableRef() },
+			{ name: 'approved_at', type: COLUMN.datetime() },
+			{ name: 'created_at', type: COLUMN.timestamp() },
 		],
 		constraints: [
 			'FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL',
+			'FOREIGN KEY (branch_id) REFERENCES branches(id)',
 			'FOREIGN KEY (assigned_vendor_id) REFERENCES vendors(id) ON DELETE SET NULL',
 		],
 		indexes: [
 			{ name: 'idx_shipments_user', cols: ['user_id'] },
+			{ name: 'idx_shipments_branch', cols: ['branch_id'] },
 			{ name: 'idx_shipments_email', cols: ['email'] },
 			{ name: 'idx_shipments_vendor', cols: ['assigned_vendor_id'] },
 			{ name: 'idx_shipments_approval', cols: ['approval_status'] },
@@ -208,17 +199,13 @@ const TABLES = [
 	{
 		name: 'support_tickets',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{ name: 'vendor_id', ...COLUMN.ref('vendors') },
-			{ name: 'subject', ...COLUMN.varcharNotNull(255) },
-			{ name: 'message', ...COLUMN.textNotNull() },
-			{
-				name: 'status',
-				mysql: "ENUM('open','resolved','closed') DEFAULT 'open'",
-				sqlite: "TEXT DEFAULT 'open' CHECK (status IN ('open','resolved','closed'))",
-			},
-			{ name: 'created_at', ...COLUMN.timestamp() },
-			{ name: 'updated_at', ...COLUMN.timestampOnUpdate() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'vendor_id', type: COLUMN.ref() },
+			{ name: 'subject', type: COLUMN.varcharNotNull(255) },
+			{ name: 'message', type: COLUMN.textNotNull() },
+			{ name: 'status', type: "ENUM('open','resolved','closed')", def: "'open'" },
+			{ name: 'created_at', type: COLUMN.timestamp() },
+			{ name: 'updated_at', type: COLUMN.timestampOnUpdate() },
 		],
 		constraints: [
 			'FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE',
@@ -231,16 +218,12 @@ const TABLES = [
 	{
 		name: 'messages',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{ name: 'shipment_id', ...COLUMN.ref('shipments') },
-			{ name: 'sender_user_id', ...COLUMN.nullableRef('users') },
-			{
-				name: 'sender_role',
-				mysql: "ENUM('customer','vendor') NOT NULL",
-				sqlite: "TEXT NOT NULL CHECK (sender_role IN ('customer','vendor'))",
-			},
-			{ name: 'message', ...COLUMN.textNotNull() },
-			{ name: 'created_at', ...COLUMN.timestamp() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'shipment_id', type: COLUMN.ref() },
+			{ name: 'sender_user_id', type: COLUMN.nullableRef() },
+			{ name: 'sender_role', type: "ENUM('customer','vendor') NOT NULL" },
+			{ name: 'message', type: COLUMN.textNotNull() },
+			{ name: 'created_at', type: COLUMN.timestamp() },
 		],
 		constraints: [
 			'FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE',
@@ -253,81 +236,87 @@ const TABLES = [
 	{
 		name: 'settings',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{
-				name: 'setting_key',
-				mysql: 'VARCHAR(100) NOT NULL UNIQUE',
-				sqlite: 'TEXT NOT NULL UNIQUE',
-			},
-			{ name: 'setting_value', ...COLUMN.textNotNull() },
-			{ name: 'updated_at', ...COLUMN.timestampOnUpdate() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'setting_key', type: 'VARCHAR(100) NOT NULL UNIQUE' },
+			{ name: 'setting_value', type: COLUMN.textNotNull() },
+			{ name: 'updated_at', type: COLUMN.timestampOnUpdate() },
 		],
 		constraints: [],
 		indexes: [
 			{ name: 'idx_settings_key', cols: ['setting_key'] },
 		],
 	},
-	// Sync infrastructure: tombstones for deleted rows so a delete performed
-	// while the other database was down is not resurrected on the next
-	// reconciliation. Not part of the application domain.
 	{
-		name: 'sync_deletions',
+		name: 'escalations',
 		columns: [
-			{ name: 'id', ...COLUMN.id },
-			{ name: 'table_name', ...COLUMN.varcharNotNull(100) },
-			{ name: 'row_id', mysql: 'INT NOT NULL', sqlite: 'INTEGER NOT NULL' },
-			{ name: 'deleted_at', ...COLUMN.timestamp() },
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'shipment_id', type: COLUMN.ref() },
+			{ name: 'from_branch_id', type: COLUMN.ref() },
+			{ name: 'to_branch_id', type: COLUMN.ref() },
+			{ name: 'type', type: "ENUM('transfer','assign','delete','override_vendor')", def: "'transfer'" },
+			{ name: 'reason', type: COLUMN.text() },
+			{ name: 'status', type: COLUMN.varchar(20), def: "'pending'" },
+			{ name: 'requested_by', type: COLUMN.nullableRef() },
+			{ name: 'resolved_by', type: COLUMN.nullableRef() },
+			{ name: 'created_at', type: COLUMN.timestamp() },
+			{ name: 'resolved_at', type: COLUMN.datetime() },
 		],
-		constraints: ['UNIQUE (table_name, row_id)'],
-		indexes: [],
+		constraints: [
+			'FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE',
+			'FOREIGN KEY (from_branch_id) REFERENCES branches(id)',
+			'FOREIGN KEY (to_branch_id) REFERENCES branches(id)',
+		],
+		indexes: [
+			{ name: 'idx_esc_from', cols: ['from_branch_id'] },
+			{ name: 'idx_esc_to', cols: ['to_branch_id'] },
+			{ name: 'idx_esc_status', cols: ['status'] },
+		],
+	},
+	{
+		name: 'audit_logs',
+		columns: [
+			{ name: 'id', type: COLUMN.id },
+			{ name: 'actor_user_id', type: COLUMN.nullableRef() },
+			{ name: 'action', type: COLUMN.varcharNotNull(100) },
+			{ name: 'entity', type: COLUMN.varchar(50) },
+			{ name: 'entity_id', type: COLUMN.nullableRef() },
+			{ name: 'branch_id', type: COLUMN.nullableRef() },
+			{ name: 'meta', type: COLUMN.text() },
+			{ name: 'created_at', type: COLUMN.timestamp() },
+		],
+		constraints: [],
+		indexes: [
+			{ name: 'idx_audit_actor', cols: ['actor_user_id'] },
+			{ name: 'idx_audit_branch', cols: ['branch_id'] },
+			{ name: 'idx_audit_action', cols: ['action'] },
+		],
 	},
 ];
 
 const TABLE_ORDER = TABLES.map((t) => t.name);
 
-// Render a column's full SQL for a given dialect, honoring defaults/unique.
-const renderColumn = (col, dialect) => {
-	let sql = col[dialect];
+const renderColumn = (col) => {
+	let sql = col.type;
 	if (col.unique) {
 		sql += ' UNIQUE';
 	}
-	if (col.mysqlDefault !== undefined || col.sqliteDefault !== undefined) {
-		const def = dialect === 'mysql' ? col.mysqlDefault : col.sqliteDefault;
-		if (def !== undefined) {
-			sql += ` DEFAULT ${def}`;
-		}
+	if (col.def !== undefined) {
+		sql += ` DEFAULT ${col.def}`;
 	}
 	return sql;
 };
 
-export const ddlFor = (dialect) => {
+export const ddlFor = () => {
 	const statements = [];
 	for (const table of TABLES) {
-		const columnLines = table.columns.map(
-			(col) => `  ${col.name} ${renderColumn(col, dialect)}`,
-		);
+		const columnLines = table.columns.map((col) => `  ${col.name} ${renderColumn(col)}`);
 		const constraintLines = table.constraints.map((c) => `  ${c}`);
-		const indexLines =
-			dialect === 'mysql'
-				? table.indexes.map(
-						(idx) => `  INDEX ${idx.name} (${idx.cols.join(', ')})`,
-				  )
-				: [];
-		const allLines = [
-			...columnLines,
-			...constraintLines,
-			...indexLines,
-		];
-		statements.push(
-			`CREATE TABLE IF NOT EXISTS ${table.name} (\n${allLines.join(',\n')}\n);`,
+		const indexLines = table.indexes.map(
+			(idx) => `  INDEX ${idx.name} (${idx.cols.join(', ')})`,
 		);
-		if (dialect === 'sqlite') {
-			for (const idx of table.indexes) {
-				statements.push(
-					`CREATE INDEX IF NOT EXISTS ${idx.name} ON ${table.name} (${idx.cols.join(', ')});`,
-				);
-			}
-		}
+		statements.push(
+			`CREATE TABLE IF NOT EXISTS ${table.name} (\n${[...columnLines, ...constraintLines, ...indexLines].join(',\n')}\n);`,
+		);
 	}
 	return statements;
 };

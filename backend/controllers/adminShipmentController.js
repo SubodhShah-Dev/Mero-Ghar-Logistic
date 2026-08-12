@@ -2,6 +2,7 @@ import { getShipmentsByApprovalStatus } from '../models/shipmentModel.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 import { ALLOWED_APPROVAL_STATUSES } from '../utils/validation.js';
+import { scopeFilterFor } from '../middleware/scope.js';
 
 const parsePagination = (query) => {
 	const page = Math.max(parseInt(query.page) || 1, 1);
@@ -16,7 +17,7 @@ export const getShipmentsByStatus = asyncHandler(async (req, res) => {
 	}
 	const shipments = await getShipmentsByApprovalStatus(
 		status,
-		parsePagination(req.query),
+		{ ...parsePagination(req.query), branchFilter: scopeFilterFor(req.user) },
 	);
 	res.json({ success: true, shipments });
 });

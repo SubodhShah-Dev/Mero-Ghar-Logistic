@@ -5,21 +5,22 @@ import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../App'
 
 interface RoleGuardProps {
-  role: string
+  roles: string | string[]
   children: ReactNode
 }
 
-export function RoleGuard({ role, children }: RoleGuardProps) {
+export function RoleGuard({ roles, children }: RoleGuardProps) {
   const { user, loading } = useAuth()
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>()
+  const allowed = Array.isArray(roles) ? roles : [roles]
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== role)) {
+    if (!loading && (!user || !allowed.includes(user.role))) {
       navigation.replace('Home')
     }
-  }, [user, loading, role, navigation])
+  }, [user, loading, allowed, navigation])
 
-  if (loading || !user || user.role !== role) {
+  if (loading || !user || !allowed.includes(user.role)) {
     return null
   }
 

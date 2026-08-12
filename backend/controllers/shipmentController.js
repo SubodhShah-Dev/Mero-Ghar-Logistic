@@ -1,6 +1,7 @@
-import pool, { dialect } from '../config/db.js';
+import pool from '../config/db.js';
 import { HttpError } from '../utils/HttpError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { canAccessBranch, scopeFilterFor } from '../middleware/scope.js';
 import {
 	validateShipmentInput,
 	ALLOWED_SHIPMENT_STATUSES,
@@ -13,9 +14,10 @@ import {
 	getActiveShipmentsCountForVendor as getVendorActiveCount,
 } from '../models/shipmentModel.js';
 import { findMatchingVendors, vendorCoversRoute } from '../models/vendorModel.js';
+import { branchIdForProvince } from '../models/branchModel.js';
 
 const INSERT_SHIPMENT_SQL = `INSERT INTO shipments (
-	booking_id, user_id, pickup_address, pickup_province, pickup_district, pickup_city, pickup_ward, pickup_floor, pickup_lane_access,
+	booking_id, user_id, branch_id, pickup_address, pickup_province, pickup_district, pickup_city, pickup_ward, pickup_floor, pickup_lane_access,
 	drop_address, drop_province, drop_district, drop_city, drop_ward, drop_floor,
 	home_size, selected_items, fragile_items, vehicle_type, add_on_services,
 	move_date, alternate_date, preferred_time_slot, move_reason,
@@ -23,7 +25,7 @@ const INSERT_SHIPMENT_SQL = `INSERT INTO shipments (
 	preferred_contact, payment_method, special_notes, how_found_us,
 	approval_status, status, transaction_id, payment_status, final_quote, distance_km, estimated_duration,
 	assigned_vendor_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 const DEMO_QUOTE_BY_VEHICLE = {
 	'Cargo Tempo': 4000,
@@ -91,8 +93,7 @@ export const createShipment = asyncHandler(async (req, res) => {
 
 		if (vendor_id) {
 			// Serialize concurrent bookings for this vendor via a row lock.
-			// SQLite is single-writer, so the lock clause is unnecessary there.
-			const rowLock = dialect === 'mysql' ? ' FOR UPDATE' : '';
+			const rowLock = ' FOR UPDATE';
 			const [vendorRows] = await connection.execute(
 				`SELECT id FROM vendors WHERE id = ?${rowLock}`,
 				[vendor_id],
@@ -174,6 +175,7 @@ export const createShipment = asyncHandler(async (req, res) => {
 		const [result] = await connection.execute(INSERT_SHIPMENT_SQL, [
 			booking_id,
 			userId,
+			await branchIdForProvince(pickup_province),
 			pickup_address || null,
 			pickup_province || null,
 			pickup_district || null,
@@ -249,7 +251,8 @@ export const createShipment = asyncHandler(async (req, res) => {
 export const getAllShipments = asyncHandler(async (req, res) => {
 	const page = Math.max(parseInt(req.query.page) || 1, 1);
 	const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200);
-	const shipments = await getAllShipmentsModel({ page, limit });
+	const branchFilter = scopeFilterFor(req.user);
+	const shipments = await getAllShipmentsModel({ page, limit, branchFilter });
 	res.json({ success: true, shipments });
 });
 
@@ -258,12 +261,14 @@ export const getShipment = asyncHandler(async (req, res) => {
 	if (!shipment) {
 		throw new HttpError(404, 'Shipment not found');
 	}
-	// Only the booking owner or an admin may view a single booking's details.
-	const isAdmin = req.user?.role === 'admin';
+	// Only the booking owner, a scoped admin, or a super admin may view details.
+	const isSuper = req.user?.role === 'super_admin';
+	const isScopedAdmin =
+		req.user?.role === 'branch_admin' && canAccessBranch(req.user, shipment.branch_id);
 	const isOwner =
 		shipment.user_id != null &&
 		Number(shipment.user_id) === Number(req.user?.id);
-	if (!isAdmin && !isOwner) {
+	if (!isSuper && !isScopedAdmin && !isOwner) {
 		throw new HttpError(403, 'You do not have access to this booking');
 	}
 	res.json({ success: true, shipment });
@@ -300,6 +305,14 @@ export const updateShipmentStatus = asyncHandler(async (req, res) => {
 	}
 	if (!status || !ALLOWED_SHIPMENT_STATUSES.includes(status)) {
 		throw new HttpError(400, 'Invalid shipment status');
+	}
+	// Branch admins may only update shipments within their own branch scope.
+	if (req.user?.role === 'branch_admin') {
+		const shipment = await getShipmentById(shipmentId);
+		if (!shipment) throw new HttpError(404, 'Shipment not found');
+		if (!canAccessBranch(req.user, shipment.branch_id)) {
+			throw new HttpError(403, 'This booking is outside your assigned region');
+		}
 	}
 	const updated = await updateShipmentStatusModel(
 		shipmentId,

@@ -10,6 +10,6 @@ const router = express.Router();
 
 router.post('/register', registerUser);
 router.post('/login', loginUser);
-router.get('/users', authenticate, requireRole('admin'), getUsers);
+router.get('/users', authenticate, requireRole('super_admin'), getUsers);
 
 export default router;

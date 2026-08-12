@@ -1,10 +1,7 @@
-import pool, { dialect } from '../config/db.js';
+import pool from '../config/db.js';
 
-// Dialect-neutral full-name expression (MySQL uses CONCAT, SQLite uses ||).
-const NAME_CONCAT =
-	dialect === 'mysql'
-		? "CONCAT(s.first_name, ' ', s.last_name)"
-		: "(s.first_name || ' ' || s.last_name)";
+// Full-name expression (MySQL syntax).
+const NAME_CONCAT = "CONCAT(s.first_name, ' ', s.last_name)";
 
 // Get shipment by ID
 export const getShipmentById = async (id) => {
@@ -28,18 +25,27 @@ export const getShipmentsByUserId = async (userId) => {
 	return rows;
 };
 
-// Get all shipments
-export const getAllShipments = async ({ page = 1, limit = 50 } = {}) => {
+// Get all shipments (admin/global). branchFilter from scopeFragment():
+//   { restricted:false } -> unlimited; { restricted:true, params:[...] } -> scoped.
+export const getAllShipments = async ({ page = 1, limit = 50, branchFilter = null } = {}) => {
 	const offset = (page - 1) * limit;
+	const params = [];
+	let where = 'WHERE 1 = 1';
+	if (branchFilter?.restricted) {
+		where += ` AND s.branch_id IN (${branchFilter.params.map(() => '?').join(', ')})`;
+		params.push(...branchFilter.params);
+	}
 	const [rows] = await pool.execute(
 		`SELECT s.*, u.name as user_name, u.email as user_email,
-               v.business_name as vendor_name
+               v.business_name as vendor_name, b.name as branch_name
          FROM shipments s 
          LEFT JOIN users u ON s.user_id = u.id 
          LEFT JOIN vendors v ON s.assigned_vendor_id = v.id
+         LEFT JOIN branches b ON b.id = s.branch_id
+         ${where}
          ORDER BY s.created_at DESC
          LIMIT ? OFFSET ?`,
-		[Number(limit), Number(offset)],
+		[...params, Number(limit), Number(offset)],
 	);
 	return rows;
 };
@@ -141,21 +147,29 @@ export const claimShipmentForVendor = async (shipmentId, vendorId) => {
 	return result.affectedRows > 0;
 };
 
-// Get shipments by approval status
-export const getShipmentsByApprovalStatus = async (status, { page = 1, limit = 50 } = {}) => {
+// Get shipments by approval status (scoped for branch admins).
+export const getShipmentsByApprovalStatus = async (status, { page = 1, limit = 50, branchFilter = null } = {}) => {
 	const offset = (page - 1) * limit;
+	const params = [status];
+	let scopeSql = '1 = 1';
+	if (branchFilter?.restricted) {
+		scopeSql = `s.branch_id IN (${branchFilter.params.map(() => '?').join(', ')})`;
+		params.push(...branchFilter.params);
+	}
 	const [rows] = await pool.execute(
 		`SELECT s.*, 
                ${NAME_CONCAT} as customer_name,
                v.business_name as vendor_name,
-               v.id as vendor_id
+               v.id as vendor_id,
+               b.name as branch_name
         FROM shipments s 
         LEFT JOIN vendors v ON s.assigned_vendor_id = v.id
-        WHERE s.approval_status = ?
+        LEFT JOIN branches b ON b.id = s.branch_id
+        WHERE s.approval_status = ? AND ${scopeSql}
         ORDER BY s.created_at DESC
         LIMIT ? OFFSET ?
     `,
-		[status, Number(limit), Number(offset)],
+		[...params, Number(limit), Number(offset)],
 	);
 	return rows;
 };

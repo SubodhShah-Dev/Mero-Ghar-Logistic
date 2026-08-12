@@ -11,8 +11,13 @@ import { NativeModules, Platform } from 'react-native'
 //     as long as the phone and computer are on the same network
 const DEFAULT_PORT = 5000
 
-// Production API endpoint for release builds. Rendered at https://meroghar-backend.onrender.com
-const PROD_API_URL = 'https://meroghar-backend.onrender.com'
+// Production API endpoint for release builds (APKs installed on a phone).
+//
+// When the phone is NOT on the same network as the PC running the backend, keep
+// a run of backend/scripts/tunnel.sh alive and paste the printed
+// https://<random>.trycloudflare.com URL here, then rebuild the APK.
+// The tunnel URL changes each time the script restarts — update it and rebuild.
+const PROD_API_URL = 'https://release-rejected-louisiana-subsidiary.trycloudflare.com'
 
 function resolveDevHost(): string {
   try {

@@ -22,6 +22,7 @@ import chatbotRoute from './routes/chatbotRoute.js';
 import geocodeRoute from './routes/geocodeRoute.js';
 import supportTicketRoute from './routes/supportTicketRoute.js';
 import settingsRoute from './routes/settingsRoute.js';
+import orgRoute from './routes/orgRoute.js';
 import { HttpError } from './utils/HttpError.js';
 
 const app = express();
@@ -29,15 +30,13 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 const allowedOrigins = [
-	'http://localhost:5173',
 	'http://localhost:5000',
-	'http://127.0.0.1:5173',
 	'http://127.0.0.1:5000',
-	'https://backend-production-d51a3.up.railway.app',
+	'http://10.0.2.2:5000',
 ];
 app.use(cors({
 	origin: function (origin, callback) {
-		if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.railway.app') || origin.endsWith('.onrender.com')) {
+		if (!origin || allowedOrigins.includes(origin)) {
 			callback(null, true);
 		} else {
 			callback(new Error('Not allowed by CORS'));
@@ -65,6 +64,7 @@ app.use('/api/chatbot', chatbotRoute);
 app.use('/api/geocode', geocodeRoute);
 app.use('/api/tickets', supportTicketRoute);
 app.use('/api/settings', settingsRoute);
+app.use('/api/admin', orgRoute);
 
 app.get('/', (req, res) => {
 	res.json('Server running');

@@ -5,6 +5,7 @@ import { StackNavigationProp } from '@react-navigation/stack'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../App'
 import { COLORS } from '../utils/theme'
+import { isAdminRole } from '../utils/roles'
 
 type Nav = StackNavigationProp<RootStackParamList>
 
@@ -16,7 +17,7 @@ export default function LoginScreen() {
   const navigation = useNavigation<Nav>()
 
   const routeForRole = (role: string) => {
-    if (role === 'admin') return 'Admin'
+    if (isAdminRole(role)) return 'Admin'
     if (role === 'vendor') return 'Vendor'
     return 'Home'
   }

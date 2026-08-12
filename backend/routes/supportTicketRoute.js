@@ -1,13 +1,13 @@
 import express from 'express';
-import { authenticate, requireRole } from '../middleware/auth.js';
+import { authenticate, authorize, requireRole } from '../middleware/auth.js';
 import { submitTicket, listMyTickets, listAllTickets, resolveTicket, closeTicket } from '../controllers/supportTicketController.js';
 
 const router = express.Router();
 
 router.post('/submit', authenticate, requireRole('vendor'), submitTicket);
 router.get('/mine', authenticate, requireRole('vendor'), listMyTickets);
-router.get('/all', authenticate, requireRole('admin'), listAllTickets);
-router.put('/:id/resolve', authenticate, requireRole('admin'), resolveTicket);
-router.put('/:id/close', authenticate, requireRole('admin'), closeTicket);
+router.get('/all', authenticate, authorize('tickets.manage.global', 'tickets.manage.region'), listAllTickets);
+router.put('/:id/resolve', authenticate, authorize('tickets.manage.global', 'tickets.manage.region'), resolveTicket);
+router.put('/:id/close', authenticate, authorize('tickets.manage.global', 'tickets.manage.region'), closeTicket);
 
 export default router;

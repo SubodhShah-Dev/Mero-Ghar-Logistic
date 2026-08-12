@@ -5,6 +5,7 @@ import { StackNavigationProp } from '@react-navigation/stack'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../App'
 import { COLORS } from '../utils/theme'
+import { isAdminRole } from '../utils/roles'
 
 type Nav = StackNavigationProp<RootStackParamList>
 
@@ -36,9 +37,9 @@ export default function HomeScreen() {
             ) : user ? (
               <TouchableOpacity
                 style={styles.primaryBtn}
-                onPress={() => navigation.navigate(user.role === 'admin' ? 'Admin' : 'Vendor')}>
+                onPress={() => navigation.navigate(isAdminRole(user.role) ? 'Admin' : 'Vendor')}>
                 <Text style={styles.primaryBtnText}>
-                  {user.role === 'admin' ? 'Admin Panel' : 'Vendor Portal'}
+                  {isAdminRole(user.role) ? 'Admin Panel' : 'Vendor Portal'}
                 </Text>
               </TouchableOpacity>
             ) : (
@@ -67,7 +68,7 @@ export default function HomeScreen() {
                   <Text style={styles.linkText}>📋 My Bookings</Text>
                 </TouchableOpacity>
               )}
-              {user.role === 'admin' && (
+              {isAdminRole(user.role) && (
                 <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate('Admin')}>
                   <Text style={styles.linkText}>⚙️ Admin Panel</Text>
                 </TouchableOpacity>

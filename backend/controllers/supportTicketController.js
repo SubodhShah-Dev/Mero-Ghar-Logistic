@@ -1,7 +1,8 @@
-import { createTicket, getTicketsByVendor, getAllTickets, updateTicketStatus } from '../models/supportTicketModel.js';
+import { createTicket, getTicketsByVendor, getAllTickets, getTicketById, updateTicketStatus } from '../models/supportTicketModel.js';
 import { getVendorByUserId } from '../models/vendorModel.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
+import { canAccessBranch, scopeFilterFor } from '../middleware/scope.js';
 
 export const submitTicket = asyncHandler(async (req, res) => {
 	const { subject, message } = req.body;
@@ -29,12 +30,23 @@ export const listMyTickets = asyncHandler(async (req, res) => {
 });
 
 export const listAllTickets = asyncHandler(async (req, res) => {
-	const tickets = await getAllTickets();
+	const tickets = await getAllTickets(scopeFilterFor(req.user));
 	res.json({ success: true, tickets });
 });
 
+// Helper: branch admins can only touch tickets opened in their own region.
+const assertTicketScope = async (user, id) => {
+	if (user.role === 'super_admin') return;
+	const ticket = await getTicketById(id);
+	if (!ticket) throw new HttpError(404, 'Ticket not found');
+	if (!canAccessBranch(user, ticket.branch_id)) {
+		throw new HttpError(403, 'This ticket is outside your assigned region');
+	}
+};
+
 export const resolveTicket = asyncHandler(async (req, res) => {
 	const { id } = req.params;
+	await assertTicketScope(req.user, id);
 	const ok = await updateTicketStatus(id, 'resolved');
 	if (!ok) {
 		throw new HttpError(404, 'Ticket not found');
@@ -44,6 +56,7 @@ export const resolveTicket = asyncHandler(async (req, res) => {
 
 export const closeTicket = asyncHandler(async (req, res) => {
 	const { id } = req.params;
+	await assertTicketScope(req.user, id);
 	const ok = await updateTicketStatus(id, 'closed');
 	if (!ok) {
 		throw new HttpError(404, 'Ticket not found');

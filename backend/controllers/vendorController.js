@@ -21,14 +21,14 @@ import {
 	removeVendorRoute,
 } from '../models/vendorModel.js';
 
-import {
-	getShipmentsForVendor,
+import { getShipmentsForVendor,
 	getAvailableShipmentsForVendor,
 	claimShipmentForVendor,
 	getShipmentById,
 	updateVendorShipmentStatus,
 	getActiveShipmentsCountForVendor,
 } from '../models/shipmentModel.js';
+import { canAccessBranch, scopeFilterFor } from '../middleware/scope.js';
 
 const parsePagination = (query) => {
 	const page = Math.max(parseInt(query.page) || 1, 1);
@@ -37,12 +37,15 @@ const parsePagination = (query) => {
 };
 
 export const getVendors = asyncHandler(async (req, res) => {
-	const vendors = await getAllVendors(parsePagination(req.query));
+	const vendors = await getAllVendors({
+		...parsePagination(req.query),
+		branchFilter: scopeFilterFor(req.user),
+	});
 	res.json({ success: true, vendors });
 });
 
 export const getActiveVendorsList = asyncHandler(async (req, res) => {
-	const vendors = await getActiveVendors();
+	const vendors = await getActiveVendors(scopeFilterFor(req.user));
 	res.json({ success: true, vendors });
 });
 
@@ -140,6 +143,11 @@ export const updateVendorStatusCtrl = asyncHandler(async (req, res) => {
 	const vendor = await getVendorById(id);
 	if (!vendor) {
 		throw new HttpError(404, 'Vendor not found');
+	}
+
+	// Branch admins may only change vendors inside their assigned regions.
+	if (req.user?.role === 'branch_admin' && !canAccessBranch(req.user, vendor.branch_id)) {
+		throw new HttpError(403, 'This mover is outside your assigned region');
 	}
 
 	if (vendor.status === 'banned' && status !== 'banned') {
@@ -370,14 +378,25 @@ export const updateVehicleStatusCtrl = asyncHandler(async (req, res) => {
 		throw new HttpError(400, 'Invalid vehicle status');
 	}
 
-	// Admins may update any vehicle; vendors are scoped to their own fleet.
+	// Admins may update vehicles; branch admins are limited to their region and
+	// vendors are scoped to their own fleet.
 	let scope = null;
-	if (req.user.role !== 'admin') {
+	const isAdminUser = req.user.role === 'super_admin' || req.user.role === 'branch_admin';
+	if (!isAdminUser) {
 		const vendor = await getVendorByUserId(req.user.id);
 		if (!vendor) {
 			throw new HttpError(403, 'Vendor profile not found');
 		}
 		scope = vendor.id;
+	} else if (req.user.role === 'branch_admin') {
+		const owner = await pool.execute(
+			'SELECT v.branch_id FROM vendor_vehicles vv JOIN vendors v ON v.id = vv.vendor_id WHERE vv.id = ?',
+			[id],
+		);
+		const branchId = owner[0][0]?.branch_id;
+		if (!canAccessBranch(req.user, branchId)) {
+			throw new HttpError(403, 'This vehicle belongs to a mover outside your assigned region');
+		}
 	}
 
 	const updated = await updateVehicleStatus(id, status, scope);

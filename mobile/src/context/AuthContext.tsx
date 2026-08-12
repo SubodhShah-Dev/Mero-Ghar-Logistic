@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { AUTH } from '../services/api'
+import type { UserRole } from '../utils/roles'
 
-interface User {
+export type { UserRole }
+
+export interface User {
   id: number
   name: string
   email: string
-  role: 'user' | 'vendor' | 'admin'
+  role: UserRole
+  branches?: number[]
   loggedIn: boolean
 }
 
@@ -52,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: data.user.name,
         email: data.user.email,
         role: data.user.role,
+        branches: data.user.branches,
         loggedIn: true,
       }
       await AsyncStorage.setItem('meroGharUser', JSON.stringify(userData))

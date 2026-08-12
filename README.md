@@ -1,8 +1,8 @@
 # MeroGhar
 
-**Nepal's home-moving logistics marketplace** — a full-stack web + Android platform that connects customers who are shifting homes with verified movers (truck/tempo owners) across all 7 provinces and 77 districts of Nepal.
+**Nepal's home-moving logistics marketplace** — an Android app + Express backend that connects customers who are shifting homes with verified movers (truck/tempo owners) across all 7 provinces and 77 districts of Nepal.
 
-> Undergraduate minor project. Built to run entirely on **free tiers and localhost**.
+> Undergraduate minor project. Runs entirely on localhost: Android app ↔ Express API ↔ MySQL (XAMPP).
 
 ---
 
@@ -10,20 +10,17 @@
 
 ```
 MeroGhar-React/
-├── backend/          Express 5 REST API (MySQL + SQLite dual-driver)
-├── frontend/         Vite + React 19 + TypeScript + Tailwind web app
+├── backend/          Express 5 REST API (MySQL via mysql2)
 ├── mobile/           React Native 0.79 (Android) app
-├── .github/          GitHub Actions: builds + releases the APK
-└── render.yaml       Optional free-tier deployment config
+└── .github/          GitHub Actions: builds + releases the APK
 ```
 
 | App | Stack | Language |
 |---|---|---|
-| `backend/` | Express 5, mysql2, node:sqlite, JWT, bcrypt | Node ≥ 22.13 (ESM) |
-| `frontend/` | Vite 8, React 19, Tailwind 3, React Router 7, Axios | TypeScript |
+| `backend/` | Express 5, mysql2, JWT, bcrypt | Node ≥ 22.13 (ESM) |
 | `mobile/` | React Native 0.79 (New Architecture), React Navigation 7 | TypeScript |
 
-**Database:** SQLite by default (`DB_DRIVER=auto` falls back to SQLite when MySQL is unreachable). When MySQL is configured, the app keeps a live SQLite mirror via a built-in sync layer (DML mirroring + tombstones + last-write-wins reconciliation). For the demo, **SQLite alone is enough** — no external database account needed.
+**Database:** MySQL/MariaDB from **XAMPP** (localhost:3306). The database (`meroghar_db`) and all tables are created automatically on first start; demo data is seeded automatically.
 
 ---
 
@@ -41,28 +38,30 @@ These are **demo credentials only** — do not reuse real accounts.
 
 ---
 
-## Run it locally (free, no accounts needed)
+## Run it locally
 
-### 1. Backend
+### 1. Start MySQL (XAMPP)
+
+```bash
+# Linux (XAMPP installed in /opt/lampp)
+sudo /opt/lampp/lampp startmysql
+
+# Windows/macOS: open the XAMPP Control Panel and press Start next to MySQL
+```
+
+Optional: create the database manually in phpMyAdmin (`http://localhost/phpmyadmin`) or let the backend create it for you.
+
+### 2. Backend
 
 ```bash
 cd backend
-cp .env.example .env        # optional; sane defaults exist
+cp .env.example .env    # optional; sane XAMPP defaults exist
 npm install
-npm start                   # http://localhost:5000
+npm start               # http://localhost:5000
 ```
 
-- Uses the SQLite file `backend/data/meroghar.db` automatically.
-- Seeding is automatic for a fresh database.
-
-### 2. Web frontend
-
-```bash
-cd frontend
-cp .env.example .env        # VITE_API_URL=http://localhost:5000
-npm install
-npm run dev                 # http://localhost:5173
-```
+- Uses XAMPP's MySQL on `127.0.0.1:3306` (user `root`, empty password).
+- Creates `meroghar_db` + all tables and seeds demo accounts on first run (only while `NODE_ENV` is not `production`).
 
 ### 3. Mobile (Android)
 
@@ -73,9 +72,9 @@ cd android && ./gradlew assembleRelease   # or assembleDebug
 # APK output: android/app/build/outputs/apk/release/app-release.apk
 ```
 
-- Emulator: the app auto-detects `10.0.2.2:5000` for the backend.
-- Device: `adb reverse tcp:5000 tcp:5000` so the phone reaches the backend on `localhost:5000`.
-- `debug.keystore`, launcher icons, and RN template resources are included (previously missing).
+- **Emulator:** the app auto-detects `10.0.2.2:5000` for the backend.
+- **Physical device (same WiFi):** `adb reverse tcp:5000 tcp:5000` in debug; for a release APK, change `PROD_API_URL` in `mobile/src/config.ts` to your PC's LAN IP, e.g. `http://192.168.1.20:5000`, and rebuild.
+- **Physical device (NOT on the same WiFi):** see "Remote access" below.
 
 ### Demo script (single flow)
 
@@ -87,6 +86,25 @@ cd android && ./gradlew assembleRelease   # or assembleDebug
 
 ---
 
+## Remote access (free, phone not on same WiFi)
+
+Keep the backend reachable from anywhere — no account, no credit card — using a **Cloudflare quick tunnel**:
+
+```bash
+# install once: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+cd backend && bash scripts/tunnel.sh
+```
+
+It starts the backend on `:5000`, opens a tunnel, and prints a public URL like:
+
+```
+https://<random-words>.trycloudflare.com
+```
+
+Copy that URL into `mobile/src/config.ts` → `PROD_API_URL`, then rebuild the APK. The URL changes every time the script restarts, so update the constant and rebuild before a remote demo.
+
+---
+
 ## Testing
 
 ```bash
@@ -94,32 +112,21 @@ cd backend
 npm test       # node:test integration suite (auth, booking, payment, lifecycle, IDOR)
 ```
 
-No test runner dependency is required — the suite uses Node's built-in test runner.
+Requires XAMPP MySQL running; the suite uses a disposable `meroghar_test` database that it creates and drops itself.
 
 ---
 
 ## Building & releasing the APK
 
 - Locally: `cd mobile/android && ./gradlew assembleRelease`
-- CI (GitHub Actions): every push to `main` builds a release APK; a push of tag `v*` creates a GitHub Release with the APK attached. The web app's "Update" dialog points at those releases.
-- CI uses Node 22 (matches the repo's Node ≥ 22.13 requirement) and installs the NDK/CMake toolchain in the runner.
-
----
-
-## Optional: free public hosting
-
-`render.yaml` deploys both apps on Render's **free tiers**:
-
-- Backend runs with `DB_DRIVER=sqlite` (no TiDB/MySQL account needed). Note: Render's free-tier disk is ephemeral — the SQLite file resets on redeploy, and demo seeding refills it, which is harmless for a showcase.
-- Frontend is a static site with an SPA rewrite to `index.html`.
-
-Kept optional — the app is designed to run fully on localhost with zero cost.
+- CI (GitHub Actions): every push to `main` builds a release APK; a push of tag `v*` creates a GitHub Release with the APK attached.
+- CI uses Node 22 and installs the NDK/CMake toolchain in the runner.
 
 ---
 
 ## Architecture & commentary
 
-- **Layered MVC-lite**: routes → controllers → models over a unified pool (`backend/config/db.js`), raw SQL with prepared statements, no ORM.
+- **Layered MVC-lite**: routes → controllers → models over a unified MySQL pool (`backend/config/db.js`), raw SQL with prepared statements, no ORM.
 - **Auth**: bcrypt hashing, JWT (7-day) with role claims (`user` / `vendor` / `admin`); protected routes via `middleware/auth.js`.
 - **Booking safety**: `createShipment` re-validates vendor selection server-side (active status, matching available vehicle, "busy vendor" guard under a row lock).
 - **Payments**: a self-contained **demo payment page + callback** — no real gateway, no charges. It marks the booking `paid` while leaving it at `pending` so the admin/vendor state machine still works.

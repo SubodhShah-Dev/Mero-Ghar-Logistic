@@ -1,20 +1,38 @@
 -- Auto-generated from backend/config/schema.js (do not edit by hand).
 -- Run `node scripts/export-schema.js` to regenerate.
--- mysql dialect.
+-- MySQL dialect.
 
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  role ENUM('user','vendor','admin') DEFAULT 'user',
+  role ENUM('user','vendor','branch_admin','super_admin') DEFAULT 'user',
   phone VARCHAR(20),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS branches (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  province_id INT NOT NULL UNIQUE,
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (name)
+);
+
+CREATE TABLE IF NOT EXISTS user_branches (
+  user_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, branch_id)
 );
 
 CREATE TABLE IF NOT EXISTS vendors (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
+  branch_id INT,
   business_name VARCHAR(255),
   owner_name VARCHAR(255),
   phone VARCHAR(20),
@@ -26,8 +44,10 @@ CREATE TABLE IF NOT EXISTS vendors (
   total_jobs INT DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL,
   INDEX idx_vendors_user (user_id),
-  INDEX idx_vendors_status (status)
+  INDEX idx_vendors_status (status),
+  INDEX idx_vendors_branch (branch_id)
 );
 
 CREATE TABLE IF NOT EXISTS vendor_vehicles (
@@ -65,6 +85,7 @@ CREATE TABLE IF NOT EXISTS vendor_routes (
 CREATE TABLE IF NOT EXISTS shipments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT,
+  branch_id INT NOT NULL,
   booking_id VARCHAR(50) UNIQUE,
   first_name VARCHAR(100),
   last_name VARCHAR(100),
@@ -109,8 +130,10 @@ CREATE TABLE IF NOT EXISTS shipments (
   approved_at DATETIME,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (branch_id) REFERENCES branches(id),
   FOREIGN KEY (assigned_vendor_id) REFERENCES vendors(id) ON DELETE SET NULL,
   INDEX idx_shipments_user (user_id),
+  INDEX idx_shipments_branch (branch_id),
   INDEX idx_shipments_email (email),
   INDEX idx_shipments_vendor (assigned_vendor_id),
   INDEX idx_shipments_approval (approval_status),
@@ -151,10 +174,36 @@ CREATE TABLE IF NOT EXISTS settings (
   INDEX idx_settings_key (setting_key)
 );
 
-CREATE TABLE IF NOT EXISTS sync_deletions (
+CREATE TABLE IF NOT EXISTS escalations (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  table_name VARCHAR(100) NOT NULL,
-  row_id INT NOT NULL,
-  deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE (table_name, row_id)
+  shipment_id INT NOT NULL,
+  from_branch_id INT NOT NULL,
+  to_branch_id INT NOT NULL,
+  type ENUM('transfer','assign','delete','override_vendor') DEFAULT 'transfer',
+  reason TEXT,
+  status VARCHAR(20) DEFAULT 'pending',
+  requested_by INT,
+  resolved_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME,
+  FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE,
+  FOREIGN KEY (from_branch_id) REFERENCES branches(id),
+  FOREIGN KEY (to_branch_id) REFERENCES branches(id),
+  INDEX idx_esc_from (from_branch_id),
+  INDEX idx_esc_to (to_branch_id),
+  INDEX idx_esc_status (status)
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  actor_user_id INT,
+  action VARCHAR(100) NOT NULL,
+  entity VARCHAR(50),
+  entity_id INT,
+  branch_id INT,
+  meta TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_audit_actor (actor_user_id),
+  INDEX idx_audit_branch (branch_id),
+  INDEX idx_audit_action (action)
 );
