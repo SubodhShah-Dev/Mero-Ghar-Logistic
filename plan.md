@@ -181,7 +181,7 @@ Bagmati accounts keep their original emails.
 
 # Follow-up: install & run the app on Android via GitHub
 
-Date: 2026-08-12 · **Status: ⏳ in progress**
+Date: 2026-08-12 · **Status: ✅ repo changes done & committed (localhost) — cloud deploy steps remain (push + tag)**
 
 ## Context (verified against the deployed backend)
 
@@ -211,7 +211,11 @@ Date: 2026-08-12 · **Status: ⏳ in progress**
 
 - [x] Regenerate `backend/meroghar-export.sql` from the live XAMPP seed (fresh 16-account
       schema/data) so it can be imported into TiDB.
-- [ ] Re-verify the dump: should contain the new 4-role enum, 16 users, 7 branches/vendors.
-- [ ] Stage + commit (`README.md`, `backend/config/db.js`, `plan.md`).
-- [ ] Hand off the exact `git push origin main` + tag commands (push needs user's GitHub
-      credentials; not done from here).
+- [x] Re-verify the dump: restored the new 4-role enum; imported test into a scratch
+      database confirmed 16 users / 7 branches / 7 vendors / 14 routes / 7 user_branches.
+- [x] Stage + commit (`README.md`, `backend/config/db.js`, `plan.md`) — commit `dcc60ce`.
+- [ ] **User action (needs GitHub/Render credentials):**
+      `git push origin main` → Render redeploys the new seed; refresh TiDB
+      (`DELETE FROM shipments; DELETE FROM user_branches; DELETE FROM vendors; DELETE FROM users;`
+      or import `backend/meroghar-export.sql`); then
+      `git tag v3.4.2 && git push origin v3.4.2` → GitHub Release APK → install on phone.
