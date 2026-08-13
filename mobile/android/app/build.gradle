@@ -20,8 +20,8 @@ android {
     applicationId "com.meroghar"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 11
-    versionName "3.4.1"
+    versionCode 12
+    versionName "3.4.3"
   }
 
   signingConfigs {

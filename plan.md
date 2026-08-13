@@ -476,3 +476,43 @@ Improve the booking form UX per the customer flow:
 - `mobile/src/services/api.ts` (`GEOCODE.*`)
 - `mobile/src/screens/BookingScreen.tsx` (BHK removal, calendar, distance, summary)
 - `plan.md` — this section
+
+---
+
+# Release: v3.4.3 APK (booking-form UX round) via GitHub Actions
+
+Date: 2026-08-13 · **Status: ✅ released** (tag `v3.4.3`, GitHub Release with
+`MeroGhar-v3.4.3.apk`)
+
+## What it ships (vs v3.4.2, built from `dfc106c`)
+
+- **Customer selects the mover (no admin)**: tiered route-aware matching, auto-approve +
+  assign on booking, claim-pool fallback, real error surfacing, "(recommended)" auto-match.
+- **Booking-form UX round**: BHK/home-size step removed; `move_date` calendar picker (past
+  dates disabled); OpenRouteService distance + duration → distance-based **Tier B** pricing
+  (Cargo 800+30/km · Mini 1000+35/km · Large 1200+45/km, round to 50) shown on the last step;
+  estimate matches the payment amount.
+- **Runtime API fallback** (`PROD_API_URLS`): Render cloud → USB → LAN, cached in
+  AsyncStorage.
+- Backend fixes: test-suite DB isolation (43/43), `render.yaml` `ORS_API_KEY` + `BACKEND_URL`,
+  fresh TiDB reseed (16 accounts / 4-role enum) live on Render.
+
+## How it was built & released
+
+- Version bumped to `3.4.3` (`mobile/package.json`, `mobile/android/app/build.gradle`
+  versionCode 12).
+- CI workflow `.github/workflows/build-apk.yml` (build on `main` pushes; build + GitHub
+  Release on `v*` tags) produced the release: `assembleRelease` signed with the CI-generated
+  `debug.keystore`, APK uploaded as `MeroGhar-v3.4.3.apk`.
+- `git push origin main` (commit `bafde1e` + version bump), then `git tag v3.4.3` + push.
+
+## Verification
+
+- APK config points at `https://meroghar-backend.onrender.com` (first `PROD_API_URLS` entry),
+  now live with fresh seed + ORS key (geocode/matrix returns real distances).
+- Release page confirmed the `MeroGhar-v3.4.3.apk` asset is public.
+
+## Files changed
+
+- `mobile/package.json`, `mobile/android/app/build.gradle` (version 3.4.3)
+- `plan.md` — this section
