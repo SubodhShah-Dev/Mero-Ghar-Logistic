@@ -319,7 +319,7 @@ function generateKnowledgeResponse(message, context, faq) {
   }
 
   if (msg.includes('book') || msg.includes('order') || msg.includes('shift') || msg.includes('schedule') || (msg.includes('how') && msg.includes('move'))) {
-    return 'To book a move with MeroGhar:\n1. Fill in pickup/drop locations (Step 1)\n2. Select your items (Step 2)\n3. Choose a vehicle (Step 3)\n4. Pick a mover or let admin assign (Step 4)\n5. Choose your move date (Step 5)\n6. Enter contact details and payment method (Step 6)\n\nOur coordinator will call within 2 hours with your NPR quote!';
+    return 'To book a move with MeroGhar:\n1. Fill in pickup/drop locations (Step 1)\n2. Select your items (Step 2)\n3. Choose a vehicle (Step 3)\n4. Pick a mover or use auto-match (Step 4)\n5. Choose your move date (Step 5)\n6. Enter contact details and payment method (Step 6)\n\nYour chosen mover (or the best auto-matched mover) is assigned instantly — no admin approval needed. Our coordinator will call within 2 hours with your NPR quote!';
   }
 
   if (msg.includes('price') || msg.includes('cost') || msg.includes('rate') || msg.includes('how much') || msg.includes('quote')) {

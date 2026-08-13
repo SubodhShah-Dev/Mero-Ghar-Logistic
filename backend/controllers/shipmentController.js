@@ -33,6 +33,22 @@ const DEMO_QUOTE_BY_VEHICLE = {
 	'Large Truck': 12000,
 };
 
+// Distance-based quote: base fee + per-km rate, rounded to the nearest 50 NPR.
+// Used whenever the caller provides a distance; otherwise the flat
+// DEMO_QUOTE_BY_VEHICLE rate is used so the suite stays deterministic.
+const QUOTE_RATES = {
+	'Cargo Tempo': { base: 800, perKm: 30 },
+	'Mini Truck': { base: 1000, perKm: 35 },
+	'Large Truck': { base: 1200, perKm: 45 },
+};
+
+const quoteFor = (vehicle, distanceKm) => {
+	const rate = QUOTE_RATES[vehicle];
+	if (!rate) return DEMO_QUOTE_BY_VEHICLE[vehicle] || 0;
+	const raw = rate.base + rate.perKm * (Number(distanceKm) || 0);
+	return Math.round(raw / 50) * 50;
+};
+
 export const createShipment = asyncHandler(async (req, res) => {
 	const {
 		first_name,
@@ -76,9 +92,17 @@ export const createShipment = asyncHandler(async (req, res) => {
 		throw new HttpError(400, invalid);
 	}
 
+	// Distance-based pricing when a distance is known; flat fallback otherwise.
+	const distance = distance_km == null || distance_km === '' ? null : Number(distance_km);
+	const finalQuote =
+		distance != null
+			? quoteFor(vehicle_type, distance)
+			: DEMO_QUOTE_BY_VEHICLE[vehicle_type] || null;
+
 	const userId = req.user?.id || null;
 	const booking_id = `MG-${Date.now()}`;
 	const transactionId = `TXN-${Date.now()}`;
+	const bookingBranchId = await branchIdForProvince(pickup_province);
 
 	// vendor_id from the client is UNTRUSTED. It is never accepted at face
 	// value to skip admin approval; instead it is validated server-side and
@@ -95,11 +119,22 @@ export const createShipment = asyncHandler(async (req, res) => {
 			// Serialize concurrent bookings for this vendor via a row lock.
 			const rowLock = ' FOR UPDATE';
 			const [vendorRows] = await connection.execute(
-				`SELECT id FROM vendors WHERE id = ?${rowLock}`,
+				`SELECT id, branch_id FROM vendors WHERE id = ?${rowLock}`,
 				[vendor_id],
 			);
 			if (vendorRows.length === 0) {
 				throw new HttpError(400, 'Selected mover is not available');
+			}
+			// Mover must belong to the booking's branch (derived from pickup
+			// province) so bookings stay within the regional scope.
+			if (
+				bookingBranchId != null &&
+				String(vendorRows[0].branch_id) !== String(bookingBranchId)
+			) {
+				throw new HttpError(
+					400,
+					'Selected mover does not serve this pickup region',
+				);
 			}
 
 			// Mover must be active and have an available vehicle of the requested type.
@@ -153,15 +188,20 @@ export const createShipment = asyncHandler(async (req, res) => {
 			approvalStatus = 'approved';
 			assignedVendorId = vendor_id;
 		} else {
-			// No mover chosen: auto-assign the best matching available mover so the
-			// booking reaches a vendor without admin intervention. If none is free,
-			// the booking stays unassigned and appears in the vendors' claim pool.
-			const candidates = await findMatchingVendors(vehicle_type, {
-				pickup_province,
-				pickup_district,
-				drop_province,
-				drop_district,
-			});
+			// No mover chosen: auto-assign the best matching available mover in
+			// this booking's branch so the booking reaches a vendor without
+			// admin intervention. If none is free, the booking stays unassigned
+			// and appears in the vendors' claim pool.
+			const candidates = await findMatchingVendors(
+				vehicle_type,
+				{
+					pickup_province,
+					pickup_district,
+					drop_province,
+					drop_district,
+				},
+				bookingBranchId,
+			);
 			for (const candidate of candidates) {
 				const busy = await getVendorActiveCount(candidate.id);
 				if (busy === 0) {
@@ -175,7 +215,7 @@ export const createShipment = asyncHandler(async (req, res) => {
 		const [result] = await connection.execute(INSERT_SHIPMENT_SQL, [
 			booking_id,
 			userId,
-			await branchIdForProvince(pickup_province),
+			bookingBranchId,
 			pickup_address || null,
 			pickup_province || null,
 			pickup_district || null,
@@ -211,8 +251,8 @@ export const createShipment = asyncHandler(async (req, res) => {
 			'pending',
 			transactionId,
 			'pending',
-			DEMO_QUOTE_BY_VEHICLE[vehicle_type] || null,
-			distance_km || null,
+			finalQuote,
+			distance,
 			estimated_duration || null,
 			assignedVendorId,
 		]);
@@ -228,7 +268,7 @@ export const createShipment = asyncHandler(async (req, res) => {
 
 	const paymentRequired =
 		!!payment_method && String(payment_method) !== 'cash' &&
-		(DEMO_QUOTE_BY_VEHICLE[vehicle_type] || 0) > 0;
+		(finalQuote || 0) > 0;
 
 	res.status(201).json({
 		success: true,
@@ -239,7 +279,7 @@ export const createShipment = asyncHandler(async (req, res) => {
 		payment_required: paymentRequired,
 		payment_data: paymentRequired
 			? {
-					amount: DEMO_QUOTE_BY_VEHICLE[vehicle_type] || 0,
+					amount: finalQuote || 0,
 					customer_name: `${first_name} ${last_name || ''}`.trim(),
 					customer_email: email || '',
 					customer_phone: mobile_number || '',

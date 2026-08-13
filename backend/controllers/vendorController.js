@@ -1,4 +1,5 @@
 import pool from '../config/db.js';
+import jwt from 'jsonwebtoken';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 
@@ -10,6 +11,7 @@ import {
 	createVendor,
 	updateVendorStatus,
 	updateVendorProfile,
+	updateVendorBranch,
 	getVendorVehicles,
 	addVendorVehicle,
 	updateVehicleStatus,
@@ -20,6 +22,7 @@ import {
 	addVendorRoute,
 	removeVendorRoute,
 } from '../models/vendorModel.js';
+import { getUserBranches } from '../models/authModel.js';
 
 import { getShipmentsForVendor,
 	getAvailableShipmentsForVendor,
@@ -29,6 +32,7 @@ import { getShipmentsForVendor,
 	getActiveShipmentsCountForVendor,
 } from '../models/shipmentModel.js';
 import { canAccessBranch, scopeFilterFor } from '../middleware/scope.js';
+import { branchIdForProvince } from '../models/branchModel.js';
 
 const parsePagination = (query) => {
 	const page = Math.max(parseInt(query.page) || 1, 1);
@@ -71,8 +75,57 @@ export const getMyVendorProfile = asyncHandler(async (req, res) => {
 			rating: vendor.rating || 0,
 			total_jobs: vendor.total_jobs || 0,
 			status: vendor.status,
+			branch_id: vendor.branch_id ?? null,
+			branch_name: vendor.branch_name || null,
 			created_at: vendor.created_at,
 		},
+	});
+});
+
+// Vendor self-service branch change. Scope is baked into the JWT at login, so a
+// fresh token is returned and the change applies immediately.
+export const updateMyVendorBranch = asyncHandler(async (req, res) => {
+	const userId = req.user.id;
+
+	const vendor = await getVendorByUserId(userId);
+	if (!vendor) {
+		throw new HttpError(404, 'Vendor profile not found');
+	}
+
+	const branchId = Number(req.body?.branch_id);
+	if (!Number.isInteger(branchId) || branchId < 1) {
+		throw new HttpError(400, 'A valid branch is required');
+	}
+
+	const [rows] = await pool.execute(
+		'SELECT id, is_active FROM branches WHERE id = ?',
+		[branchId],
+	);
+	if (rows.length === 0) {
+		throw new HttpError(400, 'Branch not found');
+	}
+	if (Number(rows[0].is_active) !== 1) {
+		throw new HttpError(400, 'Branch is inactive');
+	}
+
+	const updated = await updateVendorBranch(vendor.id, branchId);
+	if (!updated) {
+		throw new HttpError(400, 'Failed to update branch');
+	}
+
+	const branches = await getUserBranches(userId, 'vendor');
+	const token = jwt.sign(
+		{ id: req.user.id, email: req.user.email, role: 'vendor', branches },
+		process.env.JWT_SECRET || 'meroghar-jwt-secret-change-in-production',
+		{ expiresIn: '7d' },
+	);
+
+	res.json({
+		success: true,
+		message: 'Branch updated',
+		branch_id: branchId,
+		token,
+		user: { id: req.user.id, email: req.user.email, role: 'vendor', branches },
 	});
 });
 
@@ -274,7 +327,7 @@ export const getAvailableShipments = asyncHandler(async (req, res) => {
 	}
 	const shipments = await getAvailableShipmentsForVendor(
 		vendor.id,
-		parsePagination(req.query),
+		{ ...parsePagination(req.query), branchId: vendor.branch_id },
 	);
 	res.json({ success: true, shipments });
 });
@@ -298,6 +351,17 @@ export const claimShipment = asyncHandler(async (req, res) => {
 		shipment.assigned_vendor_id != null
 	) {
 		throw new HttpError(409, 'This job has already been claimed by another mover');
+	}
+	// Bookings are regional: a mover may only claim jobs in their own branch.
+	if (
+		shipment.branch_id != null &&
+		vendor.branch_id != null &&
+		String(shipment.branch_id) !== String(vendor.branch_id)
+	) {
+		throw new HttpError(
+			400,
+			'This job is not in your branch. Bookings are matched within your region.',
+		);
 	}
 
 	const matching = await findMatchingVendors(shipment.vehicle_type, {
@@ -423,19 +487,29 @@ export const deleteVehicle = asyncHandler(async (req, res) => {
 // ── VENDOR MATCHING (for customers) ──
 
 export const matchingVendors = asyncHandler(async (req, res) => {
-	const { vehicle_type, pickup_province, pickup_district, drop_province, drop_district } = req.query;
+	const { vehicle_type, pickup_province, pickup_district, drop_province, drop_district, branch_id } = req.query;
 	if (!vehicle_type) {
 		throw new HttpError(400, 'vehicle_type is required');
 	}
 	if (!pickup_province || !drop_province) {
 		throw new HttpError(400, 'pickup_province and drop_province are required');
 	}
-	const vendors = await findMatchingVendors(vehicle_type, {
-		pickup_province,
-		pickup_district: pickup_district || null,
-		drop_province,
-		drop_district: drop_district || null,
-	});
+	// If the caller does not send a branch_id, resolve it from the pickup
+	// province so movers are always scoped to the booking's region.
+	let branchId = branch_id && String(branch_id) !== 'null' ? Number(branch_id) : null;
+	if (branchId == null) {
+		branchId = await branchIdForProvince(pickup_province);
+	}
+	const vendors = await findMatchingVendors(
+		vehicle_type,
+		{
+			pickup_province,
+			pickup_district: pickup_district || null,
+			drop_province,
+			drop_district: drop_district || null,
+		},
+		branchId,
+	);
 	res.json({ success: true, vendors });
 });
 

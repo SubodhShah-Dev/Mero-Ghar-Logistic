@@ -75,7 +75,10 @@ export const getVendorByUserId = async (userId) => {
 			return null;
 		}
 		const [rows] = await pool.execute(
-			'SELECT * FROM vendors WHERE user_id = ?',
+			`SELECT v.*, b.name as branch_name
+			 FROM vendors v
+			 LEFT JOIN branches b ON b.id = v.branch_id
+			 WHERE v.user_id = ?`,
 			[numericUserId],
 		);
 		return rows[0];
@@ -132,6 +135,19 @@ export const updateVendorProfile = async (id, profileData) => {
 		[business_name, owner_name, phone, service_region, address, id],
 	);
 	return result.affectedRows > 0;
+};
+
+export const updateVendorBranch = async (vendorId, branchId) => {
+	try {
+		const [result] = await pool.execute(
+			'UPDATE vendors SET branch_id = ? WHERE id = ?',
+			[branchId, vendorId],
+		);
+		return result.affectedRows > 0;
+	} catch (error) {
+		console.error('Error in updateVendorBranch:', error);
+		return false;
+	}
 };
 
 export const updateVendorRating = async (id, rating, totalJobs) => {
@@ -205,46 +221,70 @@ export const removeVendorVehicle = async (vehicleId, vendorId) => {
 	}
 };
 
-export const findMatchingVendors = async (vehicleType, route = {}) => {
+export const findMatchingVendors = async (vehicleType, route = {}, branchId = null) => {
 	try {
 		const { pickup_province, pickup_district, drop_province, drop_district } = route;
-		// A mover matches a booking when they are active, have an available
-		// vehicle of the requested type, and cover the pickup->drop route.
-		// Vendors without any routes declared still match everything (legacy
-		// fallback) so existing vendors keep receiving jobs until they add routes.
+		// Tiered, route-aware matching. A mover matches a booking when they are
+		// active, have an available vehicle of the requested type, and belong to
+		// the booking's branch (when one is given). Route coverage is tiered so
+		// the list is never needlessly empty:
+		//   exact    - covers the exact pickup->drop route (or has no routes,
+		//              the legacy "serves anywhere" fallback)
+		//   province - covers pickup->drop at province level but not the exact
+		//              districts
+		// Movers whose declared routes do not span the pickup->drop provinces
+		// are excluded so an unrelated mover is never offered.
 		let sql = `
-            SELECT DISTINCT v.id, v.business_name, v.service_region, v.rating, v.total_jobs
+            SELECT DISTINCT v.id, v.business_name, v.service_region, v.rating, v.total_jobs,
+                   b.name as branch_name,
+                   CASE
+                     WHEN NOT EXISTS (SELECT 1 FROM vendor_routes WHERE vendor_id = v.id) THEN 'exact'
+                     WHEN EXISTS (
+                       SELECT 1 FROM vendor_routes vr
+                       WHERE vr.vendor_id = v.id AND vr.is_active = 1
+                         AND vr.from_province = ?
+                         AND (vr.from_district IS NULL OR vr.from_district = ?)
+                         AND vr.to_province = ?
+                         AND (vr.to_district IS NULL OR vr.to_district = ?)
+                     ) THEN 'exact'
+                     ELSE 'province'
+                   END AS match_tier
              FROM vendors v
              JOIN vendor_vehicles vv ON vv.vendor_id = v.id
+             LEFT JOIN branches b ON b.id = v.branch_id
              WHERE v.status = 'active'
                AND vv.vehicle_type = ?
                AND vv.status = 'available'
                AND vv.is_active = 1`;
-		const params = [vehicleType];
+		const params = [
+			pickup_province ?? null,
+			pickup_district || null,
+			drop_province ?? null,
+			drop_district || null,
+			vehicleType,
+		];
+
+		if (branchId != null) {
+			sql += ' AND v.branch_id = ?';
+			params.push(Number(branchId));
+		}
 
 		if (pickup_province && drop_province) {
 			sql += `
                AND (
-                 EXISTS (
+                 NOT EXISTS (SELECT 1 FROM vendor_routes WHERE vendor_id = v.id)
+                 OR EXISTS (
                    SELECT 1 FROM vendor_routes vr
-                   WHERE vr.vendor_id = v.id
-                     AND vr.is_active = 1
+                   WHERE vr.vendor_id = v.id AND vr.is_active = 1
                      AND vr.from_province = ?
-                     AND (vr.from_district IS NULL OR vr.from_district = ?)
                      AND vr.to_province = ?
-                     AND (vr.to_district IS NULL OR vr.to_district = ?)
                  )
-                 OR NOT EXISTS (SELECT 1 FROM vendor_routes WHERE vendor_id = v.id)
                )`;
-			params.push(
-				pickup_province,
-				pickup_district || null,
-				drop_province,
-				drop_district || null,
-			);
+			params.push(pickup_province, drop_province);
+			sql += ` ORDER BY FIELD(match_tier, 'exact', 'province'), v.rating DESC`;
+		} else {
+			sql += ` ORDER BY v.rating DESC`;
 		}
-
-		sql += ` ORDER BY v.rating DESC`;
 		const [rows] = await pool.execute(sql, params);
 		return rows;
 	} catch (error) {
@@ -253,11 +293,13 @@ export const findMatchingVendors = async (vehicleType, route = {}) => {
 	}
 };
 
-// True when the vendor has a route covering pickup->drop, or has no routes at
-// all (legacy fallback: no routes means they accept any route).
+// True when the vendor covers pickup->drop at province level, or has no routes
+// at all (legacy fallback: no routes means they accept any route). District is
+// intentionally ignored here so any mover offered by findMatchingVendors (exact
+// or province tier) can be selected without a spurious rejection.
 export const vendorCoversRoute = async (vendorId, route = {}) => {
 	try {
-		const { pickup_province, pickup_district, drop_province, drop_district } = route;
+		const { pickup_province, drop_province } = route;
 		const [countRows] = await pool.execute(
 			'SELECT COUNT(*) as c FROM vendor_routes WHERE vendor_id = ?',
 			[vendorId],
@@ -269,16 +311,8 @@ export const vendorCoversRoute = async (vendorId, route = {}) => {
 			`SELECT COUNT(*) as c FROM vendor_routes
 			 WHERE vendor_id = ? AND is_active = 1
 			   AND from_province = ?
-			   AND (from_district IS NULL OR from_district = ?)
-			   AND to_province = ?
-			   AND (to_district IS NULL OR to_district = ?)`,
-			[
-				vendorId,
-				pickup_province,
-				pickup_district || null,
-				drop_province,
-				drop_district || null,
-			],
+			   AND to_province = ?`,
+			[vendorId, pickup_province, drop_province],
 		);
 		return rows[0]?.c > 0;
 	} catch (error) {

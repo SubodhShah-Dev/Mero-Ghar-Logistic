@@ -15,6 +15,7 @@ mobile/android/app/build/
 mobile/android/app/.cxx/
 mobile/android/build/
 mobile/android/.gradle/
+mobile/android/.gradle-bak-root/
 mobile/android/local.properties
 mobile/android/captures/
 

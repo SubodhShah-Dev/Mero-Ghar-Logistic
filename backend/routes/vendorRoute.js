@@ -2,6 +2,7 @@ import express from 'express';
 import {
 	getMyVendorProfile,
 	updateMyVendorProfile,
+	updateMyVendorBranch,
 	registerVendor,
 	getVendorShipments,
 	getAvailableShipments,
@@ -25,6 +26,7 @@ const router = express.Router();
 
 router.get('/profile', authenticate, requireRole('vendor', 'super_admin', 'branch_admin'), getMyVendorProfile);
 router.put('/profile', authenticate, requireRole('vendor', 'super_admin', 'branch_admin'), updateMyVendorProfile);
+router.put('/branch', authenticate, requireRole('vendor'), updateMyVendorBranch);
 router.post('/register', authenticate, registerVendor);
 router.get('/available', authenticate, requireRole('vendor'), getAvailableShipments);
 router.get('/shipments', authenticate, requireRole('vendor', 'super_admin', 'branch_admin'), getVendorShipments);

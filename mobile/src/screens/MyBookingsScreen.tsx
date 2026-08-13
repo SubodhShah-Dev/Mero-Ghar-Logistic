@@ -62,12 +62,16 @@ export default function MyBookingsScreen() {
               </View>
             )}
             {s.final_quote && <Text style={styles.quote}>NPR {s.final_quote.toLocaleString()}</Text>}
-            {s.vendor_name && (
+            {s.vendor_name ? (
               <TouchableOpacity
                 onPress={() => navigation.navigate('Chat', { shipmentId: s.id, senderRole: 'customer', title: `Chat with ${s.vendor_name}` })}
                 style={styles.chatBtn}>
                 <Text style={styles.chatBtnText}>Chat with your mover</Text>
               </TouchableOpacity>
+            ) : (
+              <Text style={styles.waitingText}>
+                Searching for a mover in your region… you'll be able to chat once one is assigned.
+              </Text>
             )}
           </View>
         ))
@@ -89,4 +93,5 @@ const styles = StyleSheet.create({
   vendorBlock: { marginTop: 6 },
   chatBtn: { backgroundColor: 'rgba(64,145,210,0.2)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 4, marginTop: 12, alignSelf: 'flex-start' },
   chatBtnText: { color: '#5aa9e6', fontWeight: '600', fontSize: 13 },
+  waitingText: { color: COLORS.forest[500], fontSize: 12, marginTop: 10, fontStyle: 'italic' },
 })

@@ -46,8 +46,8 @@ export const listAuditLogs = async ({ page = 1, limit = 50, branchFilter = null,
 		 LEFT JOIN branches b ON b.id = a.branch_id
 		 ${where}
 		 ORDER BY a.created_at DESC
-		 LIMIT ? OFFSET ?`,
-		[...params, Number(limit), Number(offset)],
+		 LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
+		params,
 	);
 	return rows;
 };

@@ -47,8 +47,8 @@ export const listEscalations = async ({ page = 1, limit = 50, scopeFilter = null
 		 LEFT JOIN users ru ON ru.id = e.requested_by
 		 ${where}
 		 ORDER BY FIELD(e.status, 'pending', 'approved', 'rejected', 'cancelled'), e.created_at DESC
-		 LIMIT ? OFFSET ?`,
-		[...params, Number(limit), Number(offset)],
+		 LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
+		params,
 	);
 	return rows;
 };

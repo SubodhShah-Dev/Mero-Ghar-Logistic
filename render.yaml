@@ -29,3 +29,9 @@ services:
         value: "true"
       - key: JWT_SECRET
         generateValue: true
+      # Public base URL used by the demo payment form's redirect target.
+      - key: BACKEND_URL
+        value: https://meroghar-backend.onrender.com
+      # OpenRouteService key for geocoding + distance matrix (free tier).
+      - key: ORS_API_KEY
+        value: eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjNmOGQwN2E0ODQxMDQ2ODdiMDIzZGYyMTg1M2JjY2IyIiwiaCI6Im11cm11cjY0In0=

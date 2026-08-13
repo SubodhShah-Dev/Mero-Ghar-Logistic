@@ -8,6 +8,7 @@ import type { StackNavigationProp } from '@react-navigation/stack'
 import { VENDOR, TICKETS } from '../services/api'
 import { COLORS } from '../utils/theme'
 import { provinces, getDistricts } from '../utils/nepal'
+import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../App'
 
 type Tab = 'jobs' | 'claim' | 'fleet' | 'tickets' | 'profile'
@@ -60,7 +61,10 @@ export default function VendorScreen() {
   const [newVehicle, setNewVehicle] = useState({ ...emptyVehicle })
   const [routes, setRoutes] = useState<any[]>([])
   const [routeDraft, setRouteDraft] = useState({ from_province: '', from_district: '', to_province: '', to_district: '' })
+  const [branchId, setBranchId] = useState<number | null>(null)
+  const [savingBranch, setSavingBranch] = useState(false)
   const navigation = useNavigation<Nav>()
+  const { setSession } = useAuth()
 
   const reload = async () => {
     try {
@@ -80,6 +84,7 @@ export default function VendorScreen() {
       const vendor = profRes.data?.vendor
       if (vendor) {
         setProfile(vendor)
+        setBranchId(vendor.branch_id != null ? Number(vendor.branch_id) : null)
         setProfileDraft({
           business_name: vendor.business_name || '',
           owner_name: vendor.owner_name || '',
@@ -198,6 +203,27 @@ export default function VendorScreen() {
       Alert.alert('Error', 'Failed to update profile')
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  const saveBranch = async () => {
+    if (branchId == null) {
+      Alert.alert('Branch', 'Pick a branch first')
+      return
+    }
+    setSavingBranch(true)
+    try {
+      const res = await VENDOR.updateBranch(branchId)
+      const data = res.data
+      if (data.token && data.user) {
+        await setSession(data.token, data.user)
+      }
+      Alert.alert('Success', `Branch updated to ${provinces.find((p) => Number(p.id) === branchId)?.name || ''}`)
+      await reload()
+    } catch {
+      Alert.alert('Error', 'Failed to update branch')
+    } finally {
+      setSavingBranch(false)
     }
   }
 
@@ -557,6 +583,29 @@ export default function VendorScreen() {
               <TextInput value={profileDraft.address} onChangeText={(v) => setProfileDraft({ ...profileDraft, address: v })} placeholder="Address" placeholderTextColor={COLORS.forest[400]} style={styles.input} />
               <TouchableOpacity onPress={saveProfile} disabled={savingProfile} style={styles.saveBtn}>
                 <Text style={styles.saveText}>{savingProfile ? 'Saving...' : 'Update Profile'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Service Branch</Text>
+              <Text style={styles.hint}>
+                Bookings are matched within your branch's region. Change it freely — your
+                scope updates immediately.
+              </Text>
+              <View style={styles.chipRow}>
+                {provinces.map((p) => (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => setBranchId(Number(p.id))}
+                    style={[styles.chip, branchId === Number(p.id) ? styles.chipActive : null]}>
+                    <Text style={[styles.chipText, branchId === Number(p.id) ? styles.chipTextActive : null]}>
+                      {p.name.replace(' Province', '')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity onPress={saveBranch} disabled={savingBranch} style={styles.saveBtn}>
+                <Text style={styles.saveText}>{savingBranch ? 'Saving...' : 'Update Branch'}</Text>
               </TouchableOpacity>
             </View>
 

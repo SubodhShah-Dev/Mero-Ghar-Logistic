@@ -75,7 +75,16 @@ const spawnBackend = async (port) => {
 		env: {
 			...process.env,
 			PORT: String(port),
+			// Pin the child to the same local test database adminMysql() manages,
+			// otherwise the backend's own .env (TiDB in dev) silently redirects
+			// the suite to the live database. dotenv never overrides set vars.
+			MYSQL_DATABASE: TEST_DB,
 			DB_NAME: TEST_DB,
+			MYSQLHOST: process.env.MYSQLHOST || '127.0.0.1',
+			MYSQLPORT: process.env.MYSQLPORT || '3306',
+			MYSQLUSER: process.env.MYSQLUSER || 'root',
+			MYSQLPASSWORD: process.env.MYSQLPASSWORD || '',
+			DB_SSL: 'false',
 			NODE_ENV: 'test',
 			SEED_DEMO_DATA: 'true',
 		},
@@ -245,6 +254,51 @@ test('no admin approval is needed and admin assignment endpoints are gone', asyn
 		adminToken,
 	);
 	assert.equal(goneReject.status, 404, 'admin reject endpoint has been removed');
+});
+
+test('a customer-selected mover is approved and assigned with zero admin action', async () => {
+	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
+	const active = vendors.body?.vendors?.find((v) => v.status === 'active');
+	assert.ok(active, 'an active mover exists');
+
+	// Only the customer token is used here; no admin token ever touches this
+	// booking between creation and the mover picking it up.
+	const booking = await createAndPayBooking({
+		vehicle_type: 'Cargo Tempo',
+		vendor_id: active.id,
+	});
+
+	const detail = await req('GET', `/api/shipment/${booking.shipment_id}`, undefined, customerToken);
+	assert.equal(detail.status, 200);
+	assert.equal(
+		detail.body?.shipment?.approval_status,
+		'approved',
+		'chosen mover auto-approves at booking time',
+	);
+	assert.equal(
+		String(detail.body?.shipment?.assigned_vendor_id),
+		String(active.id),
+		'chosen mover is assigned directly',
+	);
+
+	const vendorDetail = await req(
+		'GET',
+		'/api/vendor/shipments',
+		undefined,
+		vendorToken,
+	);
+	assert.ok(
+		vendorDetail.body?.shipments?.some((s) => s.id === booking.shipment_id),
+		'vendor sees the booking in their list without any admin step',
+	);
+
+	const cancel = await req(
+		'PUT',
+		`/api/shipment/${booking.shipment_id}/status`,
+		{ status: 'cancelled' },
+		adminToken,
+	);
+	assert.equal(cancel.status, 200, 'cleanup keeps the seeded mover free for later tests');
 });
 
 let lifecycleShipment;

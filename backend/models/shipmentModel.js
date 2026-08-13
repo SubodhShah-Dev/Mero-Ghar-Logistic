@@ -44,8 +44,8 @@ export const getAllShipments = async ({ page = 1, limit = 50, branchFilter = nul
          LEFT JOIN branches b ON b.id = s.branch_id
          ${where}
          ORDER BY s.created_at DESC
-         LIMIT ? OFFSET ?`,
-		[...params, Number(limit), Number(offset)],
+         LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
+		params,
 	);
 	return rows;
 };
@@ -92,18 +92,19 @@ export const getShipmentsForVendor = async (vendorId, { page = 1, limit = 50 } =
         FROM shipments s 
         WHERE s.assigned_vendor_id = ? AND s.approval_status = 'approved'
         ORDER BY s.move_date ASC
-        LIMIT ? OFFSET ?
+        LIMIT ${Number(limit)} OFFSET ${Number(offset)}
     `,
-		[vendorId, Number(limit), Number(offset)],
+		[vendorId],
 	);
 	return rows;
 };
 
 // Unassigned pending bookings that this vendor can claim (must have an
-// available vehicle of the required type in their fleet).
+// available vehicle of the required type in their fleet AND belong to their
+// own branch so bookings stay within the regional scope).
 export const getAvailableShipmentsForVendor = async (
 	vendorId,
-	{ page = 1, limit = 50 } = {},
+	{ page = 1, limit = 50, branchId = null } = {},
 ) => {
 	const offset = (page - 1) * limit;
 	const [rows] = await pool.execute(
@@ -118,6 +119,7 @@ export const getAvailableShipmentsForVendor = async (
               SELECT vv.vehicle_type FROM vendor_vehicles vv
               WHERE vv.vendor_id = ? AND vv.is_active = 1 AND vv.status = 'available'
           )
+          ${branchId != null ? 'AND s.branch_id = ?' : ''}
           AND (
               NOT EXISTS (SELECT 1 FROM vendor_routes WHERE vendor_id = ?)
               OR EXISTS (
@@ -130,8 +132,10 @@ export const getAvailableShipmentsForVendor = async (
               )
           )
         ORDER BY s.created_at ASC
-        LIMIT ? OFFSET ?`,
-		[vendorId, vendorId, vendorId, Number(limit), Number(offset)],
+        LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
+		branchId != null
+			? [vendorId, branchId, vendorId, vendorId]
+			: [vendorId, vendorId, vendorId],
 	);
 	return rows;
 };
@@ -167,9 +171,9 @@ export const getShipmentsByApprovalStatus = async (status, { page = 1, limit = 5
         LEFT JOIN branches b ON b.id = s.branch_id
         WHERE s.approval_status = ? AND ${scopeSql}
         ORDER BY s.created_at DESC
-        LIMIT ? OFFSET ?
+        LIMIT ${Number(limit)} OFFSET ${Number(offset)}
     `,
-		[...params, Number(limit), Number(offset)],
+		params,
 	);
 	return rows;
 };

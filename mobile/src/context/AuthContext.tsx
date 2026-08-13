@@ -21,6 +21,7 @@ interface AuthContextType {
   login: (email: string, password: string, role?: string) => Promise<{ ok: boolean; message?: string; role?: string }>
   register: (data: { name: string; email: string; password: string; role?: string; phone?: string }) => Promise<{ ok: boolean; message?: string }>
   logout: () => void
+  setSession: (token: string, user: Partial<User> & { id: number; name: string; email: string; role: UserRole }) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -92,8 +93,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
   }
 
+  const setSession = async (newToken: string, u: Partial<User> & { id: number; name: string; email: string; role: UserRole }) => {
+    const userData: User = {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      branches: u.branches,
+      loggedIn: true,
+    }
+    await AsyncStorage.setItem('meroGharUser', JSON.stringify(userData))
+    await AsyncStorage.setItem('meroGharToken', newToken)
+    setUser(userData)
+    setToken(newToken)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, setSession }}>
       {children}
     </AuthContext.Provider>
   )

@@ -21,7 +21,6 @@ export const PERMISSIONS = {
 	// Shipments
 	'shipments.view.global': ['super_admin'],
 	'shipments.view.region': ['super_admin', 'branch_admin'],
-	'shipments.approve.region': ['super_admin', 'branch_admin'],
 	'shipments.status.admin': ['super_admin', 'branch_admin'],
 	// Vendors / movers
 	'vendors.view.global': ['super_admin'],

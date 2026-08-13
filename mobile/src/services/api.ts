@@ -1,6 +1,59 @@
-import axios from 'axios'
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { API_BASE_URL } from '../config'
+import { API_BASE_URL, PROD_API_URLS } from '../config'
+
+// ── Runtime API base URL resolution ──────────────────────────────────────────
+//
+// Release builds may be used on any network (venue WiFi, USB + adb reverse,
+// no internet at all), so the base URL can't be baked in at build time. We
+// probe PROD_API_URLS in order on startup and cache the first responder in
+// AsyncStorage. On a mid-session network failure the next reachable candidate
+// is tried and the request retried once.
+
+const STORAGE_KEY = 'meroGharApiUrl'
+const PROBE_TIMEOUT_MS = 2500
+const MAX_FALLBACKS = PROD_API_URLS.length
+
+let resolving: Promise<string> | null = null
+
+const isReachable = async (url: string): Promise<boolean> => {
+  try {
+    await axios.get(url, {
+      timeout: PROBE_TIMEOUT_MS,
+      validateStatus: () => true,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const findWorkingUrl = async (preferred?: string): Promise<string> => {
+  const order = preferred && PROD_API_URLS.includes(preferred)
+    ? [preferred, ...PROD_API_URLS.filter((u) => u !== preferred)]
+    : PROD_API_URLS
+  for (const url of order) {
+    if (await isReachable(url)) return url
+  }
+  return PROD_API_URLS[0]
+}
+
+const resolveBaseUrl = async (): Promise<string> => {
+  let cached: string | null = null
+  try {
+    cached = await AsyncStorage.getItem(STORAGE_KEY)
+  } catch {}
+  const url = await findWorkingUrl(cached ?? undefined)
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY, url)
+  } catch {}
+  return url
+}
+
+const ensureBaseUrl = (): Promise<string> => {
+  if (!resolving) resolving = resolveBaseUrl()
+  return resolving
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,11 +62,44 @@ const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   try {
+    config.baseURL = await ensureBaseUrl()
+  } catch {}
+  try {
     const token = await AsyncStorage.getItem('meroGharToken')
     if (token) config.headers.Authorization = `Bearer ${token}`
   } catch {}
   return config
 })
+
+api.interceptors.response.use(
+  (res) => res,
+  async (error: AxiosError) => {
+    const { config } = error
+    if (!config) return Promise.reject(error)
+
+    const retryable =
+      !error.response ||
+      (error.response.status >= 502 && error.response.status <= 504)
+
+    if (retryable) {
+      const cfg = config as InternalAxiosRequestConfig & { _fallbackCount?: number }
+      if (!cfg._fallbackCount) cfg._fallbackCount = 0
+      if (cfg._fallbackCount < MAX_FALLBACKS) {
+        cfg._fallbackCount += 1
+        resolving = null
+        try {
+          const next = await findWorkingUrl()
+          if (next !== config.baseURL) {
+            await AsyncStorage.setItem(STORAGE_KEY, next)
+            config.baseURL = next
+            return api(config)
+          }
+        } catch {}
+      }
+    }
+    return Promise.reject(error)
+  }
+)
 
 export default api
 
@@ -31,6 +117,11 @@ export const SHIPMENTS = {
   getByEmail: (email: string) => api.get(`/api/shipment/email/${email}`),
 }
 
+export const GEOCODE = {
+  search: (text: string) => api.get(`/api/geocode/search?text=${encodeURIComponent(text)}`),
+  matrix: (locations: [number, number][]) => api.post('/api/geocode/matrix', { locations }),
+}
+
 export const VENDOR = {
   getShipments: () => api.get('/api/vendor/shipments'),
   acceptShipment: (id: number) => api.put(`/api/vendor/shipments/${id}/accept`),
@@ -45,6 +136,7 @@ export const VENDOR = {
   claim: (id: number) => api.put(`/api/vendor/shipments/${id}/claim`),
   getProfile: () => api.get('/api/vendor/profile'),
   updateProfile: (data: Record<string, unknown>) => api.put('/api/vendor/profile', data),
+  updateBranch: (branch_id: number) => api.put('/api/vendor/branch', { branch_id }),
   rejectShipment: (id: number) => api.put(`/api/vendor/shipments/${id}/reject`),
   getMatching: (vehicleType: string, pickupProvince: string, dropProvince: string, pickupDistrict?: string, dropDistrict?: string) =>
     api.get(`/api/vendor/matching?vehicle_type=${encodeURIComponent(vehicleType)}&pickup_province=${encodeURIComponent(pickupProvince)}&drop_province=${encodeURIComponent(dropProvince)}&pickup_district=${pickupDistrict ? encodeURIComponent(pickupDistrict) : ''}&drop_district=${dropDistrict ? encodeURIComponent(dropDistrict) : ''}`),
@@ -68,6 +160,12 @@ export const ADMIN = {
   getSettings: () => api.get('/api/settings'),
   updateSettings: (key: string, value: string) =>
     api.put('/api/settings', { [key]: value }),
+  getBranches: () => api.get('/api/admin/branches'),
+  getUsers: () => api.get('/api/admin/users'),
+  createAdminUser: (data: Record<string, unknown>) => api.post('/api/admin/users', data),
+  getAnalytics: () => api.get('/api/admin/analytics'),
+  getEscalations: () => api.get('/api/admin/escalations'),
+  getAuditLogs: () => api.get('/api/admin/audit'),
 }
 
 export const PAYMENT = {

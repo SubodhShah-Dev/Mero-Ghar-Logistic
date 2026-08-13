@@ -143,8 +143,8 @@ export const listUsersForAdmin = async ({ page = 1, limit = 50, branchFilter = n
 		 WHERE ${scopeSql}
 		 GROUP BY u.id
 		 ORDER BY u.created_at DESC
-		 LIMIT ? OFFSET ?`,
-		[...params, Number(limit), Number(offset)],
+		 LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
+		params,
 	);
 	return rows.map((r) => ({
 		...r,

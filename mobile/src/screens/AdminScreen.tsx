@@ -5,8 +5,9 @@ import {
 } from 'react-native'
 import { SHIPMENTS, ADMIN } from '../services/api'
 import { COLORS } from '../utils/theme'
+import { useAuth } from '../context/AuthContext'
 
-type Tab = 'overview' | 'shipments' | 'vendors' | 'settings'
+type Tab = 'overview' | 'shipments' | 'vendors' | 'admins' | 'settings'
 type Filter = 'all' | 'pending' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -23,6 +24,8 @@ const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate(
 const money = (v: number) => `NPR ${v.toLocaleString()}`
 
 export default function AdminScreen() {
+  const { user } = useAuth()
+  const isSuper = user?.role === 'super_admin'
   const [tab, setTab] = useState<Tab>('overview')
   const [shipments, setShipments] = useState<any[]>([])
   const [vendors, setVendors] = useState<any[]>([])
@@ -32,6 +35,9 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [branches, setBranches] = useState<any[]>([])
+  const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '', role: 'branch_admin', branch_ids: [] as number[] })
+  const [creatingAdmin, setCreatingAdmin] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -47,11 +53,15 @@ export default function AdminScreen() {
       for (const [k, v] of Object.entries(raw)) norm[k] = String(v)
       setSettings(norm)
       setDraftSettings(norm)
+      if (user?.role === 'super_admin') {
+        const br = await ADMIN.getBranches()
+        setBranches(br.data.branches || [])
+      }
     } catch {} finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [user?.role])
 
   useEffect(() => {
     load()
@@ -83,6 +93,43 @@ export default function AdminScreen() {
       Alert.alert('Error', 'Failed to save settings')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const toggleBranchId = (id: number) => {
+    setNewAdmin((prev) => ({
+      ...prev,
+      branch_ids: prev.branch_ids.includes(id)
+        ? prev.branch_ids.filter((b) => b !== id)
+        : [...prev.branch_ids, id],
+    }))
+  }
+
+  const createAdmin = async () => {
+    if (!newAdmin.name.trim() || !newAdmin.email.trim() || !newAdmin.password.trim()) {
+      Alert.alert('Missing info', 'Name, email and password are required')
+      return
+    }
+    if (newAdmin.role === 'branch_admin' && newAdmin.branch_ids.length === 0) {
+      Alert.alert('Missing info', 'Assign the branch admin to at least one branch')
+      return
+    }
+    setCreatingAdmin(true)
+    try {
+      await ADMIN.createAdminUser({
+        name: newAdmin.name.trim(),
+        email: newAdmin.email.trim(),
+        password: newAdmin.password,
+        role: newAdmin.role,
+        branch_ids: newAdmin.role === 'branch_admin' ? newAdmin.branch_ids : [],
+      })
+      Alert.alert('Success', `${newAdmin.role === 'super_admin' ? 'Super admin' : 'Branch admin'} account created`)
+      setNewAdmin({ name: '', email: '', password: '', role: 'branch_admin', branch_ids: [] })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create account'
+      Alert.alert('Error', msg)
+    } finally {
+      setCreatingAdmin(false)
     }
   }
 
@@ -135,9 +182,9 @@ export default function AdminScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.tabRow}>
-        {(['overview', 'shipments', 'vendors', 'settings'] as Tab[]).map((t) => (
+        {(['overview', 'shipments', 'vendors', ...(isSuper ? ['admins'] as Tab[] : []), 'settings'] as Tab[]).map((t) => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} style={tabStyle(t)}>
-            <Text style={tabTextStyle(t)}>{t === 'overview' ? 'Overview' : t === 'shipments' ? `Shipments (${shipments.length})` : t === 'vendors' ? `Vendors (${vendors.length})` : 'Settings'}</Text>
+            <Text style={tabTextStyle(t)}>{t === 'overview' ? 'Overview' : t === 'shipments' ? `Shipments (${shipments.length})` : t === 'vendors' ? `Vendors (${vendors.length})` : t === 'admins' ? 'Admins' : 'Settings'}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -146,6 +193,7 @@ export default function AdminScreen() {
         {tab === 'overview' && (
           <>
             <Text style={styles.title}>Overview</Text>
+            <Text style={styles.regionNote}>{isSuper ? 'Scope: Whole Nepal (all branches)' : 'Scope: Your assigned region(s)'}</Text>
 
             <View style={styles.statsRow}>
               <View style={styles.statCard}><Text style={styles.statNum}>{shipments.length}</Text><Text style={styles.statLabel}>Total</Text></View>
@@ -243,6 +291,7 @@ export default function AdminScreen() {
                     <Text style={[styles.statusText, { color: v.status === 'active' ? '#4caf7d' : COLORS.saffron[300] }]}>{v.status}</Text>
                   </View>
                   <Text style={styles.route}>{v.service_region || 'No region'} · {v.rating || '—'}★ · {v.total_jobs || 0} jobs</Text>
+                  <Text style={styles.customer}>Branch: {v.branch_name || '—'}</Text>
                   <Text style={styles.customer}>{v.owner_name || ''}{v.phone ? ` · ${v.phone}` : ''}</Text>
                   <TouchableOpacity
                     onPress={() => toggleVendorStatus(v.id, v.status === 'active' ? 'inactive' : 'active')}
@@ -254,6 +303,71 @@ export default function AdminScreen() {
                 </View>
               ))
             )}
+          </>
+        )}
+
+        {tab === 'admins' && isSuper && (
+          <>
+            <Text style={styles.title}>Admin Accounts</Text>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Create Admin Account</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Full name"
+                placeholderTextColor={COLORS.forest[400]}
+                value={newAdmin.name}
+                onChangeText={(v) => setNewAdmin({ ...newAdmin, name: v })}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={COLORS.forest[400]}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={newAdmin.email}
+                onChangeText={(v) => setNewAdmin({ ...newAdmin, email: v })}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Password (min 6 chars)"
+                placeholderTextColor={COLORS.forest[400]}
+                secureTextEntry
+                value={newAdmin.password}
+                onChangeText={(v) => setNewAdmin({ ...newAdmin, password: v })}
+              />
+              <View style={styles.chipRowWrap}>
+                {(['branch_admin', 'super_admin'] as const).map((r) => (
+                  <TouchableOpacity
+                    key={r}
+                    onPress={() => setNewAdmin({ ...newAdmin, role: r })}
+                    style={[styles.chip, newAdmin.role === r ? styles.chipActive : null]}>
+                    <Text style={[styles.chipText, newAdmin.role === r ? styles.chipTextActive : null]}>
+                      {r === 'branch_admin' ? 'Branch Admin' : 'Super Admin'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {newAdmin.role === 'branch_admin' && (
+                <>
+                  <Text style={styles.fieldLabel}>Assign branch(es)</Text>
+                  <View style={styles.chipRowWrap}>
+                    {branches.map((b) => (
+                      <TouchableOpacity
+                        key={b.id}
+                        onPress={() => toggleBranchId(b.id)}
+                        style={[styles.chip, newAdmin.branch_ids.includes(b.id) ? styles.chipActive : null]}>
+                        <Text style={[styles.chipText, newAdmin.branch_ids.includes(b.id) ? styles.chipTextActive : null]}>
+                          {b.name.replace(' Province', '')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+              <TouchableOpacity onPress={createAdmin} disabled={creatingAdmin} style={styles.saveBtn}>
+                <Text style={styles.saveText}>{creatingAdmin ? 'Creating...' : 'Create Account'}</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
@@ -291,6 +405,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.forest[950], padding: 16 },
   center: { flex: 1, backgroundColor: COLORS.forest[950], justifyContent: 'center', alignItems: 'center' },
   title: { color: COLORS.cream[50], fontSize: 22, fontWeight: '900', marginBottom: 16 },
+  regionNote: { color: COLORS.forest[400], fontSize: 12, marginBottom: 12 },
   tabRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
   tabActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
@@ -332,8 +447,15 @@ const styles = StyleSheet.create({
   customer: { color: COLORS.forest[400], fontSize: 13, marginBottom: 2 },
   input: {
     backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4,
-    color: COLORS.cream[50], paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+    color: COLORS.cream[50], paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 10,
   },
   saveBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 4 },
   saveText: { color: COLORS.forest[900], fontWeight: '700', fontSize: 15 },
+  sectionTitle: { color: COLORS.cream[50], fontSize: 15, fontWeight: '700', marginBottom: 10 },
+  fieldLabel: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600', marginBottom: 8 },
+  chipRowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600] },
+  chipActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  chipText: { color: COLORS.forest[300], fontSize: 12, fontWeight: '600' },
+  chipTextActive: { color: COLORS.saffron[300] },
 })
