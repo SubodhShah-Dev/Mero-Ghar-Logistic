@@ -529,7 +529,10 @@ Date: 2026-08-13 · **Status: ✅ released** (tag `v3.4.3`, GitHub Release with
 
 # Plan: 3 vehicles per vendor (no seeded routes), platform commission earnings, admin stats + tab-scroll fixes
 
-Date: 2026-08-13 · **Status: 🟡 planned — not yet implemented**
+Date: 2026-08-13 · **Status: ✅ implemented & verified 2026-08-13** (44/44 backend tests pass;
+mobile typecheck + lint clean; live TiDB + Render E2E verified — every vendor has all 3 vehicles,
+0 routes, Mini Truck auto-assigns with 10% commission, `/api/admin/analytics` shows
+`commission_earnings`)
 
 ## Goal (user request)
 
