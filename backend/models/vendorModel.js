@@ -97,9 +97,10 @@ export const createVendor = async (vendorData) => {
 		email,
 		service_region,
 		address,
+		branch_id,
 	} = vendorData;
 	const [result] = await pool.execute(
-		'INSERT INTO vendors (user_id, business_name, owner_name, phone, email, service_region, address, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+		'INSERT INTO vendors (user_id, business_name, owner_name, phone, email, service_region, address, branch_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 		[
 			user_id,
 			business_name,
@@ -108,10 +109,11 @@ export const createVendor = async (vendorData) => {
 			email,
 			service_region || null,
 			address || null,
-			'pending',
+			branch_id || null,
+			'active',
 		],
 	);
-	return { id: result.insertId, ...vendorData };
+	return { id: result.insertId, status: 'active', ...vendorData };
 };
 
 export const updateVendorStatus = async (id, status) => {

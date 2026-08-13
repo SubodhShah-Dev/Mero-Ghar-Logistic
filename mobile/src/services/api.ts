@@ -135,6 +135,7 @@ export const VENDOR = {
   getAvailable: () => api.get('/api/vendor/available'),
   claim: (id: number) => api.put(`/api/vendor/shipments/${id}/claim`),
   getProfile: () => api.get('/api/vendor/profile'),
+  register: (data: Record<string, unknown>) => api.post('/api/vendor/register', data),
   updateProfile: (data: Record<string, unknown>) => api.put('/api/vendor/profile', data),
   updateBranch: (branch_id: number) => api.put('/api/vendor/branch', { branch_id }),
   rejectShipment: (id: number) => api.put(`/api/vendor/shipments/${id}/reject`),

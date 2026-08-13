@@ -63,6 +63,15 @@ export default function VendorScreen() {
   const [routeDraft, setRouteDraft] = useState({ from_province: '', from_district: '', to_province: '', to_district: '' })
   const [branchId, setBranchId] = useState<number | null>(null)
   const [savingBranch, setSavingBranch] = useState(false)
+  const [onboarding, setOnboarding] = useState({
+    business_name: '',
+    owner_name: '',
+    phone: '',
+    service_region: '',
+    address: '',
+    branch_id: null as number | null,
+  })
+  const [registering, setRegistering] = useState(false)
   const navigation = useNavigation<Nav>()
   const { setSession } = useAuth()
 
@@ -227,6 +236,32 @@ export default function VendorScreen() {
     }
   }
 
+  const registerBusiness = async () => {
+    const { business_name, owner_name, phone, branch_id } = onboarding
+    if (!business_name.trim() || !owner_name.trim() || !phone.trim()) {
+      Alert.alert('Missing info', 'Business name, owner name and phone are required')
+      return
+    }
+    if (branch_id == null) {
+      Alert.alert('Missing info', 'Pick your service branch/province')
+      return
+    }
+    setRegistering(true)
+    try {
+      const res = await VENDOR.register({ ...onboarding })
+      const data = res.data
+      if (data.token && data.user) {
+        await setSession(data.token, data.user)
+      }
+      Alert.alert('Success', 'You are live! Your mover account is active.')
+      await reload()
+    } catch {
+      Alert.alert('Error', 'Failed to register your business')
+    } finally {
+      setRegistering(false)
+    }
+  }
+
   const addRoute = async () => {
     if (!routeDraft.from_province || !routeDraft.to_province) {
       Alert.alert('Missing info', 'Pick both pickup and drop provinces')
@@ -301,7 +336,43 @@ export default function VendorScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
+      {!profile && !loading ? (
+        <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+          <Text style={styles.title}>Welcome, mover!</Text>
+          <Text style={{ color: COLORS.forest[300], fontSize: 14, marginBottom: 16, lineHeight: 20 }}>
+            One more step — tell us about your business and where you operate. Your account is
+            live as soon as you submit.
+          </Text>
+
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Business Details</Text>
+            <TextInput value={onboarding.business_name} onChangeText={(v) => setOnboarding({ ...onboarding, business_name: v })} placeholder="Business Name" placeholderTextColor={COLORS.forest[400]} style={styles.input} />
+            <TextInput value={onboarding.owner_name} onChangeText={(v) => setOnboarding({ ...onboarding, owner_name: v })} placeholder="Owner Name" placeholderTextColor={COLORS.forest[400]} style={styles.input} />
+            <TextInput value={onboarding.phone} onChangeText={(v) => setOnboarding({ ...onboarding, phone: v })} placeholder="Phone" placeholderTextColor={COLORS.forest[400]} keyboardType="phone-pad" maxLength={10} style={styles.input} />
+            <TextInput value={onboarding.service_region} onChangeText={(v) => setOnboarding({ ...onboarding, service_region: v })} placeholder="Service Region (e.g. Lalitpur)" placeholderTextColor={COLORS.forest[400]} style={styles.input} />
+            <TextInput value={onboarding.address} onChangeText={(v) => setOnboarding({ ...onboarding, address: v })} placeholder="Address" placeholderTextColor={COLORS.forest[400]} style={styles.input} />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Service Branch</Text>
+            <Text style={styles.hint}>Pick the province you operate in — bookings in your branch are matched to you.</Text>
+            <View style={styles.chipRow}>
+              {provinces.map((p) => (
+                <TouchableOpacity key={p.id} onPress={() => setOnboarding({ ...onboarding, branch_id: Number(p.id) })}
+                  style={[styles.chip, onboarding.branch_id === Number(p.id) ? styles.chipActive : null]}>
+                  <Text style={[styles.chipText, onboarding.branch_id === Number(p.id) ? styles.chipTextActive : null]}>{p.name.replace(' Province', '')}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <TouchableOpacity onPress={registerBusiness} disabled={registering} style={styles.saveBtn}>
+            <Text style={styles.saveText}>{registering ? 'Registering...' : 'Register My Business'}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      ) : (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
         <View style={styles.tabRow}>
           {(['jobs', 'claim', 'fleet', 'tickets', 'profile'] as Tab[]).map((t) => (
             <TouchableOpacity key={t} onPress={() => setTab(t)} style={tabStyle(t)}>
@@ -674,7 +745,9 @@ export default function VendorScreen() {
             </View>
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+        </>
+      )}
     </View>
   )
 }

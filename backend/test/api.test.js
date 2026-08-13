@@ -260,7 +260,7 @@ test('no admin approval is needed and admin assignment endpoints are gone', asyn
 
 test('a customer-selected mover is approved and assigned with zero admin action', async () => {
 	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
-	const active = vendors.body?.vendors?.find((v) => v.status === 'active');
+	const active = vendors.body?.vendors?.find((v) => v.status === 'active' && v.business_name === 'Himalayan Movers');
 	assert.ok(active, 'an active mover exists');
 
 	// Only the customer token is used here; no admin token ever touches this
@@ -306,7 +306,7 @@ test('a customer-selected mover is approved and assigned with zero admin action'
 let lifecycleShipment;
 test('vendor runs the full job lifecycle', async () => {
 	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
-	const active = vendors.body?.vendors?.find((v) => v.status === 'active');
+	const active = vendors.body?.vendors?.find((v) => v.status === 'active' && v.business_name === 'Himalayan Movers');
 	assert.ok(active, 'an active mover exists');
 
 	// Choosing an active mover auto-approves and assigns the booking directly.
@@ -472,15 +472,19 @@ test('a user can register as a vendor and duplicates are rejected', async () => 
 			email: email2,
 			service_region: 'Lalitpur',
 			address: 'Kupondole',
+			branch_id: 3,
 		},
 		secondVendorToken,
 	);
 	assert.equal(vreg.status, 201);
 	assert.equal(vreg.body?.vendor?.business_name, 'Bagmati Movers');
-	assert.match(String(vreg.body?.message), /approval/i);
+	assert.equal(vreg.body?.vendor?.status, 'active', 'movers are auto-approved');
+	assert.equal(vreg.body?.vendor?.branch_id, 3, 'branch picked at signup is persisted');
+	assert.deepEqual(vreg.body?.user?.branches, [3], 're-issued token carries the branch scope');
+	assert.ok(vreg.body?.token, 'a fresh token is issued on registration');
 	const adminList = await req('GET', '/api/admin/vendors', undefined, adminToken);
-	const pending = adminList.body?.vendors?.find((v) => v.business_name === 'Bagmati Movers');
-	assert.equal(pending?.status, 'pending', 'new mover starts pending approval');
+	const created = adminList.body?.vendors?.find((v) => v.business_name === 'Bagmati Movers');
+	assert.equal(created?.status, 'active', 'new mover appears active to admins');
 
 	const dup = await req(
 		'POST',
@@ -653,7 +657,7 @@ test('vendor sees their assigned shipments', async () => {
 let secondShipment;
 test('a vendor can reject an assigned job and it returns to the pending queue', async () => {
 	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
-	const active = vendors.body?.vendors?.find((v) => v.status === 'active');
+	const active = vendors.body?.vendors?.find((v) => v.status === 'active' && v.business_name === 'Himalayan Movers');
 	assert.ok(active, 'an active mover exists');
 
 	// Choosing an active mover auto-approves the booking at creation time.
@@ -679,7 +683,7 @@ test('a vendor can reject an assigned job and it returns to the pending queue', 
 let autoShipment;
 test('selecting an available mover auto-approves and a busy mover is blocked', async () => {
 	const vendors = await req('GET', '/api/admin/vendors', undefined, adminToken);
-	const active = vendors.body?.vendors?.find((v) => v.status === 'active');
+	const active = vendors.body?.vendors?.find((v) => v.status === 'active' && v.business_name === 'Himalayan Movers');
 	assert.ok(active);
 
 	autoShipment = await createAndPayBooking({ vehicle_type: 'Cargo Tempo', vendor_id: active.id });

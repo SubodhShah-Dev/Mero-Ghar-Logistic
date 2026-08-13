@@ -155,7 +155,7 @@ export const updateMyVendorProfile = asyncHandler(async (req, res) => {
 });
 
 export const registerVendor = asyncHandler(async (req, res) => {
-	const { business_name, owner_name, phone, email, service_region, address } =
+	const { business_name, owner_name, phone, email, service_region, address, branch_id } =
 		req.body;
 
 	if (!business_name || !owner_name || !phone) {
@@ -167,6 +167,24 @@ export const registerVendor = asyncHandler(async (req, res) => {
 		throw new HttpError(400, 'Vendor already registered');
 	}
 
+	let branchId = null;
+	if (branch_id != null && branch_id !== '') {
+		branchId = Number(branch_id);
+		if (!Number.isInteger(branchId) || branchId < 1) {
+			throw new HttpError(400, 'A valid branch is required');
+		}
+		const [rows] = await pool.execute(
+			'SELECT id, is_active FROM branches WHERE id = ?',
+			[branchId],
+		);
+		if (rows.length === 0) {
+			throw new HttpError(400, 'Branch not found');
+		}
+		if (Number(rows[0].is_active) !== 1) {
+			throw new HttpError(400, 'Branch is inactive');
+		}
+	}
+
 	const vendor = await createVendor({
 		user_id: req.user.id,
 		business_name,
@@ -175,12 +193,23 @@ export const registerVendor = asyncHandler(async (req, res) => {
 		email,
 		service_region,
 		address,
+		branch_id: branchId,
 	});
+
+	const branches = await getUserBranches(req.user.id, 'vendor');
+	const token = jwt.sign(
+		{ id: req.user.id, email: req.user.email, role: 'vendor', branches },
+		process.env.JWT_SECRET || 'meroghar-jwt-secret-change-in-production',
+		{ expiresIn: '7d' },
+	);
 
 	res.status(201).json({
 		success: true,
-		message: 'Vendor registration submitted for approval',
+		message: 'Mover registration successful — you are live',
 		vendor,
+		branches,
+		token,
+		user: { id: req.user.id, email: req.user.email, role: 'vendor', branches },
 	});
 });
 
