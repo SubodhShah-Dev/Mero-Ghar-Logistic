@@ -38,16 +38,19 @@ export default function AdminScreen() {
   const [branches, setBranches] = useState<any[]>([])
   const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '', role: 'branch_admin', branch_ids: [] as number[] })
   const [creatingAdmin, setCreatingAdmin] = useState(false)
+  const [analytics, setAnalytics] = useState<any>(null)
 
   const load = useCallback(async () => {
     try {
-      const [sRes, vRes, stRes] = await Promise.all([
+      const [sRes, vRes, stRes, aRes] = await Promise.all([
         SHIPMENTS.getAll(),
         ADMIN.getVendors(),
         ADMIN.getSettings(),
+        ADMIN.getAnalytics().catch(() => ({ data: null })),
       ])
       setShipments(sRes.data.shipments || [])
       setVendors(vRes.data.vendors || [])
+      setAnalytics(aRes?.data || null)
       const raw: Record<string, string> = stRes.data.settings || {}
       const norm: Record<string, string> = {}
       for (const [k, v] of Object.entries(raw)) norm[k] = String(v)
@@ -134,9 +137,9 @@ export default function AdminScreen() {
   }
 
   const activeVendors = vendors.filter((v) => v.status === 'active')
-  const totalRevenue = shipments
-    .filter((s) => s.payment_status === 'paid' && s.final_quote)
-    .reduce((sum, s) => sum + (s.final_quote || 0), 0)
+  const platformEarnings = analytics?.overview?.commission_earnings ?? 0
+  const grossValue = analytics?.overview?.revenue ?? 0
+  const totalShipments = analytics?.overview?.shipments?.total ?? shipments.length
   const deliveredCount = shipments.filter((s) => s.status === 'delivered').length
   const inTransitCount = shipments.filter((s) => s.status === 'in_transit').length
   const pendingCount = shipments.filter((s) => s.status === 'pending').length
@@ -181,13 +184,15 @@ export default function AdminScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabRow}>
-        {(['overview', 'shipments', 'vendors', ...(isSuper ? ['admins'] as Tab[] : []), 'settings'] as Tab[]).map((t) => (
-          <TouchableOpacity key={t} onPress={() => setTab(t)} style={tabStyle(t)}>
-            <Text style={tabTextStyle(t)}>{t === 'overview' ? 'Overview' : t === 'shipments' ? `Shipments (${shipments.length})` : t === 'vendors' ? `Vendors (${vendors.length})` : t === 'admins' ? 'Admins' : 'Settings'}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll}>
+        <View style={styles.tabRow}>
+          {(['overview', 'shipments', 'vendors', ...(isSuper ? ['admins'] as Tab[] : []), 'settings'] as Tab[]).map((t) => (
+            <TouchableOpacity key={t} onPress={() => setTab(t)} style={tabStyle(t)}>
+              <Text style={tabTextStyle(t)}>{t === 'overview' ? 'Overview' : t === 'shipments' ? `Shipments (${shipments.length})` : t === 'vendors' ? `Vendors (${vendors.length})` : t === 'admins' ? 'Admins' : 'Settings'}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
 
       <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} contentContainerStyle={{ paddingBottom: 24 }}>
         {tab === 'overview' && (
@@ -196,7 +201,7 @@ export default function AdminScreen() {
             <Text style={styles.regionNote}>{isSuper ? 'Scope: Whole Nepal (all branches)' : 'Scope: Your assigned region(s)'}</Text>
 
             <View style={styles.statsRow}>
-              <View style={styles.statCard}><Text style={styles.statNum}>{shipments.length}</Text><Text style={styles.statLabel}>Total</Text></View>
+              <View style={styles.statCard}><Text style={styles.statNum}>{totalShipments}</Text><Text style={styles.statLabel}>Total</Text></View>
               <View style={styles.statCard}><Text style={[styles.statNum, { color: '#f5a623' }]}>{pendingCount}</Text><Text style={styles.statLabel}>Pending</Text></View>
               <View style={styles.statCard}><Text style={[styles.statNum, { color: '#5aa9e6' }]}>{inTransitCount}</Text><Text style={styles.statLabel}>In Transit</Text></View>
             </View>
@@ -207,9 +212,9 @@ export default function AdminScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Revenue</Text>
-              <Text style={styles.revenue}>{money(totalRevenue)}</Text>
-              <Text style={styles.cardSub}>from {shipments.filter((s) => s.payment_status === 'paid').length} paid shipments · {activeVendors.length} active movers</Text>
+              <Text style={styles.cardTitle}>Platform Earnings</Text>
+              <Text style={styles.revenue}>{money(platformEarnings)}</Text>
+              <Text style={styles.cardSub}>10% commission on {money(grossValue)} of paid bookings · {activeVendors.length} active movers</Text>
             </View>
 
             <View style={styles.card}>
@@ -272,6 +277,7 @@ export default function AdminScreen() {
                   <Text style={styles.customer}>{s.first_name} {s.last_name} · {s.mobile_number}</Text>
                   <Text style={styles.customer}>Approval: {s.approval_status}{s.vendor_name ? ` · Mover: ${s.vendor_name}` : ''}</Text>
                   <Text style={styles.customer}>Payment: {s.payment_status}{s.final_quote ? ` · ${money(s.final_quote)}` : ''}</Text>
+                  {s.commission_amount != null ? <Text style={styles.customer}>Commission: {money(s.commission_amount)}</Text> : null}
                 </View>
               ))
             )}
@@ -406,7 +412,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: COLORS.forest[950], justifyContent: 'center', alignItems: 'center' },
   title: { color: COLORS.cream[50], fontSize: 22, fontWeight: '900', marginBottom: 16 },
   regionNote: { color: COLORS.forest[400], fontSize: 12, marginBottom: 12 },
-  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 16, paddingRight: 8 },
+  tabScroll: { flexGrow: 0, marginBottom: 0 },
   tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
   tabActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
   tabText: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600' },

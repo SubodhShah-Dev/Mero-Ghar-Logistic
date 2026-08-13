@@ -178,12 +178,12 @@ test('booking is created with payment required and a transaction id', async () =
 			last_name: 'Tester',
 			mobile_number: '9840000001',
 			email: customerEmail,
-			pickup_province: 'Bagmati',
-			pickup_district: 'Kathmandu',
-			pickup_city: 'Baluwatar',
-			drop_province: 'Bagmati',
-			drop_district: 'Lalitpur',
-			drop_city: 'Patan',
+			pickup_province: 'Sudurpashchim Province',
+			pickup_district: 'Doti',
+			pickup_city: 'Dipayal',
+			drop_province: 'Karnali Province',
+			drop_district: 'Jumla',
+			drop_city: 'Chandannath',
 			home_size: '2 BHK',
 			selected_items: ['Furniture'],
 			vehicle_type: 'Mini Truck',
@@ -196,6 +196,7 @@ test('booking is created with payment required and a transaction id', async () =
 	assert.equal(res.body?.payment_required, true);
 	assert.match(String(res.body?.transaction_id), /^TXN-/);
 	assert.equal(res.body?.payment_data?.amount, 8000);
+	assert.equal(res.body?.commission_amount, 800, '10% commission on the flat Mini Truck quote');
 	shipment = res.body;
 });
 
@@ -233,11 +234,12 @@ test('guest email lookup returns trimmed fields without PII', async () => {
 });
 
 test('no admin approval is needed and admin assignment endpoints are gone', async () => {
-	// The seed mover only owns a Cargo Tempo, so this Mini Truck booking stays
-	// pending for the claim pool — and there is no admin route to assign it.
+	// Every mover is route-less now, so the main shipment auto-assigns to the
+	// pickup province's mover at booking time — with zero admin action — and
+	// there is no admin route to assign it.
 	const detail = await req('GET', `/api/shipment/${shipment.shipment_id}`, undefined, customerToken);
-	assert.equal(detail.body?.shipment?.approval_status, 'pending');
-	assert.equal(detail.body?.shipment?.assigned_vendor_id, null);
+	assert.equal(detail.body?.shipment?.approval_status, 'approved', 'auto-approved without admin');
+	assert.ok(detail.body?.shipment?.assigned_vendor_id, 'a mover was auto-assigned');
 
 	const goneApprove = await req(
 		'PUT',
@@ -586,14 +588,20 @@ test('vendor matching is route-aware and returns only trimmed public fields', as
 			`&pickup_province=${encodeURIComponent('Sudurpashchim Province')}&pickup_district=Doti` +
 			`&drop_province=${encodeURIComponent('Karnali Province')}&drop_district=Jumla`,
 	);
-	assert.equal(outside.body?.vendors?.length, 0, 'mover with routes does not appear on a route it does not cover');
+	assert.ok(
+		(outside.body?.vendors || []).some((v) => v.business_name === 'Sudurpashchim Movers'),
+		'a route-less mover serves any route',
+	);
 
-	const none = await req(
+	const mini = await req(
 		'GET',
 		`/api/vendor/matching?vehicle_type=${encodeURIComponent('Mini Truck')}` +
 			`&pickup_province=${encodeURIComponent('Bagmati Province')}&drop_province=${encodeURIComponent('Bagmati Province')}`,
 	);
-	assert.equal(none.body?.vendors?.length, 0, 'nobody offers a Mini Truck');
+	assert.ok(
+		(mini.body?.vendors || []).some((v) => v.business_name === 'Himalayan Movers'),
+		'seeded movers offer a Mini Truck now',
+	);
 
 	const missing = await req('GET', '/api/vendor/matching');
 	assert.equal(missing.status, 400);
@@ -608,10 +616,7 @@ test('vendor matching is route-aware and returns only trimmed public fields', as
 test('vendor route CRUD', async () => {
 	const list = await req('GET', '/api/vendor/routes', undefined, vendorToken);
 	assert.equal(list.status, 200);
-	assert.ok(
-		list.body?.routes?.some((r) => r.from_province === 'Bagmati Province' && r.to_province === 'Bagmati Province'),
-		'seeded routes are listed',
-	);
+	assert.ok(Array.isArray(list.body?.routes), 'routes endpoint returns a list');
 
 	const add = await req(
 		'POST',
@@ -1058,6 +1063,29 @@ test('scoped analytics: branch admin only sees own region', async () => {
 	// A Bagmati-only admin must not be able to force a Gandaki view.
 	const forced = await req('GET', '/api/admin/analytics?branch_id=4', undefined, branchAdminToken);
 	assert.equal(forced.status, 200);
+});
+
+test('platform commission is recorded on bookings and aggregated in analytics', async () => {
+	// Mini Truck, no distance -> flat 8000 -> 10% commission = 800.
+	const booking = await createAndPayBooking({});
+	assert.equal(booking.commission_amount, 800, 'create response carries the 10% commission');
+
+	const detail = await req('GET', `/api/shipment/${booking.shipment_id}`, undefined, customerToken);
+	assert.equal(detail.body?.shipment?.commission_amount, 800, '10% commission stored on the booking');
+
+	const analytics = await req('GET', '/api/admin/analytics', undefined, adminToken);
+	assert.ok(
+		(analytics.body?.overview?.commission_earnings || 0) >= 800,
+		'paid booking contributes its commission to platform earnings',
+	);
+
+	const cancel = await req(
+		'PUT',
+		`/api/shipment/${booking.shipment_id}/status`,
+		{ status: 'cancelled' },
+		adminToken,
+	);
+	assert.equal(cancel.status, 200, 'cleanup');
 });
 
 test('cross-branch escalation lifecycle', async () => {

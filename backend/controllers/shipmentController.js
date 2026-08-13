@@ -15,6 +15,7 @@ import {
 } from '../models/shipmentModel.js';
 import { findMatchingVendors, vendorCoversRoute } from '../models/vendorModel.js';
 import { branchIdForProvince } from '../models/branchModel.js';
+import { getSettings } from '../models/settingsModel.js';
 
 const INSERT_SHIPMENT_SQL = `INSERT INTO shipments (
 	booking_id, user_id, branch_id, pickup_address, pickup_province, pickup_district, pickup_city, pickup_ward, pickup_floor, pickup_lane_access,
@@ -24,8 +25,8 @@ const INSERT_SHIPMENT_SQL = `INSERT INTO shipments (
 	first_name, last_name, mobile_number, alternate_mobile, email,
 	preferred_contact, payment_method, special_notes, how_found_us,
 	approval_status, status, transaction_id, payment_status, final_quote, distance_km, estimated_duration,
-	assigned_vendor_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+	assigned_vendor_id, commission_amount
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 const DEMO_QUOTE_BY_VEHICLE = {
 	'Cargo Tempo': 4000,
@@ -48,6 +49,10 @@ const quoteFor = (vehicle, distanceKm) => {
 	const raw = rate.base + rate.perKm * (Number(distanceKm) || 0);
 	return Math.round(raw / 50) * 50;
 };
+
+// Platform commission on the booking fee (percentage), overridable via the
+// 'platform_commission_pct' setting (super-admin editable).
+const DEFAULT_COMMISSION_PCT = 10;
 
 export const createShipment = asyncHandler(async (req, res) => {
 	const {
@@ -98,6 +103,12 @@ export const createShipment = asyncHandler(async (req, res) => {
 		distance != null
 			? quoteFor(vehicle_type, distance)
 			: DEMO_QUOTE_BY_VEHICLE[vehicle_type] || null;
+
+	// Platform commission on the booking fee (10% by default).
+	const settings = await getSettings();
+	const commissionPct = Number(settings.platform_commission_pct) || DEFAULT_COMMISSION_PCT;
+	const commissionAmount =
+		finalQuote != null ? Math.round(finalQuote * (commissionPct / 100)) : null;
 
 	const userId = req.user?.id || null;
 	const booking_id = `MG-${Date.now()}`;
@@ -255,6 +266,7 @@ export const createShipment = asyncHandler(async (req, res) => {
 			distance,
 			estimated_duration || null,
 			assignedVendorId,
+			commissionAmount,
 		]);
 
 		await connection.commit();
@@ -276,6 +288,7 @@ export const createShipment = asyncHandler(async (req, res) => {
 		booking_id,
 		shipment_id: shipmentId,
 		transaction_id: transactionId,
+		commission_amount: commissionAmount,
 		payment_required: paymentRequired,
 		payment_data: paymentRequired
 			? {

@@ -524,3 +524,97 @@ Date: 2026-08-13 · **Status: ✅ released** (tag `v3.4.3`, GitHub Release with
 
 - `mobile/package.json`, `mobile/android/app/build.gradle` (version 3.4.3)
 - `plan.md` — this section
+
+---
+
+# Plan: 3 vehicles per vendor (no seeded routes), platform commission earnings, admin stats + tab-scroll fixes
+
+Date: 2026-08-13 · **Status: 🟡 planned — not yet implemented**
+
+## Goal (user request)
+
+1. **Every vendor account owns all 3 vehicle types** (Cargo Tempo, Mini Truck, Large Truck)
+   and the seed inserts **no vendor routes at all**, so any booking type auto-assigns to the
+   pickup province's vendor instead of falling to the claim pool (fixes "Mini Truck booking
+   stuck / no chat").
+2. **The app actually earns**: a small **10% commission** on the booking fee, configurable via
+   the `platform_commission_pct` setting, shown correctly in the admin portal.
+3. **Admin portal shows correct statistics**: drive headline numbers from the server-side,
+   branch-scoped `/api/admin/analytics` (currently the app computes client-side from a
+   50-row page), and surface **platform earnings** separately from gross booking value.
+4. **Admin tab pills scroll horizontally** on Android instead of being cut off.
+
+## Decisions (confirmed with user)
+
+- **Routes**: no seeded routes at all (all demo vendors route-less → "covers any route").
+- **Commission**: default **10%**, editable setting `platform_commission_pct` (super-admin
+  settings tab); recorded on **every** booking; counted as earnings only once
+  `payment_status = 'paid'` (same rule as current revenue).
+
+## Context (verified in code)
+
+- `findMatchingVendors` / `vendorCoversRoute` treat a vendor with zero routes as matching
+  every route at `exact` tier (`vendorModel.js:241,307`) → removing seeded routes makes all
+  3 vehicle types auto-assignable per branch.
+- No commission/payout exists anywhere (`grep commission|payout|earning` = 0 hits). The
+  full `final_quote` is the mover's gross; admin "Revenue" card = sum of paid quotes, not
+  platform income.
+- Mobile `AdminScreen.tsx` computes Overview totals client-side from `/api/shipment/all`
+  (page 1, limit 50 → truncates); the correct scoped aggregates exist at `/api/admin/analytics`
+  but are unused by the app.
+- Tab pills: `AdminScreen.tsx:184` `tabRow` is a plain row View (not scrollable) → cut off on
+  narrow Android screens; filter chips below already use the horizontal ScrollView pattern.
+- All shipment SELECTs use `s.*` → a new `commission_amount` column flows to every API
+  automatically. Tests drop/recreate `meroghar_test` each run → schema changes are free there.
+
+## Phase 1 — Seed: all 3 vehicles, no routes (`backend/config/db.js`)
+
+- Regional vendors + Himalayan Movers: insert 3 vehicles each
+  (`Tata Ace` Cargo Tempo, `Tata 407` Mini Truck, `Tata 909` Large Truck).
+- Remove all `vendor_routes` INSERTs (14 rows gone; 21 vehicle rows, 0 routes).
+- Seed demo shipment: give it a real `final_quote` (distance-quoted) + `commission_amount`
+  so the portal is non-empty.
+
+**Test updates** (`backend/test/api.test.js`):
+- Matching test: Mini Truck Bagmati now matches Himalayan Movers (was `none` → 0);
+  Sudurpashchim→Karnali now matches Sudurpashchim Movers (was `outside` → 0).
+- Rework test 235: main shipment (Sudurpashchim→Karnali Mini Truck) now auto-assigns →
+  assert auto-approved-without-admin + admin approve/reject endpoints 404 (drop the
+  pending/unassigned assertions; claim-pool covered by its own test).
+
+## Phase 2 — Commission model (backend)
+
+- `schema.js`: add `commission_amount DECIMAL(12,2)` to `shipments`.
+- `shipmentController.js`: `DEFAULT_COMMISSION_PCT = 10`; read `platform_commission_pct`
+  setting at booking time; `commission = final_quote ? Math.round(final_quote * pct / 100)
+  : null`; add to `INSERT_SHIPMENT_SQL`; return `commission_amount` in the create response
+  (customer still pays the full `final_quote`).
+- `analyticsModel.js`: `regionalOverview` adds `commission_earnings` (SUM commission where
+  paid), keeps `revenue` = gross; `perBranchBreakdown` adds per-branch commission.
+- Test: new "platform commission recorded + aggregated" (paid booking → 10% of quote on the
+  shipment + `overview.commission_earnings`).
+
+## Phase 3 — Admin portal (mobile `AdminScreen.tsx`)
+
+- Overview cards from `ADMIN.getAnalytics()` (`overview` + `breakdown`) — fixes truncation +
+  scoping; keep list-based status/7-day charts.
+- Revenue card → **Platform Earnings** (commission) + **Bookings value** (gross).
+- Shipments tab: `Commission: NPR X` line per card.
+- **Tab pills**: wrap the top tab row in a horizontal `ScrollView`.
+
+## Phase 4 — Verify + deploy
+
+1. Backend `npm test` (43 pass with updates + new test); mobile `npx tsc --noEmit` + lint.
+2. Commit + push; drop `meroghar_db`, restart local backend (reseeds 21 vehicles / 0 routes /
+   new column).
+3. Live smoke: 3 vehicles/vendor; Mini Truck auto-assigns; `commission_amount` = 10%;
+   `/api/admin/analytics` shows earnings; branch scoping intact.
+4. Render redeploy → same smoke on the public URL.
+5. Rebuild APK + tag `v3.4.4` → CI GitHub Release (tab fix reaches the device).
+
+## Files to change
+
+- `backend/config/db.js`, `backend/config/schema.js`, `backend/controllers/shipmentController.js`
+- `backend/models/analyticsModel.js`, `backend/test/api.test.js`
+- `mobile/src/screens/AdminScreen.tsx`
+- `plan.md` — this section

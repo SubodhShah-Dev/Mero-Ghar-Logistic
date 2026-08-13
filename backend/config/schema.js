@@ -171,6 +171,7 @@ const TABLES = [
 			{ name: 'special_notes', type: COLUMN.text() },
 			{ name: 'status', type: COLUMN.varchar(50), def: "'pending'" },
 			{ name: 'final_quote', type: COLUMN.decimal(12, 2) },
+			{ name: 'commission_amount', type: COLUMN.decimal(12, 2) },
 			{ name: 'distance_km', type: COLUMN.decimal(10, 2) },
 			{ name: 'estimated_duration', type: COLUMN.varchar(50) },
 			{ name: 'transaction_id', type: COLUMN.varchar(100) },

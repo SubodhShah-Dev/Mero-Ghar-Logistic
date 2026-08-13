@@ -97,19 +97,20 @@ const seed = async () => {
 	const customerUserId = await insertUser('Demo Customer', 'customer@test.com', customerPass, 'user', '9800000002');
 
 	// One Branch Admin + one active regional Vendor for every province except
-	// Bagmati (which uses the documented demo accounts below). Local-only routes
-	// keep the route-aware vendor matching in the integration suite stable.
-	// Format:
-	// [branch, slug, business, owner, adminEmail, vendorEmail, adminPhone, vendorPhone, address, fromA, fromB, fromC]
+	// Bagmati (which uses the documented demo accounts below). Vendors are
+	// seeded with all three vehicle types and NO routes — a route-less mover
+	// covers any route, so every booking type auto-assigns to the pickup
+	// province's vendor. Format:
+	// [branch, slug, business, owner, adminEmail, vendorEmail, adminPhone, vendorPhone, address]
 	const regions = [
-		['Koshi Province', 'koshi', 'Koshi Movers', 'Kiran Rai', 'ba.koshi@test.com', 'vendor.koshi@test.com', '9810000001', '9820000001', 'Birtamod, Jhapa', 'Jhapa', 'Morang', 'Sunsari'],
-		['Madhesh Province', 'madhesh', 'Madhesh Movers', 'Sarita Yadav', 'ba.madhesh@test.com', 'vendor.madhesh@test.com', '9810000002', '9820000002', 'Janakpur, Dhanusha', 'Siraha', 'Saptari', 'Dhanusha'],
-		['Gandaki Province', 'gandaki', 'Gandaki Movers', 'Prakash Thapa', 'ba.gandaki@test.com', 'vendor.gandaki@test.com', '9810000003', '9820000003', 'Pokhara, Kaski', 'Kaski', 'Tanahun', 'Syangja'],
-		['Lumbini Province', 'lumbini', 'Lumbini Movers', 'Gita K.C.', 'ba.lumbini@test.com', 'vendor.lumbini@test.com', '9810000004', '9820000004', 'Bhairahawa, Rupandehi', 'Rupandehi', 'Kapilvastu', 'Dang'],
-		['Karnali Province', 'karnali', 'Karnali Movers', 'Bikash Bista', 'ba.karnali@test.com', 'vendor.karnali@test.com', '9810000005', '9820000005', 'Birendranagar, Surkhet', 'Surkhet', 'Salyan', 'Jumla'],
-		['Sudurpashchim Province', 'sudurpashchim', 'Sudurpashchim Movers', 'Nirmala Saud', 'ba.sudurpashchim@test.com', 'vendor.sudurpashchim@test.com', '9810000006', '9820000006', 'Dhangadhi, Kailali', 'Kailali', 'Kanchanpur', 'Doti'],
+		['Koshi Province', 'koshi', 'Koshi Movers', 'Kiran Rai', 'ba.koshi@test.com', 'vendor.koshi@test.com', '9810000001', '9820000001', 'Birtamod, Jhapa'],
+		['Madhesh Province', 'madhesh', 'Madhesh Movers', 'Sarita Yadav', 'ba.madhesh@test.com', 'vendor.madhesh@test.com', '9810000002', '9820000002', 'Janakpur, Dhanusha'],
+		['Gandaki Province', 'gandaki', 'Gandaki Movers', 'Prakash Thapa', 'ba.gandaki@test.com', 'vendor.gandaki@test.com', '9810000003', '9820000003', 'Pokhara, Kaski'],
+		['Lumbini Province', 'lumbini', 'Lumbini Movers', 'Gita K.C.', 'ba.lumbini@test.com', 'vendor.lumbini@test.com', '9810000004', '9820000004', 'Bhairahawa, Rupandehi'],
+		['Karnali Province', 'karnali', 'Karnali Movers', 'Bikash Bista', 'ba.karnali@test.com', 'vendor.karnali@test.com', '9810000005', '9820000005', 'Birendranagar, Surkhet'],
+		['Sudurpashchim Province', 'sudurpashchim', 'Sudurpashchim Movers', 'Nirmala Saud', 'ba.sudurpashchim@test.com', 'vendor.sudurpashchim@test.com', '9810000006', '9820000006', 'Dhangadhi, Kailali'],
 	];
-	for (const [idx, [name, slug, businessName, ownerName, adminEmail, vendorEmail, adminPhone, vendorPhone, address, dA, dB, dC]] of regions.entries()) {
+	for (const [idx, [name, slug, businessName, ownerName, adminEmail, vendorEmail, adminPhone, vendorPhone, address]] of regions.entries()) {
 		const regionalAdminId = await insertUser(`${name} Branch Admin`, adminEmail, branchAdminPass, 'branch_admin', adminPhone);
 		await execute('INSERT INTO user_branches (user_id, branch_id) VALUES (?, ?)', [regionalAdminId, branchRows[name]]);
 
@@ -126,14 +127,14 @@ const seed = async () => {
 			[regionalVendorId, 'Tata Ace', `${slug.slice(0, 2).toUpperCase()} 1 ${slug.slice(0, 2).toUpperCase()} ${idx + 1001}`, 'Cargo Tempo', 1.0, `${businessName} Driver`, vendorPhone, 'available', 1],
 		);
 		await execute(
-			`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
-			 VALUES (?, ?, ?, ?, ?)`,
-			[regionalVendorId, name, dA, name, dB],
+			`INSERT INTO vendor_vehicles (vendor_id, name, plate_number, vehicle_type, capacity_tonnes, driver_name, driver_phone, status, is_active)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[regionalVendorId, 'Tata 407', `${slug.slice(0, 2).toUpperCase()} 2 ${slug.slice(0, 2).toUpperCase()} ${idx + 1001}`, 'Mini Truck', 2.0, `${businessName} Driver`, vendorPhone, 'available', 1],
 		);
 		await execute(
-			`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
-			 VALUES (?, ?, ?, ?, ?)`,
-			[regionalVendorId, name, dC, name, dA],
+			`INSERT INTO vendor_vehicles (vendor_id, name, plate_number, vehicle_type, capacity_tonnes, driver_name, driver_phone, status, is_active)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[regionalVendorId, 'Tata 909', `${slug.slice(0, 2).toUpperCase()} 3 ${slug.slice(0, 2).toUpperCase()} ${idx + 1001}`, 'Large Truck', 5.0, `${businessName} Driver`, vendorPhone, 'available', 1],
 		);
 	}
 
@@ -158,14 +159,15 @@ const seed = async () => {
 	);
 
 	await execute(
-		`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
-		 VALUES (?, ?, ?, ?, ?)`,
-		[vendorId, 'Bagmati Province', 'Kathmandu', 'Bagmati Province', 'Lalitpur'],
+		`INSERT INTO vendor_vehicles (vendor_id, name, plate_number, vehicle_type, capacity_tonnes, driver_name, driver_phone, status, is_active)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		[vendorId, 'Tata 407', 'BA 1 KA 1235', 'Mini Truck', 2.0, 'Suresh Lama', '9812345678', 'available', 1],
 	);
+
 	await execute(
-		`INSERT INTO vendor_routes (vendor_id, from_province, from_district, to_province, to_district)
-		 VALUES (?, ?, ?, ?, ?)`,
-		[vendorId, 'Bagmati Province', null, 'Gandaki Province', null],
+		`INSERT INTO vendor_vehicles (vendor_id, name, plate_number, vehicle_type, capacity_tonnes, driver_name, driver_phone, status, is_active)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		[vendorId, 'Tata 909', 'BA 1 KA 1236', 'Large Truck', 5.0, 'Suresh Lama', '9812345678', 'available', 1],
 	);
 
 	await execute(
@@ -173,13 +175,15 @@ const seed = async () => {
 			booking_id, user_id, branch_id, first_name, last_name, mobile_number, email,
 			pickup_province, pickup_district, pickup_city, drop_province, drop_district, drop_city,
 			home_size, selected_items, vehicle_type, move_date, payment_method,
-			status, approval_status, approved_by, assigned_vendor_id, transaction_id, payment_status, distance_km, estimated_duration
-		 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			status, approval_status, approved_by, assigned_vendor_id, transaction_id, payment_status, distance_km, estimated_duration,
+			final_quote, commission_amount
+		 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			`MG-${Date.now()}`, customerUserId, bagmatiBranchId, 'Demo', 'Customer', '9800000002', 'customer@test.com',
 			'Bagmati Province', 'Kathmandu', 'Baneshwor', 'Bagmati Province', 'Lalitpur', 'Patan',
 			'1 BHK', JSON.stringify(['Sofa', 'Bed']), 'Cargo Tempo', '2026-08-15', 'esewa',
 			'delivered', 'approved', adminId, vendorId, `TXN-${Date.now()}`, 'paid', 8.5, '3 hours',
+			1050, 105,
 		],
 	);
 	console.log('[db] demo data seeded: admin@test.com / adminpass123 (super_admin); ba.<province>@test.com + branchadmin@test.com / branchadminpass123 (branch_admin); vendor.<province>@test.com + vendor@test.com / vendorpass123 (vendor); customer@test.com / customerpass123 (user)');
