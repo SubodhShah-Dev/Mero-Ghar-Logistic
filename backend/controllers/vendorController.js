@@ -190,7 +190,7 @@ export const registerVendor = asyncHandler(async (req, res) => {
 		business_name,
 		owner_name,
 		phone,
-		email,
+		email: email || req.user.email,
 		service_region,
 		address,
 		branch_id: branchId,
