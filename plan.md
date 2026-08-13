@@ -484,6 +484,14 @@ Improve the booking form UX per the customer flow:
 Date: 2026-08-13 · **Status: ✅ released** (tag `v3.4.3`, GitHub Release with
 `MeroGhar-v3.4.3.apk`)
 
+## Local build (verified before/alongside CI)
+
+- `cd mobile/android && ./gradlew assembleRelease` → **BUILD SUCCESSFUL**
+  (`mobile/android/app/build/outputs/apk/release/app-release.apk`, ~60 MB,
+  `aapt2` confirms `package=com.meroghar`, `versionCode=12`, `versionName=3.4.3`).
+- Same SDK versions as CI (NDK 27.1.12297006, platform android-35, build-tools 35.0.0,
+  Gradle 8.11.1 wrapper, JDK 21); release signed with the local `debug.keystore` fallback.
+
 ## What it ships (vs v3.4.2, built from `dfc106c`)
 
 - **Customer selects the mover (no admin)**: tiered route-aware matching, auto-approve +
