@@ -29,15 +29,7 @@ export const NEPAL_DATA: {
 
 export const provinces = NEPAL_DATA.provinces
 
-export const districtsByProvince = (provinceId: string): string[] =>
-  NEPAL_DATA.districts[provinceId] || []
-
-export const getProvinceId = (name: string): string => {
-  const p = provinces.find((prov) => prov.name === name)
-  return p?.id || ''
-}
-
 export const getDistricts = (provinceName: string): string[] => {
-  const id = getProvinceId(provinceName)
+  const id = provinces.find((prov) => prov.name === provinceName)?.id || ''
   return NEPAL_DATA.districts[id] || []
 }

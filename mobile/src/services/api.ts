@@ -114,7 +114,10 @@ export const SHIPMENTS = {
   create: (data: Record<string, unknown>) => api.post('/api/shipment/create', data),
   getAll: () => api.get('/api/shipment/all'),
   getMy: () => api.get('/api/shipment/my'),
-  getByEmail: (email: string) => api.get(`/api/shipment/email/${email}`),
+}
+
+export const ORG = {
+  getActiveBranches: () => api.get('/api/admin/branches/active'),
 }
 
 export const GEOCODE = {
@@ -131,7 +134,6 @@ export const VENDOR = {
   addVehicle: (data: Record<string, unknown>) => api.post('/api/vendor/vehicles', data),
   updateVehicleStatus: (id: number, status: string) =>
     api.put(`/api/vendor/vehicles/${id}/status`, { status }),
-  deleteVehicle: (id: number) => api.delete(`/api/vendor/vehicles/${id}`),
   getAvailable: () => api.get('/api/vendor/available'),
   claim: (id: number) => api.put(`/api/vendor/shipments/${id}/claim`),
   getProfile: () => api.get('/api/vendor/profile'),
@@ -153,20 +155,15 @@ export const CHAT = {
 }
 
 export const ADMIN = {
-  getShipmentsByStatus: (status: string) => api.get(`/api/admin/shipments/status/${status}`),
   getVendors: () => api.get('/api/admin/vendors'),
-  getActiveVendors: () => api.get('/api/admin/vendors/active'),
   updateVendorStatus: (id: number, status: string) =>
     api.put(`/api/admin/vendors/${id}/status`, { status }),
   getSettings: () => api.get('/api/settings'),
   updateSettings: (key: string, value: string) =>
     api.put('/api/settings', { [key]: value }),
   getBranches: () => api.get('/api/admin/branches'),
-  getUsers: () => api.get('/api/admin/users'),
   createAdminUser: (data: Record<string, unknown>) => api.post('/api/admin/users', data),
   getAnalytics: () => api.get('/api/admin/analytics'),
-  getEscalations: () => api.get('/api/admin/escalations'),
-  getAuditLogs: () => api.get('/api/admin/audit'),
 }
 
 export const PAYMENT = {
@@ -181,7 +178,4 @@ export const CHATBOT = {
 export const TICKETS = {
   create: (data: { subject: string; message: string }) => api.post('/api/tickets/submit', data),
   getMine: () => api.get('/api/tickets/mine'),
-  getAll: () => api.get('/api/tickets/all'),
-  resolve: (id: number) => api.put(`/api/tickets/${id}/resolve`),
-  close: (id: number) => api.put(`/api/tickets/${id}/close`),
 }

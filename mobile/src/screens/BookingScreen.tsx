@@ -19,6 +19,8 @@ import { useAuth } from '../context/AuthContext'
 import { COLORS, FONTS } from '../utils/theme'
 import { provinces, getDistricts } from '../utils/nepal'
 import { quoteFor } from '../utils/pricing'
+import VendorSelectionModal, { type VendorItem } from '../components/VendorSelectionModal'
+import { generateMockVendors, MOCK_PERF_ENABLED } from '../utils/mockVendors'
 import type { RootStackParamList } from '../App'
 
 type Nav = StackNavigationProp<RootStackParamList>
@@ -73,6 +75,8 @@ const vehicleOptions = [
   { value: 'Large Truck', desc: 'Ideal for full household moves', icon: '🚚' },
 ]
 const paymentMethods = ['eSewa', 'Khalti', 'IME Pay', 'ConnectIPS', 'Cash']
+
+const MOCK_VENDORS: VendorItem[] = MOCK_PERF_ENABLED ? generateMockVendors(1200) : []
 
 const formatNPR = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 
@@ -134,8 +138,9 @@ export default function BookingScreen() {
   const [payMobile, setPayMobile] = useState('')
   const [payPassword, setPayPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [matchingVendors, setMatchingVendors] = useState<Array<{ id: number; business_name: string; rating: number; total_jobs: number; service_region: string; branch_name?: string; match_tier?: string }>>([])
+  const [matchingVendors, setMatchingVendors] = useState<VendorItem[]>([])
   const [selectedVendor, setSelectedVendor] = useState<number | null>(null)
+  const [vendorModalVisible, setVendorModalVisible] = useState(false)
 
   const [calendarVisible, setCalendarVisible] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -355,6 +360,9 @@ export default function BookingScreen() {
     return m === 0 ? `${h} hr` : `${h} hr ${m} min`
   }
 
+  const stepVendors = MOCK_PERF_ENABLED ? MOCK_VENDORS : matchingVendors
+  const topVendors = stepVendors.slice(0, 3)
+
   const handleSubmit = async () => {
     if (!validateStep(4)) return
     setSubmitting(true)
@@ -364,7 +372,7 @@ export default function BookingScreen() {
         user_id: user?.id || null,
         selected_items: form.selected_items,
         add_on_services: form.add_on_services,
-        vendor_id: matchingVendors.length > 0 ? selectedVendor : null,
+        vendor_id: stepVendors.length > 0 ? selectedVendor : null,
         distance_km: routeInfo.distanceKm,
         estimated_duration: formatDuration(routeInfo.durationMin),
       })
@@ -607,40 +615,47 @@ export default function BookingScreen() {
             })}
             {renderError('vehicle_type')}
             <Text style={styles.hint}>Estimate shown; final quote is confirmed by your mover after booking.</Text>
-            {form.vehicle_type && matchingVendors.length > 0 && (
+            {form.vehicle_type && stepVendors.length > 0 && (
               <View style={{ marginTop: 16 }}>
                 <Text style={styles.sectionTitle}>Available Movers</Text>
                 <Text style={styles.hint}>
-                  Service branch: <Text style={styles.hintStrong}>{form.pickup_province}</Text> — only
-                  movers in this region are offered.
+                  Service branch: <Text style={styles.hintStrong}>{form.pickup_district}</Text> — only
+                  movers in this district are offered.
                 </Text>
                 <Text style={styles.hint}>Pick a mover for this route, or use auto-match.</Text>
                 <TouchableOpacity onPress={() => setSelectedVendor(null)} style={[styles.moverCard, selectedVendor === null ? styles.moverCardActive : null]}>
                   <Text style={[styles.moverName, selectedVendor === null ? styles.moverNameActive : null]}>Auto-match — we pick the best mover (recommended)</Text>
                   <Text style={styles.moverMeta}>Best-rated available mover for this route gets the job.</Text>
                 </TouchableOpacity>
-                {matchingVendors.map((v) => (
+                {topVendors.map((v) => (
                   <TouchableOpacity key={v.id} onPress={() => setSelectedVendor(v.id)} style={[styles.moverCard, selectedVendor === v.id ? styles.moverCardActive : null]}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={[styles.moverName, selectedVendor === v.id ? styles.moverNameActive : null]}>{v.business_name}</Text>
-                      <Text style={styles.moverRating}>★ {v.rating} ({v.total_jobs} jobs)</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <Text style={[styles.moverName, selectedVendor === v.id ? styles.moverNameActive : null]} numberOfLines={1}>{v.business_name}</Text>
+                      <Text style={styles.moverRating}>★ {v.rating}</Text>
                     </View>
-                    <Text style={styles.moverMeta}>{v.service_region || 'No region specified'}{v.branch_name ? ` · ${v.branch_name}` : ''}</Text>
-                    {v.match_tier === 'province' ? (
-                      <Text style={styles.moverTier}>Covers your provinces (route beyond listed districts)</Text>
-                    ) : (
-                      <Text style={styles.moverTier}>Exact route match</Text>
-                    )}
+                    <Text style={styles.moverMeta} numberOfLines={1}>
+                      {v.plate_number ? `Plate ${v.plate_number}` : ''}
+                      {v.vehicle_name ? ` · ${v.vehicle_name}` : ''}
+                      {v.total_jobs != null ? ` · ${v.total_jobs} jobs` : ''}
+                    </Text>
+                    {v.match_tier ? (
+                      <Text style={styles.moverTier}>
+                        {v.match_tier === 'exact' ? 'Exact route match' : v.match_tier === 'province' ? 'Covers your provinces' : v.match_tier}
+                      </Text>
+                    ) : null}
                   </TouchableOpacity>
                 ))}
+                <TouchableOpacity onPress={() => setVendorModalVisible(true)} style={styles.showAllBtn}>
+                  <Text style={styles.showAllText}>Show All Vendors</Text>
+                </TouchableOpacity>
               </View>
             )}
-            {form.vehicle_type && matchingVendors.length === 0 && (
+            {form.vehicle_type && stepVendors.length === 0 && (
               <View style={{ marginTop: 16 }}>
                 <Text style={styles.sectionTitle}>No mover available right now</Text>
                 <Text style={styles.hint}>
                   No {form.vehicle_type} mover covers this route at the moment. Your booking will be
-                  sent to movers in <Text style={styles.hintStrong}>{form.pickup_province}</Text> and
+                  sent to movers in <Text style={styles.hintStrong}>{form.pickup_district}</Text> and
                   the first available one will accept it — no admin needed.
                 </Text>
               </View>
@@ -787,6 +802,18 @@ export default function BookingScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <VendorSelectionModal
+        visible={vendorModalVisible}
+        vendors={stepVendors}
+        selectedVendorId={selectedVendor}
+        vehicleType={form.vehicle_type}
+        onSelect={(id) => {
+          setSelectedVendor(id)
+          setVendorModalVisible(false)
+        }}
+        onClose={() => setVendorModalVisible(false)}
+      />
 
       {paymentInfo && (
         <Modal visible transparent animationType="fade" onRequestClose={handlePayLater}>
@@ -960,10 +987,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 12,
+    minHeight: 56,
   },
   vehicleCardActive: {
     borderColor: COLORS.saffron[400],
-    backgroundColor: 'rgba(245, 166, 35, 0.1)',
+    backgroundColor: 'rgba(79, 70, 229, 0.08)',
   },
   vehicleIcon: {
     fontSize: 26,
@@ -1052,6 +1080,10 @@ const styles = StyleSheet.create({
   calendarNav: {
     paddingHorizontal: 16,
     paddingVertical: 4,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   calendarNavText: {
     color: COLORS.saffron[400],
@@ -1115,10 +1147,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 10,
+    minHeight: 56,
+    justifyContent: 'center',
   },
   moverCardActive: {
     borderColor: COLORS.saffron[400],
-    backgroundColor: 'rgba(245, 166, 35, 0.1)',
+    backgroundColor: 'rgba(79, 70, 229, 0.08)',
   },
   moverName: {
     color: COLORS.cream[50],
@@ -1144,6 +1178,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '600',
   },
+  showAllBtn: {
+    marginTop: 4,
+    minHeight: 48,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: COLORS.saffron[400],
+    backgroundColor: 'rgba(79, 70, 229, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  showAllText: {
+    color: COLORS.saffron[400],
+    fontSize: 14,
+    fontWeight: '700',
+  },
   hint: {
     color: COLORS.forest[400],
     fontSize: 12,
@@ -1162,6 +1211,8 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     padding: 12,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   backText: {
     color: COLORS.forest[300],
@@ -1172,6 +1223,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 4,
+    minHeight: 48,
+    justifyContent: 'center',
   },
   nextText: {
     color: COLORS.forest[900],
@@ -1207,7 +1260,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   modalOptionActive: {
-    backgroundColor: 'rgba(245, 166, 35, 0.12)',
+    backgroundColor: 'rgba(79, 70, 229, 0.12)',
   },
   modalOptionText: {
     color: COLORS.cream[100],
@@ -1220,7 +1273,9 @@ const styles = StyleSheet.create({
   modalCancel: {
     marginTop: 8,
     paddingVertical: 12,
+    minHeight: 48,
     alignItems: 'center',
+    justifyContent: 'center',
     borderTopWidth: 1,
     borderColor: COLORS.forest[700],
   },
@@ -1239,7 +1294,7 @@ const styles = StyleSheet.create({
   payCard: {
     backgroundColor: COLORS.forest[900],
     borderWidth: 1,
-    borderColor: 'rgba(245, 166, 35, 0.2)',
+    borderColor: 'rgba(79, 70, 229, 0.2)',
     borderRadius: 16,
     padding: 24,
     width: '100%',
@@ -1250,7 +1305,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(245, 166, 35, 0.15)',
+    backgroundColor: 'rgba(79, 70, 229, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,

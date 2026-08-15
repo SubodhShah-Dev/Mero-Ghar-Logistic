@@ -25,14 +25,6 @@ export const findUserByEmail = async (email) => {
 	return rows[0];
 };
 
-export const findUserById = async (id) => {
-	const [rows] = await pool.execute(
-		'SELECT id, name, email, role, phone, created_at FROM users WHERE id = ?',
-		[id],
-	);
-	return rows[0];
-};
-
 export const getAllUsers = async () => {
 	const [rows] = await pool.execute(
 		'SELECT id, name, email, role, phone, created_at FROM users',
@@ -80,7 +72,7 @@ export const getUserBranches = async (userId, role) => {
 	return [];
 };
 
-export const setUserBranches = async (userId, branchIds) => {
+const setUserBranches = async (userId, branchIds) => {
 	if (!Array.isArray(branchIds) || branchIds.length === 0) return;
 	await pool.execute('DELETE FROM user_branches WHERE user_id = ?', [userId]);
 	for (const branchId of branchIds) {

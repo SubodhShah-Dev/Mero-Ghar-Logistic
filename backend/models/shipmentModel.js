@@ -144,7 +144,8 @@ export const getAvailableShipmentsForVendor = async (
 export const claimShipmentForVendor = async (shipmentId, vendorId) => {
 	const [result] = await pool.execute(
 		`UPDATE shipments 
-         SET assigned_vendor_id = ?, approval_status = 'approved', status = 'pending'
+         SET assigned_vendor_id = ?, approval_status = 'approved', status = 'pending',
+             last_vendor_decline_at = NULL
          WHERE id = ? AND approval_status = 'pending' AND assigned_vendor_id IS NULL`,
 		[vendorId, shipmentId],
 	);

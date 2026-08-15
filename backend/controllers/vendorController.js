@@ -21,6 +21,7 @@ import {
 	getVendorRoutes,
 	addVendorRoute,
 	removeVendorRoute,
+	plateNumberExists,
 } from '../models/vendorModel.js';
 import { getUserBranches } from '../models/authModel.js';
 
@@ -32,7 +33,12 @@ import { getShipmentsForVendor,
 	getActiveShipmentsCountForVendor,
 } from '../models/shipmentModel.js';
 import { canAccessBranch, scopeFilterFor } from '../middleware/scope.js';
-import { branchIdForProvince } from '../models/branchModel.js';
+import { branchIdForDistrict, isKnownProvince } from '../models/branchModel.js';
+import {
+	normalizePlateNumber,
+	validateVehicleInput,
+	validateVendorProfileInput,
+} from '../utils/validation.js';
 
 const parsePagination = (query) => {
 	const page = Math.max(parseInt(query.page) || 1, 1);
@@ -139,6 +145,12 @@ export const updateMyVendorProfile = asyncHandler(async (req, res) => {
 
 	const { business_name, owner_name, phone, service_region, address } =
 		req.body;
+
+	const invalid = validateVendorProfileInput(req.body);
+	if (invalid) {
+		throw new HttpError(400, invalid);
+	}
+
 	const updated = await updateVendorProfile(vendor.id, {
 		business_name,
 		owner_name,
@@ -167,12 +179,17 @@ export const registerVendor = asyncHandler(async (req, res) => {
 		throw new HttpError(400, 'Vendor already registered');
 	}
 
+	// Branch is district-scoped and required at registration so the mover is
+	// matched to bookings in their district.
 	let branchId = null;
-	if (branch_id != null && branch_id !== '') {
-		branchId = Number(branch_id);
-		if (!Number.isInteger(branchId) || branchId < 1) {
-			throw new HttpError(400, 'A valid branch is required');
-		}
+	if (branch_id == null || branch_id === '') {
+		throw new HttpError(400, 'A branch (district) is required');
+	}
+	branchId = Number(branch_id);
+	if (!Number.isInteger(branchId) || branchId < 1) {
+		throw new HttpError(400, 'A valid branch is required');
+	}
+	{
 		const [rows] = await pool.execute(
 			'SELECT id, is_active FROM branches WHERE id = ?',
 			[branchId],
@@ -332,7 +349,8 @@ export const rejectShipment = asyncHandler(async (req, res) => {
 		`UPDATE shipments 
 		 SET assigned_vendor_id = NULL, 
 		     status = 'pending', 
-		     approval_status = 'pending' 
+		     approval_status = 'pending',
+		     last_vendor_decline_at = NOW() 
 		 WHERE id = ? AND assigned_vendor_id = ?`,
 		[id, vendor.id],
 	);
@@ -456,7 +474,22 @@ export const addVehicle = asyncHandler(async (req, res) => {
 	if (!vendor) {
 		throw new HttpError(404, 'Vendor not found');
 	}
-	const vehicle = await addVendorVehicle(vendor.id, req.body);
+
+	const invalid = validateVehicleInput(req.body);
+	if (invalid) {
+		throw new HttpError(400, invalid);
+	}
+
+	const vehicleData = {
+		...req.body,
+		plate_number: normalizePlateNumber(req.body.plate_number),
+	};
+
+	if (await plateNumberExists(vehicleData.plate_number)) {
+		throw new HttpError(400, 'Plate number is already registered');
+	}
+
+	const vehicle = await addVendorVehicle(vendor.id, vehicleData);
 	if (!vehicle) {
 		throw new HttpError(500, 'Failed to add vehicle');
 	}
@@ -524,10 +557,10 @@ export const matchingVendors = asyncHandler(async (req, res) => {
 		throw new HttpError(400, 'pickup_province and drop_province are required');
 	}
 	// If the caller does not send a branch_id, resolve it from the pickup
-	// province so movers are always scoped to the booking's region.
+	// district so movers are always scoped to the booking's region.
 	let branchId = branch_id && String(branch_id) !== 'null' ? Number(branch_id) : null;
 	if (branchId == null) {
-		branchId = await branchIdForProvince(pickup_province);
+		branchId = await branchIdForDistrict(pickup_district);
 	}
 	const vendors = await findMatchingVendors(
 		vehicle_type,
@@ -561,6 +594,9 @@ export const createRoute = asyncHandler(async (req, res) => {
 	const { from_province, from_district, to_province, to_district } = req.body;
 	if (!from_province || !to_province) {
 		throw new HttpError(400, 'from_province and to_province are required');
+	}
+	if (!isKnownProvince(from_province) || !isKnownProvince(to_province)) {
+		throw new HttpError(400, 'Unknown province name');
 	}
 	const route = await addVendorRoute(vendor.id, {
 		from_province,

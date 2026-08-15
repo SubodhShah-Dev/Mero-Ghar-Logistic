@@ -75,7 +75,7 @@ export const perBranchBreakdown = async () => {
 		           JOIN vendors tv ON tv.id = t.vendor_id
 		           WHERE tv.branch_id = b.id AND t.status = 'open') AS open_tickets
 		 FROM branches b
-		 ORDER BY b.province_id ASC`,
+		 ORDER BY b.province_id ASC, b.name ASC`,
 	);
 	return rows;
 };

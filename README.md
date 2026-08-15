@@ -31,9 +31,11 @@ Seeded automatically on first run (and whenever the `users` table is empty):
 | Role | Email | Password |
 |---|---|---|
 | Super Admin (global) | `admin@test.com` | `adminpass123` |
-| Branch Admin ×7 (one per province) | `branchadmin@test.com` (Bagmati) · `ba.koshi@test.com` … `ba.sudurpashchim@test.com` | `branchadminpass123` |
-| Regional Vendor ×7 (one per province) | `vendor@test.com` (Bagmati) · `vendor.koshi@test.com` … `vendor.sudurpashchim@test.com` | `vendorpass123` |
+| Branch Admin ×77 (one per district) | `branchadmin@test.com` (Kathmandu) · `ba.<district>@test.com` for every district | `branchadminpass123` |
+| District Vendor ×77 (one per district) | `vendor@test.com` (Himalayan Movers, Kathmandu) · `vendor.<district>@test.com` for every district | `vendorpass123` |
 | Customer | `customer@test.com` | `customerpass123` |
+
+The `<district>` placeholder is the lowercase, space-free district name (e.g. `ba.kathmandu@test.com`, `vendor.kaski@test.com`).
 
 These are **demo credentials only** — do not reuse real accounts.
 
@@ -81,7 +83,7 @@ cd android && ./gradlew assembleRelease   # or assembleDebug
 
 1. Log in as any role (or sign up as a Customer).
 2. Customer → **Book** → fill the 5-step wizard → pay via the **demo payment** overlay.
-3. Admin → **Shipments** → Approve + assign the seeded mover ("Himalayan Movers").
+3. The booking auto-assigns the seeded mover for its pickup district ("Himalayan Movers" for Kathmandu pickups) — no admin approval needed.
 4. Vendor → **Jobs** → Accept → Start → Complete.
 5. Customer → **My Bookings** → status is `delivered`.
 

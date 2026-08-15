@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../App'
 import { COLORS } from '../utils/theme'
 import { isAdminRole } from '../utils/roles'
+import { EMAIL_REGEX } from '../utils/validate'
 
 type Nav = StackNavigationProp<RootStackParamList>
 
@@ -25,6 +26,10 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter email and password')
+      return
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      Alert.alert('Error', 'Enter a valid email address')
       return
     }
     setLoading(true)
@@ -78,8 +83,8 @@ const styles = StyleSheet.create({
   form: { backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], borderRadius: 4, padding: 24, gap: 16 },
   label: { color: COLORS.cream[200], fontSize: 14, fontWeight: '500' },
   input: { backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4, paddingHorizontal: 16, paddingVertical: 12, color: COLORS.cream[50], fontSize: 15, minHeight: 48 },
-  submitBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 8 },
+  submitBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 8, minHeight: 48, justifyContent: 'center' },
   submitText: { color: COLORS.forest[900], fontWeight: '700', fontSize: 16 },
-  link: { alignItems: 'center', marginTop: 12 },
+  link: { alignItems: 'center', marginTop: 12, paddingVertical: 8, minHeight: 44, justifyContent: 'center' },
   linkText: { color: COLORS.forest[400], fontSize: 14 },
 })

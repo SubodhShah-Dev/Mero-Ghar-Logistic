@@ -6,9 +6,7 @@
 //   branches by middleware/scope.js (tenancy is applied at query level).
 // - vendor / user are not administratively privileged.
 
-export const ROLES = ['user', 'vendor', 'branch_admin', 'super_admin'];
-
-export const PERMISSIONS = {
+const PERMISSIONS = {
 	// Dashboard / analytics
 	'dashboard.analytics.global': ['super_admin'],
 	'dashboard.analytics.region': ['super_admin', 'branch_admin'],

@@ -6,6 +6,8 @@ import {
 import { SHIPMENTS, ADMIN } from '../services/api'
 import { COLORS } from '../utils/theme'
 import { useAuth } from '../context/AuthContext'
+import { EMAIL_REGEX } from '../utils/validate'
+import DistrictBranchPicker from '../components/DistrictBranchPicker'
 
 type Tab = 'overview' | 'shipments' | 'vendors' | 'admins' | 'settings'
 type Filter = 'all' | 'pending' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled'
@@ -111,6 +113,14 @@ export default function AdminScreen() {
   const createAdmin = async () => {
     if (!newAdmin.name.trim() || !newAdmin.email.trim() || !newAdmin.password.trim()) {
       Alert.alert('Missing info', 'Name, email and password are required')
+      return
+    }
+    if (!EMAIL_REGEX.test(newAdmin.email.trim())) {
+      Alert.alert('Missing info', 'Enter a valid email address')
+      return
+    }
+    if (newAdmin.password.length < 6) {
+      Alert.alert('Missing info', 'Password must be at least 6 characters')
       return
     }
     if (newAdmin.role === 'branch_admin' && newAdmin.branch_ids.length === 0) {
@@ -355,19 +365,16 @@ export default function AdminScreen() {
               </View>
               {newAdmin.role === 'branch_admin' && (
                 <>
-                  <Text style={styles.fieldLabel}>Assign branch(es)</Text>
-                  <View style={styles.chipRowWrap}>
-                    {branches.map((b) => (
-                      <TouchableOpacity
-                        key={b.id}
-                        onPress={() => toggleBranchId(b.id)}
-                        style={[styles.chip, newAdmin.branch_ids.includes(b.id) ? styles.chipActive : null]}>
-                        <Text style={[styles.chipText, newAdmin.branch_ids.includes(b.id) ? styles.chipTextActive : null]}>
-                          {b.name.replace(' Province', '')}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  <Text style={styles.fieldLabel}>
+                    Assign branch(es) — {newAdmin.branch_ids.length} selected
+                  </Text>
+                  <DistrictBranchPicker
+                    branches={branches}
+                    multiple
+                    selectedIds={newAdmin.branch_ids}
+                    onSelect={toggleBranchId}
+                    placeholder="Search districts to assign..."
+                  />
                 </>
               )}
               <TouchableOpacity onPress={createAdmin} disabled={creatingAdmin} style={styles.saveBtn}>
@@ -412,12 +419,12 @@ const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: COLORS.forest[950], justifyContent: 'center', alignItems: 'center' },
   title: { color: COLORS.cream[50], fontSize: 22, fontWeight: '900', marginBottom: 16 },
   regionNote: { color: COLORS.forest[400], fontSize: 12, marginBottom: 12 },
-  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 16, paddingRight: 8 },
+  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 16, paddingRight: 8, paddingVertical: 4 },
   tabScroll: { flexGrow: 0, marginBottom: 0 },
-  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
-  tabActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], minHeight: 44, justifyContent: 'center' },
+  tabActive: { backgroundColor: 'rgba(79,70,229,0.12)', borderColor: COLORS.saffron[400] },
   tabText: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600' },
-  tabTextActive: { color: COLORS.saffron[300] },
+  tabTextActive: { color: COLORS.saffron[400] },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   statCard: { flex: 1, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], borderRadius: 4, padding: 16, alignItems: 'center' },
   statNum: { color: COLORS.saffron[400], fontSize: 26, fontWeight: '900' },
@@ -432,21 +439,21 @@ const styles = StyleSheet.create({
   hBarTrack: { flex: 1, height: 18, backgroundColor: COLORS.forest[800], borderRadius: 4, overflow: 'hidden' },
   hBarFill: { height: '100%', borderRadius: 4 },
   hBarValue: { width: 30, textAlign: 'right', color: COLORS.cream[200], fontSize: 12, fontWeight: '600' },
-  redBtn: { backgroundColor: 'rgba(220,38,38,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', marginTop: 10 },
+  redBtn: { backgroundColor: 'rgba(220,38,38,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', marginTop: 10, minHeight: 44, justifyContent: 'center' },
   redBtnText: { color: '#ef7b7b', fontWeight: '600', fontSize: 13 },
-  greenBtn: { backgroundColor: 'rgba(76,175,125,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', marginTop: 10 },
+  greenBtn: { backgroundColor: 'rgba(76,175,125,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', marginTop: 10, minHeight: 44, justifyContent: 'center' },
   btnText: { color: '#4caf7d', fontWeight: '600', fontSize: 13 },
   vBarRow: { flexDirection: 'row', alignItems: 'flex-end', height: 140, marginTop: 8 },
   vBarCol: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
   vBarValue: { color: COLORS.cream[200], fontSize: 10, fontWeight: '600', marginBottom: 4 },
   vBarTrack: { width: 22, flex: 1, backgroundColor: COLORS.forest[800], borderRadius: 4, justifyContent: 'flex-end', overflow: 'hidden' },
-  vBarFill: { width: '100%', backgroundColor: 'rgba(245,166,35,0.85)', borderRadius: 4 },
+  vBarFill: { width: '100%', backgroundColor: 'rgba(79,70,229,0.85)', borderRadius: 4 },
   vBarLabel: { color: COLORS.forest[500], fontSize: 10, marginTop: 4 },
   filterRow: { flexDirection: 'row', gap: 8 },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
-  filterChipActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], minHeight: 44, justifyContent: 'center' },
+  filterChipActive: { backgroundColor: 'rgba(79,70,229,0.12)', borderColor: COLORS.saffron[400] },
   filterText: { color: COLORS.forest[300], fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
-  filterTextActive: { color: COLORS.saffron[300] },
+  filterTextActive: { color: COLORS.saffron[400] },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   idText: { color: COLORS.cream[50], fontSize: 14, fontWeight: '700' },
   statusText: { color: COLORS.saffron[300], fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
@@ -454,15 +461,15 @@ const styles = StyleSheet.create({
   customer: { color: COLORS.forest[400], fontSize: 13, marginBottom: 2 },
   input: {
     backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4,
-    color: COLORS.cream[50], paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 10,
+    color: COLORS.cream[50], paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 10, minHeight: 48,
   },
-  saveBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 4 },
+  saveBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 4, minHeight: 48, justifyContent: 'center' },
   saveText: { color: COLORS.forest[900], fontWeight: '700', fontSize: 15 },
   sectionTitle: { color: COLORS.cream[50], fontSize: 15, fontWeight: '700', marginBottom: 10 },
   fieldLabel: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600', marginBottom: 8 },
   chipRowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600] },
-  chipActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], minHeight: 44, justifyContent: 'center' },
+  chipActive: { backgroundColor: 'rgba(79,70,229,0.12)', borderColor: COLORS.saffron[400] },
   chipText: { color: COLORS.forest[300], fontSize: 12, fontWeight: '600' },
-  chipTextActive: { color: COLORS.saffron[300] },
+  chipTextActive: { color: COLORS.saffron[400] },
 })

@@ -62,6 +62,13 @@ export default function MyBookingsScreen() {
               </View>
             )}
             {s.final_quote && <Text style={styles.quote}>NPR {s.final_quote.toLocaleString()}</Text>}
+            {s.status === 'pending' && !s.vendor_name && s.last_vendor_decline_at && (
+              <View style={styles.declineBlock}>
+                <Text style={styles.declineText}>
+                  Your mover declined — searching for another.
+                </Text>
+              </View>
+            )}
             {s.vendor_name ? (
               <TouchableOpacity
                 onPress={() => navigation.navigate('Chat', { shipmentId: s.id, senderRole: 'customer', title: `Chat with ${s.vendor_name}` })}
@@ -90,8 +97,10 @@ const styles = StyleSheet.create({
   route: { color: COLORS.forest[300], fontSize: 14, marginBottom: 4 },
   detail: { color: COLORS.forest[400], fontSize: 13, marginBottom: 2 },
   quote: { color: COLORS.saffron[400], fontSize: 15, fontWeight: '700' },
+  declineBlock: { marginTop: 10, backgroundColor: 'rgba(255,196,0,0.08)', borderLeftWidth: 3, borderLeftColor: COLORS.saffron[400], paddingHorizontal: 10, paddingVertical: 8, borderRadius: 4 },
+  declineText: { color: COLORS.saffron[300], fontSize: 12, fontWeight: '600' },
   vendorBlock: { marginTop: 6 },
-  chatBtn: { backgroundColor: 'rgba(64,145,210,0.2)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 4, marginTop: 12, alignSelf: 'flex-start' },
+  chatBtn: { backgroundColor: 'rgba(64,145,210,0.2)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 4, marginTop: 12, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   chatBtnText: { color: '#5aa9e6', fontWeight: '600', fontSize: 13 },
   waitingText: { color: COLORS.forest[500], fontSize: 12, marginTop: 10, fontStyle: 'italic' },
 })

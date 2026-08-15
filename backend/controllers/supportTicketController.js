@@ -3,11 +3,19 @@ import { getVendorByUserId } from '../models/vendorModel.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 import { canAccessBranch, scopeFilterFor } from '../middleware/scope.js';
+import { TICKET_SUBJECT_MAX, TICKET_MESSAGE_MAX } from '../utils/validation.js';
 
 export const submitTicket = asyncHandler(async (req, res) => {
-	const { subject, message } = req.body;
+	const subject = String(req.body?.subject || '').trim();
+	const message = String(req.body?.message || '').trim();
 	if (!subject || !message) {
 		throw new HttpError(400, 'Subject and message are required');
+	}
+	if (subject.length > TICKET_SUBJECT_MAX) {
+		throw new HttpError(400, `Subject must be at most ${TICKET_SUBJECT_MAX} characters`);
+	}
+	if (message.length > TICKET_MESSAGE_MAX) {
+		throw new HttpError(400, `Message must be at most ${TICKET_MESSAGE_MAX} characters`);
 	}
 	const vendor = await getVendorByUserId(req.user.id);
 	if (!vendor) {

@@ -15,10 +15,11 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS branches (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  province_id INT NOT NULL UNIQUE,
+  province_id INT NOT NULL,
   is_active TINYINT(1) DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE (name)
+  UNIQUE (name),
+  INDEX idx_branches_province (province_id)
 );
 
 CREATE TABLE IF NOT EXISTS user_branches (
@@ -120,6 +121,7 @@ CREATE TABLE IF NOT EXISTS shipments (
   special_notes TEXT,
   status VARCHAR(50) DEFAULT 'pending',
   final_quote DECIMAL(12,2),
+  commission_amount DECIMAL(12,2),
   distance_km DECIMAL(10,2),
   estimated_duration VARCHAR(50),
   transaction_id VARCHAR(100),
@@ -128,6 +130,7 @@ CREATE TABLE IF NOT EXISTS shipments (
   approval_status VARCHAR(50) DEFAULT 'pending',
   approved_by INT,
   approved_at DATETIME,
+  last_vendor_decline_at DATETIME,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (branch_id) REFERENCES branches(id),

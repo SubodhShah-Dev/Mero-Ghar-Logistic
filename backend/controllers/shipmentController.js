@@ -14,7 +14,7 @@ import {
 	getActiveShipmentsCountForVendor as getVendorActiveCount,
 } from '../models/shipmentModel.js';
 import { findMatchingVendors, vendorCoversRoute } from '../models/vendorModel.js';
-import { branchIdForProvince } from '../models/branchModel.js';
+import { branchIdForDistrict } from '../models/branchModel.js';
 import { getSettings } from '../models/settingsModel.js';
 
 const INSERT_SHIPMENT_SQL = `INSERT INTO shipments (
@@ -113,7 +113,8 @@ export const createShipment = asyncHandler(async (req, res) => {
 	const userId = req.user?.id || null;
 	const booking_id = `MG-${Date.now()}`;
 	const transactionId = `TXN-${Date.now()}`;
-	const bookingBranchId = await branchIdForProvince(pickup_province);
+	// Branches are district-scoped: the booking belongs to the pickup district.
+	const bookingBranchId = await branchIdForDistrict(pickup_district);
 
 	// vendor_id from the client is UNTRUSTED. It is never accepted at face
 	// value to skip admin approval; instead it is validated server-side and
@@ -331,22 +332,6 @@ export const getUserShipments = asyncHandler(async (req, res) => {
 	const userId = req.user.id;
 	const shipments = await getShipmentsByUserId(userId);
 	res.json({ success: true, shipments });
-});
-
-export const getShipmentsByEmail = asyncHandler(async (req, res) => {
-	const [rows] = await pool.execute(
-		`SELECT s.id, s.booking_id, s.status, s.created_at,
-		        s.pickup_city, s.pickup_district, s.pickup_province,
-		        s.drop_city, s.drop_district, s.drop_province,
-		        s.vehicle_type, s.final_quote, s.move_date,
-		        v.business_name as vendor_name
-		 FROM shipments s
-		 LEFT JOIN vendors v ON s.assigned_vendor_id = v.id
-		 WHERE s.email = ?
-		 ORDER BY s.created_at DESC`,
-		[req.params.email],
-	);
-	res.json({ success: true, shipments: rows });
 });
 
 export const updateShipmentStatus = asyncHandler(async (req, res) => {

@@ -5,7 +5,7 @@ import type { UserRole } from '../utils/roles'
 
 export type { UserRole }
 
-export interface User {
+interface User {
   id: number
   name: string
   email: string

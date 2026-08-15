@@ -14,19 +14,6 @@ export const getSettings = async () => {
 	}
 };
 
-export const getSetting = async (key) => {
-	try {
-		const [rows] = await pool.execute(
-			'SELECT setting_value FROM settings WHERE setting_key = ?',
-			[key],
-		);
-		return rows.length > 0 ? rows[0].setting_value : null;
-	} catch (error) {
-		console.error('Error fetching setting:', error);
-		return null;
-	}
-};
-
 export const upsertSetting = async (key, value) => {
 	try {
 		const upsertSql =

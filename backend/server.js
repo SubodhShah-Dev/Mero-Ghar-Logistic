@@ -55,13 +55,23 @@ const authLimiter = rateLimit({
 	legacyHeaders: false,
 });
 
+// Generous public-endpoint limiters: they only stop abuse, never legit app use.
+const publicLimiter = (max) =>
+	rateLimit({
+		windowMs: 15 * 60 * 1000,
+		max,
+		message: { success: false, message: 'Too many requests, try again later' },
+		standardHeaders: true,
+		legacyHeaders: false,
+	});
+
 app.use('/api/auth', authLimiter, authRoute);
 app.use('/api/shipment', shipmentRoute);
 app.use('/api/admin', adminShipmentRoute);
 app.use('/api/vendor', vendorRoute);
 app.use('/api/payment', dummyPaymentRoutes);
-app.use('/api/chatbot', chatbotRoute);
-app.use('/api/geocode', geocodeRoute);
+app.use('/api/chatbot', publicLimiter(300), chatbotRoute);
+app.use('/api/geocode', publicLimiter(120), geocodeRoute);
 app.use('/api/tickets', supportTicketRoute);
 app.use('/api/settings', settingsRoute);
 app.use('/api/admin', orgRoute);

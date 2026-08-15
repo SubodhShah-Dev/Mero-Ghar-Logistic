@@ -5,6 +5,7 @@ import { StackNavigationProp } from '@react-navigation/stack'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../App'
 import { COLORS } from '../utils/theme'
+import { EMAIL_REGEX, PHONE_REGEX } from '../utils/validate'
 
 type Nav = StackNavigationProp<RootStackParamList>
 
@@ -22,6 +23,14 @@ export default function SignupScreen() {
   const handleSignup = async () => {
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill all fields')
+      return
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      Alert.alert('Error', 'Enter a valid email address')
+      return
+    }
+    if (phone && !PHONE_REGEX.test(phone)) {
+      Alert.alert('Error', 'Phone must be exactly 10 digits')
       return
     }
     if (password !== confirmPassword) {
@@ -89,10 +98,10 @@ const styles = StyleSheet.create({
   label: { color: COLORS.cream[200], fontSize: 14, fontWeight: '500' },
   input: { backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4, paddingHorizontal: 16, paddingVertical: 12, color: COLORS.cream[50], fontSize: 15, minHeight: 48 },
   roleRow: { flexDirection: 'row', gap: 8 },
-  roleBtn: { flex: 1, paddingVertical: 10, borderRadius: 4, borderWidth: 1, borderColor: COLORS.forest[600], alignItems: 'center' },
+  roleBtn: { flex: 1, paddingVertical: 10, borderRadius: 4, borderWidth: 1, borderColor: COLORS.forest[600], alignItems: 'center', minHeight: 44, justifyContent: 'center' },
   roleBtnActive: { backgroundColor: COLORS.saffron[400], borderColor: COLORS.saffron[400] },
   roleText: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600' },
   roleTextActive: { color: COLORS.forest[900] },
-  submitBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 8 },
+  submitBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 8, minHeight: 48, justifyContent: 'center' },
   submitText: { color: COLORS.forest[900], fontWeight: '700', fontSize: 16 },
 })

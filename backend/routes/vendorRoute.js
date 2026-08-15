@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import {
 	getMyVendorProfile,
 	updateMyVendorProfile,
@@ -45,6 +46,12 @@ router.get('/routes', authenticate, requireRole('vendor', 'super_admin', 'branch
 router.post('/routes', authenticate, requireRole('vendor'), createRoute);
 router.delete('/routes/:id', authenticate, requireRole('vendor'), deleteRoute);
 
-router.get('/matching', matchingVendors);
+router.get('/matching', rateLimit({
+	windowMs: 15 * 60 * 1000,
+	max: 300,
+	message: { success: false, message: 'Too many requests, try again later' },
+	standardHeaders: true,
+	legacyHeaders: false,
+}), matchingVendors);
 
 export default router;

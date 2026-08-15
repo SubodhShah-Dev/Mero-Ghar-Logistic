@@ -222,20 +222,9 @@ test('a stranger cannot view another customer booking (IDOR blocked)', async () 
 	assert.equal(res.status, 403);
 });
 
-test('guest email lookup returns trimmed fields without PII', async () => {
-	const res = await req('GET', `/api/shipment/email/${encodeURIComponent(customerEmail)}`);
-	assert.equal(res.status, 200);
-	assert.equal(res.body?.shipments?.length, 1);
-	const row = res.body.shipments[0];
-	assert.equal(row.booking_id, shipment.booking_id);
-	assert.equal('mobile_number' in row, false);
-	assert.equal('first_name' in row, false);
-	assert.equal('pickup_address' in row, false);
-});
-
 test('no admin approval is needed and admin assignment endpoints are gone', async () => {
 	// Every mover is route-less now, so the main shipment auto-assigns to the
-	// pickup province's mover at booking time — with zero admin action — and
+	// pickup district's mover at booking time — with zero admin action — and
 	// there is no admin route to assign it.
 	const detail = await req('GET', `/api/shipment/${shipment.shipment_id}`, undefined, customerToken);
 	assert.equal(detail.body?.shipment?.approval_status, 'approved', 'auto-approved without admin');
@@ -329,12 +318,11 @@ test('vendor runs the full job lifecycle', async () => {
 });
 
 test('admin settings save with a flat key/value map and round-trip', async () => {
-	const key = `k_${Date.now()}`;
-	const save = await req('PUT', '/api/settings', { [key]: 'some-value' }, adminToken);
+	const save = await req('PUT', '/api/settings', { platform_commission_pct: '12' }, adminToken);
 	assert.equal(save.status, 200);
 
 	const read = await req('GET', '/api/settings');
-	assert.equal(read.body?.settings?.[key], 'some-value');
+	assert.equal(read.body?.settings?.platform_commission_pct, '12');
 });
 
 test('support tickets can be submitted by a vendor and listed', async () => {
@@ -435,7 +423,7 @@ test('vendor can read and update their profile', async () => {
 			business_name: before.business_name,
 			owner_name: before.owner_name,
 			phone: before.phone,
-			service_region: 'Bagmati Province',
+			service_region: 'Kathmandu Valley',
 			address: before.address,
 		},
 		vendorToken,
@@ -443,7 +431,7 @@ test('vendor can read and update their profile', async () => {
 	assert.equal(put.status, 200);
 
 	const after = await req('GET', '/api/vendor/profile', undefined, vendorToken);
-	assert.equal(after.body?.vendor?.service_region, 'Bagmati Province');
+	assert.equal(after.body?.vendor?.service_region, 'Kathmandu Valley');
 });
 
 let secondVendorToken;
@@ -462,6 +450,10 @@ test('a user can register as a vendor and duplicates are rejected', async () => 
 	secondVendorToken = login.body?.token;
 	assert.ok(secondVendorToken, 'second vendor can log in');
 
+	const branches = await req('GET', '/api/admin/branches', undefined, adminToken);
+	const kathmandu = branches.body?.branches?.find((b) => b.name === 'Kathmandu');
+	assert.ok(kathmandu, 'Kathmandu branch exists in seed');
+
 	const vreg = await req(
 		'POST',
 		'/api/vendor/register',
@@ -472,15 +464,15 @@ test('a user can register as a vendor and duplicates are rejected', async () => 
 			email: email2,
 			service_region: 'Lalitpur',
 			address: 'Kupondole',
-			branch_id: 3,
+			branch_id: kathmandu.id,
 		},
 		secondVendorToken,
 	);
 	assert.equal(vreg.status, 201);
 	assert.equal(vreg.body?.vendor?.business_name, 'Bagmati Movers');
 	assert.equal(vreg.body?.vendor?.status, 'active', 'movers are auto-approved');
-	assert.equal(vreg.body?.vendor?.branch_id, 3, 'branch picked at signup is persisted');
-	assert.deepEqual(vreg.body?.user?.branches, [3], 're-issued token carries the branch scope');
+	assert.equal(vreg.body?.vendor?.branch_id, kathmandu.id, 'branch picked at signup is persisted');
+	assert.deepEqual(vreg.body?.user?.branches, [kathmandu.id], 're-issued token carries the branch scope');
 	assert.ok(vreg.body?.token, 'a fresh token is issued on registration');
 	const adminList = await req('GET', '/api/admin/vendors', undefined, adminToken);
 	const created = adminList.body?.vendors?.find((v) => v.business_name === 'Bagmati Movers');
@@ -552,6 +544,72 @@ test('vendor vehicle CRUD and status validation', async () => {
 	);
 });
 
+test('vehicle form fields are validated (plate format, uniqueness, capacity, driver phone)', async () => {
+	const validPayload = {
+		name: 'Tempo Unit',
+		plate_number: 'ba 2 pa 1234',
+		vehicle_type: 'Cargo Tempo',
+		capacity_tonnes: 1.5,
+		driver_name: 'R. Rai',
+		driver_phone: '9800000011',
+	};
+
+	const badType = await req('POST', '/api/vendor/vehicles', { ...validPayload, vehicle_type: 'Motorcycle' }, vendorToken);
+	assert.equal(badType.status, 400, 'unrecognized vehicle type is rejected');
+
+	const badPlate = await req('POST', '/api/vendor/vehicles', { ...validPayload, plate_number: 'XYZ 99' }, vendorToken);
+	assert.equal(badPlate.status, 400, 'garbage plate format is rejected');
+
+	const badCapacity = await req('POST', '/api/vendor/vehicles', { ...validPayload, capacity_tonnes: 0 }, vendorToken);
+	assert.equal(badCapacity.status, 400, 'zero capacity is rejected');
+
+	const negCapacity = await req('POST', '/api/vendor/vehicles', { ...validPayload, capacity_tonnes: -2 }, vendorToken);
+	assert.equal(negCapacity.status, 400, 'negative capacity is rejected');
+
+	const badDriverPhone = await req('POST', '/api/vendor/vehicles', { ...validPayload, driver_phone: '123' }, vendorToken);
+	assert.equal(badDriverPhone.status, 400, 'short driver phone is rejected');
+
+	const dup = await req('POST', '/api/vendor/vehicles', { ...validPayload, plate_number: 'BA 1 PA 9876' }, vendorToken);
+	assert.equal(dup.status, 400, 'duplicate plate across the fleet is rejected');
+
+	const ok = await req('POST', '/api/vendor/vehicles', validPayload, vendorToken);
+	assert.equal(ok.status, 201, 'a valid vehicle is accepted');
+	assert.equal(ok.body?.vehicle?.plate_number, 'BA 2 PA 1234', 'plate is stored in normalized form');
+
+	const cleanup = await req('DELETE', `/api/vendor/vehicles/${ok.body.vehicle.id}`, undefined, vendorToken);
+	assert.equal(cleanup.status, 200);
+});
+
+test('vendor profile update validates phone', async () => {
+	const get = await req('GET', '/api/vendor/profile', undefined, vendorToken);
+	const before = get.body.vendor;
+	const bad = await req('PUT', '/api/vendor/profile', { ...before, phone: '123' }, vendorToken);
+	assert.equal(bad.status, 400, 'invalid phone is rejected');
+});
+
+test('support ticket subject/message length limits', async () => {
+	const longSubject = 'x'.repeat(201);
+	const long = await req('POST', '/api/tickets/submit', { subject: longSubject, message: 'hi' }, vendorToken);
+	assert.equal(long.status, 400, 'over-length subject is rejected');
+
+	const ok = await req('POST', '/api/tickets/submit', { subject: 'Len check', message: 'hello' }, vendorToken);
+	assert.equal(ok.status, 200);
+});
+
+test('settings whitelist rejects unknown keys and bad values', async () => {
+	const unknown = await req('PUT', '/api/settings', { someKey: 'x' }, adminToken);
+	assert.equal(unknown.status, 400, 'unknown setting key is rejected');
+
+	const badVal = await req('PUT', '/api/settings', { platform_commission_pct: 'abc' }, adminToken);
+	assert.equal(badVal.status, 400, 'non-numeric commission is rejected');
+
+	const outOfRange = await req('PUT', '/api/settings', { platform_commission_pct: '150' }, adminToken);
+	assert.equal(outOfRange.status, 400, 'commission above 100 is rejected');
+
+	const good = await req('PUT', '/api/settings', { platform_commission_pct: '10' }, adminToken);
+	assert.equal(good.status, 200);
+});
+
 test('vendor B cannot modify vendor A vehicle status (scoped)', async () => {
 	const list = await req('GET', '/api/vendor/vehicles', undefined, vendorToken);
 	const seedVehicle = list.body?.vehicles?.find((v) => v.plate_number === 'BA 1 KA 1234');
@@ -582,8 +640,9 @@ test('vendor matching is route-aware and returns only trimmed public fields', as
 	for (const v of vendors) {
 		assert.ok(!('phone' in v), 'match payload hides phone');
 		assert.ok(!('email' in v), 'match payload hides email');
-		assert.ok(!('plate_number' in v), 'match payload hides plate');
 		assert.ok(!('driver_phone' in v), 'match payload hides driver phone');
+		assert.ok(v.plate_number, 'match payload includes the matched vehicle plate');
+		assert.ok(v.vehicle_name, 'match payload includes the matched vehicle name');
 	}
 
 	const outside = await req(
@@ -593,7 +652,7 @@ test('vendor matching is route-aware and returns only trimmed public fields', as
 			`&drop_province=${encodeURIComponent('Karnali Province')}&drop_district=Jumla`,
 	);
 	assert.ok(
-		(outside.body?.vendors || []).some((v) => v.business_name === 'Sudurpashchim Movers'),
+		(outside.body?.vendors || []).some((v) => v.business_name === 'Doti Movers'),
 		'a route-less mover serves any route',
 	);
 
@@ -678,6 +737,10 @@ test('a vendor can reject an assigned job and it returns to the pending queue', 
 	assert.equal(detail.body?.shipment?.status, 'pending');
 	assert.equal(detail.body?.shipment?.approval_status, 'pending');
 	assert.equal(detail.body?.shipment?.assigned_vendor_id, null);
+	assert.ok(
+		detail.body?.shipment?.last_vendor_decline_at,
+		'decline flag is set so the customer knows the mover declined',
+	);
 });
 
 let autoShipment;
@@ -756,6 +819,7 @@ test('an unassignable booking enters the claim pool and a mover can claim it', a
 	const after = await req('GET', `/api/shipment/${claimShipment.shipment_id}`, undefined, customerToken);
 	assert.equal(after.body?.shipment?.approval_status, 'approved');
 	assert.equal(String(after.body?.shipment?.assigned_vendor_id), String(seed.id));
+	assert.equal(after.body?.shipment?.last_vendor_decline_at, null);
 
 	const pool2 = await req('GET', '/api/vendor/available', undefined, vendorToken);
 	assert.equal(
@@ -766,6 +830,16 @@ test('an unassignable booking enters the claim pool and a mover can claim it', a
 
 	const again = await req('PUT', `/api/vendor/shipments/${claimShipment.shipment_id}/claim`, {}, vendorToken);
 	assert.equal(again.status, 409, 'double claim is rejected');
+
+	const declined = await req('PUT', `/api/vendor/shipments/${claimShipment.shipment_id}/reject`, {}, vendorToken);
+	assert.equal(declined.status, 200);
+	const flagSet = await req('GET', `/api/shipment/${claimShipment.shipment_id}`, undefined, customerToken);
+	assert.ok(flagSet.body?.shipment?.last_vendor_decline_at, 'decline flag is set after reject');
+
+	const reclaim = await req('PUT', `/api/vendor/shipments/${claimShipment.shipment_id}/claim`, {}, vendorToken);
+	assert.equal(reclaim.status, 200);
+	const flagCleared = await req('GET', `/api/shipment/${claimShipment.shipment_id}`, undefined, customerToken);
+	assert.equal(flagCleared.body?.shipment?.last_vendor_decline_at, null, 'decline flag clears once a mover is reassigned');
 
 	const blocked = await req('GET', '/api/vendor/available', undefined, customerToken);
 	assert.equal(blocked.status, 403, 'claim pool is vendor-only');
@@ -1004,24 +1078,24 @@ test('branch admin cannot create branches (HQ only)', async () => {
 });
 
 test('super admin can create a new branch admin account', async () => {
-	const gaida = await req('GET', '/api/admin/branches', undefined, adminToken);
-	const gandaki = gaida.body?.branches?.find((b) => b.name === 'Gandaki Province');
-	assert.ok(gandaki, 'Gandaki branch exists in seed');
+	const branches = await req('GET', '/api/admin/branches', undefined, adminToken);
+	const kaski = branches.body?.branches?.find((b) => b.name === 'Kaski');
+	assert.ok(kaski, 'Kaski branch exists in seed');
 
 	const email = `ba-${Date.now()}@test.com`;
 	const create = await req(
 		'POST',
 		'/api/admin/users',
-		{ name: 'Gandaki Admin', email, password: 'secret1', role: 'branch_admin', branch_ids: [gandaki.id] },
+		{ name: 'Kaski Admin', email, password: 'secret1', role: 'branch_admin', branch_ids: [kaski.id] },
 		adminToken,
 	);
 	assert.equal(create.status, 201);
 	assert.equal(create.body?.user?.role, 'branch_admin');
 
-	// The new account can log in and its scope is exactly Gandaki.
+	// The new account can log in and its scope is exactly Kaski.
 	const login = await req('POST', '/api/auth/login', { email, password: 'secret1' });
 	assert.equal(login.status, 200);
-	assert.deepEqual(login.body?.user?.branches, [gandaki.id]);
+	assert.deepEqual(login.body?.user?.branches, [kaski.id]);
 });
 
 test('branch admin is blocked from creating admin accounts', async () => {
@@ -1034,8 +1108,8 @@ test('branch admin is blocked from creating admin accounts', async () => {
 	assert.equal(res.status, 403);
 });
 
-test('data tenancy: Gandaki bookings invisible to the Bagmati branch admin', async () => {
-	// Customer creates a booking with a Gandaki pickup.
+test('data tenancy: Kaski bookings invisible to the Kathmandu branch admin', async () => {
+	// Customer creates a booking with a Kaski pickup.
 	const gandakiShipment = await createAndPayBooking({
 		pickup_province: 'Gandaki Province',
 		pickup_district: 'Kaski',
@@ -1044,9 +1118,9 @@ test('data tenancy: Gandaki bookings invisible to the Bagmati branch admin', asy
 		drop_district: 'Kaski',
 		drop_city: 'Lekhnath',
 	});
-	assert.ok(gandakiShipment.shipment_id, 'Gandaki booking created');
+	assert.ok(gandakiShipment.shipment_id, 'Kaski booking created');
 
-	// Bagmati branch admin: global shipment list must not contain the record.
+	// Kathmandu branch admin: global shipment list must not contain the record.
 	const all = await req('GET', '/api/shipment/all', undefined, branchAdminToken);
 	assert.equal(all.status, 200);
 	assert.ok(!all.body?.shipments?.some((s) => s.id === gandakiShipment.shipment_id));
@@ -1064,7 +1138,7 @@ test('scoped analytics: branch admin only sees own region', async () => {
 	const res = await req('GET', '/api/admin/analytics', undefined, branchAdminToken);
 	assert.equal(res.status, 200);
 	assert.ok(res.body?.overview);
-	// A Bagmati-only admin must not be able to force a Gandaki view.
+	// A Kathmandu-only admin must not be able to force an out-of-scope view.
 	const forced = await req('GET', '/api/admin/analytics?branch_id=4', undefined, branchAdminToken);
 	assert.equal(forced.status, 200);
 });
@@ -1093,13 +1167,13 @@ test('platform commission is recorded on bookings and aggregated in analytics', 
 });
 
 test('cross-branch escalation lifecycle', async () => {
-	// Get branch ids for the seeded branches.
+	// Get branch ids for the seeded district branches.
 	const branches = await req('GET', '/api/admin/branches', undefined, adminToken);
-	const bagmati = branches.body.branches.find((b) => b.name === 'Bagmati Province');
-	const gandaki = branches.body.branches.find((b) => b.name === 'Gandaki Province');
-	assert.ok(bagmati && gandaki);
+	const kathmandu = branches.body.branches.find((b) => b.name === 'Kathmandu');
+	const kaski = branches.body.branches.find((b) => b.name === 'Kaski');
+	assert.ok(kathmandu && kaski);
 
-	// A Bagmati booking to escalate.
+	// A Kathmandu booking to escalate.
 	const escBooking = await createAndPayBooking({
 		pickup_province: 'Bagmati Province',
 		pickup_district: 'Kathmandu',
@@ -1108,24 +1182,24 @@ test('cross-branch escalation lifecycle', async () => {
 	});
 	assert.ok(escBooking.shipment_id);
 
-	// Bagmati admin requests a transfer of the booking to Gandaki.
+	// Kathmandu admin requests a transfer of the booking to Kaski.
 	const createEsc = await req(
 		'POST',
 		'/api/admin/escalations',
-		{ shipment_id: escBooking.shipment_id, to_branch_id: gandaki.id, type: 'transfer', reason: 'demo cross-province move' },
+		{ shipment_id: escBooking.shipment_id, to_branch_id: kaski.id, type: 'transfer', reason: 'demo cross-district move' },
 		branchAdminToken,
 	);
 	assert.equal(createEsc.status, 201);
 
-	// The Bagmati admin cannot approve (only destination branch or HQ can).
-	// (We need a Gandaki admin token; reuse super admin to approve instead.)
+	// The Kathmandu admin cannot approve (only destination branch or HQ can).
+	// (We need a Kaski admin token; reuse super admin to approve instead.)
 	const approve = await req('PUT', `/api/admin/escalations/${createEsc.body.escalation_id}`, { status: 'approved' }, adminToken);
 	assert.equal(approve.status, 200);
 
-	// After approval the shipment should now belong to the Gandaki branch.
+	// After approval the shipment should now belong to the Kaski branch.
 	const detail = await req('GET', `/api/shipment/${escBooking.shipment_id}`, undefined, adminToken);
 	assert.equal(detail.status, 200);
-	assert.equal(detail.body?.shipment?.branch_id, gandaki.id);
+	assert.equal(detail.body?.shipment?.branch_id, kaski.id);
 });
 
 test('audit log grows on super-admin account creation and is HQ-only', async () => {

@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600],
     borderRadius: 4, color: COLORS.cream[50], paddingHorizontal: 14, paddingVertical: 12, fontSize: 14,
   },
-  sendBtn: { backgroundColor: COLORS.saffron[400], paddingHorizontal: 20, paddingVertical: 12, borderRadius: 4 },
+  sendBtn: { backgroundColor: COLORS.saffron[400], paddingHorizontal: 20, paddingVertical: 12, borderRadius: 4, minHeight: 44, justifyContent: 'center' },
   sendBtnDisabled: { opacity: 0.4 },
   sendText: { color: COLORS.forest[900], fontWeight: '700', fontSize: 14 },
 })

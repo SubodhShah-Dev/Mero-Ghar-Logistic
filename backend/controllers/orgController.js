@@ -35,10 +35,14 @@ export const listBranches = asyncHandler(async (req, res) => {
 export const createBranch = asyncHandler(async (req, res) => {
 	const { name, province_id } = req.body;
 	if (!name || !name.trim()) throw new HttpError(400, 'Branch name is required');
-	if (!province_id || province_id < 1 || province_id > 7) {
-		throw new HttpError(400, 'province_id must be between 1 and 7');
+	let provinceId = null;
+	if (province_id != null && province_id !== '') {
+		provinceId = Number(province_id);
+		if (!Number.isInteger(provinceId) || provinceId < 1 || provinceId > 7) {
+			throw new HttpError(400, 'province_id must be between 1 and 7 when provided');
+		}
 	}
-	const branch = await createBranchModel({ name: name.trim(), province_id });
+	const branch = await createBranchModel({ name: name.trim(), province_id: provinceId });
 	await logAudit({
 		actorUserId: req.user.id,
 		action: 'branch.create',

@@ -152,14 +152,6 @@ export const updateVendorBranch = async (vendorId, branchId) => {
 	}
 };
 
-export const updateVendorRating = async (id, rating, totalJobs) => {
-	const [result] = await pool.execute(
-		'UPDATE vendors SET rating = ?, total_jobs = ? WHERE id = ?',
-		[rating, totalJobs, id],
-	);
-	return result.affectedRows > 0;
-};
-
 // ── VEHICLE FUNCTIONS ──
 
 export const getVendorVehicles = async (vendorId) => {
@@ -172,6 +164,21 @@ export const getVendorVehicles = async (vendorId) => {
 	} catch (error) {
 		console.error('Error in getVendorVehicles:', error);
 		return [];
+	}
+};
+
+export const plateNumberExists = async (plateNumber, excludeVehicleId = null) => {
+	try {
+		const sql =
+			excludeVehicleId != null
+				? 'SELECT 1 FROM vendor_vehicles WHERE plate_number = ? AND id <> ? LIMIT 1'
+				: 'SELECT 1 FROM vendor_vehicles WHERE plate_number = ? LIMIT 1';
+		const params = excludeVehicleId != null ? [plateNumber, excludeVehicleId] : [plateNumber];
+		const [rows] = await pool.execute(sql, params);
+		return rows.length > 0;
+	} catch (error) {
+		console.error('Error in plateNumberExists:', error);
+		return false;
 	}
 };
 
@@ -239,6 +246,8 @@ export const findMatchingVendors = async (vehicleType, route = {}, branchId = nu
 		let sql = `
             SELECT DISTINCT v.id, v.business_name, v.service_region, v.rating, v.total_jobs,
                    b.name as branch_name,
+                   vv.plate_number,
+                   vv.name as vehicle_name,
                    CASE
                      WHEN NOT EXISTS (SELECT 1 FROM vendor_routes WHERE vendor_id = v.id) THEN 'exact'
                      WHEN EXISTS (

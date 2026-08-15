@@ -9,7 +9,7 @@ interface RoleGuardProps {
   children: ReactNode
 }
 
-export function RoleGuard({ roles, children }: RoleGuardProps) {
+export default function RoleGuard({ roles, children }: RoleGuardProps) {
   const { user, loading } = useAuth()
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>()
   const allowed = Array.isArray(roles) ? roles : [roles]
@@ -26,5 +26,3 @@ export function RoleGuard({ roles, children }: RoleGuardProps) {
 
   return <>{children}</>
 }
-
-export default RoleGuard

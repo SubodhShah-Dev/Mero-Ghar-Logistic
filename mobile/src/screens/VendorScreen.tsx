@@ -5,9 +5,11 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { StackNavigationProp } from '@react-navigation/stack'
-import { VENDOR, TICKETS } from '../services/api'
+import { VENDOR, TICKETS, ORG } from '../services/api'
 import { COLORS } from '../utils/theme'
 import { provinces, getDistricts } from '../utils/nepal'
+import { normalizePlateNumber, PHONE_REGEX } from '../utils/validate'
+import DistrictBranchPicker from '../components/DistrictBranchPicker'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../App'
 
@@ -62,6 +64,7 @@ export default function VendorScreen() {
   const [routes, setRoutes] = useState<any[]>([])
   const [routeDraft, setRouteDraft] = useState({ from_province: '', from_district: '', to_province: '', to_district: '' })
   const [branchId, setBranchId] = useState<number | null>(null)
+  const [branches, setBranches] = useState<{ id: number; name: string; province_id: number }[]>([])
   const [savingBranch, setSavingBranch] = useState(false)
   const [onboarding, setOnboarding] = useState({
     business_name: '',
@@ -77,19 +80,21 @@ export default function VendorScreen() {
 
   const reload = async () => {
     try {
-      const [shipRes, vehRes, tickRes, availRes, profRes, routeRes] = await Promise.all([
+      const [shipRes, vehRes, tickRes, availRes, profRes, routeRes, branchRes] = await Promise.all([
         VENDOR.getShipments(),
         VENDOR.getVehicles(),
         TICKETS.getMine(),
         VENDOR.getAvailable(),
         VENDOR.getProfile(),
         VENDOR.getRoutes(),
+        ORG.getActiveBranches(),
       ])
       setShipments(shipRes.data.shipments || [])
       setVehicles(vehRes.data.vehicles || [])
       setTickets(tickRes.data.tickets || [])
       setAvailable(availRes.data.shipments || [])
       setRoutes(routeRes.data.routes || [])
+      setBranches(branchRes.data.branches || [])
       const vendor = profRes.data?.vendor
       if (vendor) {
         setProfile(vendor)
@@ -183,22 +188,40 @@ export default function VendorScreen() {
   }
 
   const addVehicle = async () => {
-    if (!newVehicle.name.trim() || !newVehicle.plate_number.trim() || !newVehicle.vehicle_type) {
+    const name = newVehicle.name.trim()
+    const plate = normalizePlateNumber(newVehicle.plate_number)
+    const capacity = parseFloat(newVehicle.capacity_tonnes)
+    if (!name || !newVehicle.vehicle_type) {
       Alert.alert('Error', 'Vehicle name, plate number and type are required')
+      return
+    }
+    if (!plate) {
+      Alert.alert('Error', 'Enter a valid plate number (e.g. BA 1 KA 1234)')
+      return
+    }
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      Alert.alert('Error', 'Capacity must be greater than 0 tonnes')
+      return
+    }
+    if (newVehicle.driver_phone && !PHONE_REGEX.test(newVehicle.driver_phone)) {
+      Alert.alert('Error', 'Driver phone must be exactly 10 digits')
       return
     }
     try {
       await VENDOR.addVehicle({
         ...newVehicle,
-        capacity_tonnes: parseFloat(newVehicle.capacity_tonnes) || 0,
+        name,
+        plate_number: plate,
+        capacity_tonnes: capacity,
       })
       Alert.alert('Success', 'Vehicle added')
       setShowAddVehicle(false)
       setNewVehicle({ ...emptyVehicle })
       const res = await VENDOR.getVehicles()
       setVehicles(res.data.vehicles || [])
-    } catch {
-      Alert.alert('Error', 'Failed to add vehicle')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to add vehicle'
+      Alert.alert('Error', msg)
     }
   }
 
@@ -227,7 +250,8 @@ export default function VendorScreen() {
       if (data.token && data.user) {
         await setSession(data.token, data.user)
       }
-      Alert.alert('Success', `Branch updated to ${provinces.find((p) => Number(p.id) === branchId)?.name || ''}`)
+      const branch = branches.find((b) => b.id === branchId)
+      Alert.alert('Success', `Branch updated to ${branch?.name || 'your district'}`)
       await reload()
     } catch {
       Alert.alert('Error', 'Failed to update branch')
@@ -243,7 +267,7 @@ export default function VendorScreen() {
       return
     }
     if (branch_id == null) {
-      Alert.alert('Missing info', 'Pick your service branch/province')
+      Alert.alert('Missing info', 'Pick your service district')
       return
     }
     setRegistering(true)
@@ -354,16 +378,13 @@ export default function VendorScreen() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Service Branch</Text>
-            <Text style={styles.hint}>Pick the province you operate in — bookings in your branch are matched to you.</Text>
-            <View style={styles.chipRow}>
-              {provinces.map((p) => (
-                <TouchableOpacity key={p.id} onPress={() => setOnboarding({ ...onboarding, branch_id: Number(p.id) })}
-                  style={[styles.chip, onboarding.branch_id === Number(p.id) ? styles.chipActive : null]}>
-                  <Text style={[styles.chipText, onboarding.branch_id === Number(p.id) ? styles.chipTextActive : null]}>{p.name.replace(' Province', '')}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={styles.sectionTitle}>Service District</Text>
+            <Text style={styles.hint}>Pick the district you operate in — bookings in your district are matched to you.</Text>
+            <DistrictBranchPicker
+              branches={branches}
+              selectedId={onboarding.branch_id}
+              onSelect={(id) => setOnboarding({ ...onboarding, branch_id: id })}
+            />
           </View>
 
           <TouchableOpacity onPress={registerBusiness} disabled={registering} style={styles.saveBtn}>
@@ -658,23 +679,16 @@ export default function VendorScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Service Branch</Text>
+              <Text style={styles.sectionTitle}>Service District</Text>
               <Text style={styles.hint}>
-                Bookings are matched within your branch's region. Change it freely — your
+                Bookings are matched within your district. Change it freely — your
                 scope updates immediately.
               </Text>
-              <View style={styles.chipRow}>
-                {provinces.map((p) => (
-                  <TouchableOpacity
-                    key={p.id}
-                    onPress={() => setBranchId(Number(p.id))}
-                    style={[styles.chip, branchId === Number(p.id) ? styles.chipActive : null]}>
-                    <Text style={[styles.chipText, branchId === Number(p.id) ? styles.chipTextActive : null]}>
-                      {p.name.replace(' Province', '')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <DistrictBranchPicker
+                branches={branches}
+                selectedId={branchId}
+                onSelect={setBranchId}
+              />
               <TouchableOpacity onPress={saveBranch} disabled={savingBranch} style={styles.saveBtn}>
                 <Text style={styles.saveText}>{savingBranch ? 'Saving...' : 'Update Branch'}</Text>
               </TouchableOpacity>
@@ -758,11 +772,11 @@ const styles = StyleSheet.create({
   title: { color: COLORS.cream[50], fontSize: 22, fontWeight: '900', marginBottom: 16 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   tabBar: { marginBottom: 12, flexGrow: 0 },
-  tabRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
-  tabActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  tabRow: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingVertical: 4 },
+  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], minHeight: 44, justifyContent: 'center' },
+  tabActive: { backgroundColor: 'rgba(79,70,229,0.12)', borderColor: COLORS.saffron[400] },
   tabText: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600' },
-  tabTextActive: { color: COLORS.saffron[300] },
+  tabTextActive: { color: COLORS.saffron[400] },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   statCard: { flex: 1, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], borderRadius: 4, padding: 16, alignItems: 'center' },
   statNum: { color: COLORS.saffron[400], fontSize: 26, fontWeight: '900' },
@@ -778,13 +792,13 @@ const styles = StyleSheet.create({
   detailBlock: { borderTopWidth: 1, borderTopColor: COLORS.forest[700], paddingTop: 8, marginBottom: 8 },
   quote: { color: COLORS.saffron[400], fontSize: 15, fontWeight: '700', marginTop: 4 },
   sectionTitle: { color: COLORS.cream[50], fontSize: 15, fontWeight: '700', marginBottom: 8 },
-  input: { backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4, color: COLORS.cream[50], paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 10 },
+  input: { backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], borderRadius: 4, color: COLORS.cream[50], paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 10, minHeight: 48 },
   btnRow: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
-  greenBtn: { backgroundColor: 'rgba(76,175,125,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start' },
-  goldBtn: { backgroundColor: 'rgba(245,166,35,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start' },
-  redBtn: { backgroundColor: 'rgba(220,38,38,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start' },
+  greenBtn: { backgroundColor: 'rgba(76,175,125,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+  goldBtn: { backgroundColor: 'rgba(79,70,229,0.14)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+  redBtn: { backgroundColor: 'rgba(220,38,38,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   redBtnText: { color: '#ef7b7b', fontWeight: '600', fontSize: 13 },
-  blueBtn: { backgroundColor: 'rgba(64,145,210,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start' },
+  blueBtn: { backgroundColor: 'rgba(64,145,210,0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   blueBtnText: { color: '#5aa9e6', fontWeight: '600', fontSize: 13 },
   btnText: { color: '#4caf7d', fontWeight: '600', fontSize: 13 },
   progressRow: { flexDirection: 'row', gap: 4, marginTop: 10, marginBottom: 8 },
@@ -794,29 +808,29 @@ const styles = StyleSheet.create({
   progressLabel: { color: COLORS.forest[600], fontSize: 9, textTransform: 'capitalize' },
   progressLabelDone: { color: COLORS.saffron[300] },
   filterRow: { flexDirection: 'row', gap: 8 },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700] },
-  filterChipActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: COLORS.forest[900], borderWidth: 1, borderColor: COLORS.forest[700], minHeight: 44, justifyContent: 'center' },
+  filterChipActive: { backgroundColor: 'rgba(79,70,229,0.12)', borderColor: COLORS.saffron[400] },
   filterText: { color: COLORS.forest[300], fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
-  filterTextActive: { color: COLORS.saffron[300] },
+  filterTextActive: { color: COLORS.saffron[400] },
   vBarRow: { flexDirection: 'row', alignItems: 'flex-end', height: 120, marginTop: 8 },
   vBarCol: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
   vBarValue: { color: COLORS.cream[200], fontSize: 10, fontWeight: '600', marginBottom: 4 },
   vBarTrack: { width: 22, flex: 1, backgroundColor: COLORS.forest[800], borderRadius: 4, justifyContent: 'flex-end', overflow: 'hidden' },
-  vBarFill: { width: '100%', backgroundColor: 'rgba(245,166,35,0.85)', borderRadius: 4 },
+  vBarFill: { width: '100%', backgroundColor: 'rgba(79,70,229,0.85)', borderRadius: 4 },
   vBarLabel: { color: COLORS.forest[500], fontSize: 10, marginTop: 4 },
-  typeChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], marginBottom: 8, marginRight: 8 },
-  typeChipActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  typeChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], marginBottom: 8, marginRight: 8, minHeight: 44, justifyContent: 'center' },
+  typeChipActive: { backgroundColor: 'rgba(79,70,229,0.12)', borderColor: COLORS.saffron[400] },
   typeChipText: { color: COLORS.forest[300], fontSize: 13, fontWeight: '600' },
-  typeChipTextActive: { color: COLORS.saffron[300] },
-  saveBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 4 },
+  typeChipTextActive: { color: COLORS.saffron[400] },
+  saveBtn: { backgroundColor: COLORS.saffron[400], paddingVertical: 14, borderRadius: 4, alignItems: 'center', marginTop: 4, minHeight: 48, justifyContent: 'center' },
   saveText: { color: COLORS.forest[900], fontWeight: '700', fontSize: 15 },
   hint: { color: COLORS.forest[400], fontSize: 12, marginBottom: 10, lineHeight: 18 },
   fieldLabel: { color: COLORS.cream[200], fontSize: 13, fontWeight: '600', marginBottom: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600] },
-  chipActive: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: COLORS.saffron[400] },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[600], minHeight: 44, justifyContent: 'center' },
+  chipActive: { backgroundColor: 'rgba(79,70,229,0.12)', borderColor: COLORS.saffron[400] },
   chipText: { color: COLORS.forest[300], fontSize: 12, fontWeight: '600' },
-  chipTextActive: { color: COLORS.saffron[300] },
+  chipTextActive: { color: COLORS.saffron[400] },
   routeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.forest[800], borderWidth: 1, borderColor: COLORS.forest[700], borderRadius: 4, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
   routeText: { color: COLORS.cream[100], fontSize: 13, flex: 1 },
   routeRemove: { color: '#ef7b7b', fontSize: 12, fontWeight: '600' },

@@ -40,12 +40,12 @@ const TABLES = [
 		columns: [
 			{ name: 'id', type: COLUMN.id },
 			{ name: 'name', type: COLUMN.varcharNotNull(100) },
-			{ name: 'province_id', type: 'INT NOT NULL UNIQUE' },
+			{ name: 'province_id', type: 'INT NOT NULL' },
 			{ name: 'is_active', type: COLUMN.boolean(), def: '1' },
 			{ name: 'created_at', type: COLUMN.timestamp() },
 		],
 		constraints: ['UNIQUE (name)'],
-		indexes: [],
+		indexes: [{ name: 'idx_branches_province', cols: ['province_id'] }],
 	},
 	{
 		name: 'user_branches',
@@ -180,6 +180,7 @@ const TABLES = [
 			{ name: 'approval_status', type: COLUMN.varchar(50), def: "'pending'" },
 			{ name: 'approved_by', type: COLUMN.nullableRef() },
 			{ name: 'approved_at', type: COLUMN.datetime() },
+			{ name: 'last_vendor_decline_at', type: COLUMN.datetime() },
 			{ name: 'created_at', type: COLUMN.timestamp() },
 		],
 		constraints: [
@@ -294,8 +295,6 @@ const TABLES = [
 	},
 ];
 
-const TABLE_ORDER = TABLES.map((t) => t.name);
-
 const renderColumn = (col) => {
 	let sql = col.type;
 	if (col.unique) {
@@ -321,5 +320,3 @@ export const ddlFor = () => {
 	}
 	return statements;
 };
-
-export const getTables = () => TABLE_ORDER;

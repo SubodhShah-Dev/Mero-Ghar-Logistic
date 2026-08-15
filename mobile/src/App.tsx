@@ -14,6 +14,7 @@ import AdminScreen from './screens/AdminScreen'
 import VendorScreen from './screens/VendorScreen'
 import ChatScreen from './screens/ChatScreen'
 import MeroBotScreen from './screens/MeroBotScreen'
+import { COLORS } from './utils/theme'
 
 export type RootStackParamList = {
   Home: undefined
@@ -33,10 +34,10 @@ function AppNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#112018' },
-        headerTintColor: '#fdfaf4',
+        headerStyle: { backgroundColor: COLORS.nav },
+        headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
-        cardStyle: { backgroundColor: '#091410' },
+        cardStyle: { backgroundColor: COLORS.background },
       }}>
       <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'MeroGhar', headerShown: false }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Log In' }} />

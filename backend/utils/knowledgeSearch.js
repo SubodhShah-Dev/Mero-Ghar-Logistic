@@ -255,21 +255,4 @@ export function getFAQ() {
   return knowledgeBase ? knowledgeBase.faq : [];
 }
 
-export function getSiteInfo() {
-  if (!knowledgeBase) loadKnowledgeBase();
-  return knowledgeBase ? {
-    name: knowledgeBase.site.name,
-    description: knowledgeBase.site.description,
-    stats: knowledgeBase.stats,
-    contactInfo: knowledgeBase.contactInfo
-  } : null;
-}
-
-export function getPageDescription(pageId) {
-  if (!knowledgeBase) loadKnowledgeBase();
-  if (!knowledgeBase) return '';
-  const page = knowledgeBase.pages.find(function (p) { return p.id === pageId; });
-  return page ? page.title + ': ' + page.description : '';
-}
-
 loadKnowledgeBase();
