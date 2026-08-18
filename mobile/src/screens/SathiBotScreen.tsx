@@ -16,7 +16,7 @@ interface QuestionCategory {
 }
 
 const FALLBACK_CATEGORIES: QuestionCategory[] = [
-  { name: 'About', questions: ['What is MeroGhar Logistics?'] },
+  { name: 'About', questions: ['What is ShiftSathi Logistics?'] },
   { name: 'Booking', questions: ['How do I book a move?'] },
   { name: 'Pricing & Quote', questions: ['What are your price ranges?'] },
   { name: 'Vehicles', questions: ['What vehicle options do you have?'] },
@@ -50,9 +50,9 @@ function getLocalReply(input: string): string | null {
   return null
 }
 
-export default function MeroBotScreen() {
+export default function SathiBotScreen() {
   const [messages, setMessages] = useState<Message[]>([
-    { text: 'Namaste! 👋 I am the MeroGhar chat assistant. How can I help with your move?', isUser: false },
+    { text: 'Namaste! 👋 I am the ShiftSathi chat assistant. How can I help with your move?', isUser: false },
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)

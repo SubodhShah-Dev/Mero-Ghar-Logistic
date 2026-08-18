@@ -1,6 +1,6 @@
 {
-  "name": "meroghar-backend",
-  "version": "3.0.0",
+  "name": "shiftsathi-backend",
+  "version": "4.0.0",
   "type": "module",
   "engines": {
     "node": ">=22.13.0"

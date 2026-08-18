@@ -35,8 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ;(async () => {
       try {
         const [storedUser, storedToken] = await Promise.all([
-          AsyncStorage.getItem('meroGharUser'),
-          AsyncStorage.getItem('meroGharToken'),
+          AsyncStorage.getItem('shiftSathiUser'),
+          AsyncStorage.getItem('shiftSathiToken'),
         ])
         if (storedUser && storedToken) {
           setUser(JSON.parse(storedUser))
@@ -60,9 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         branches: data.user.branches,
         loggedIn: true,
       }
-      await AsyncStorage.setItem('meroGharUser', JSON.stringify(userData))
+      await AsyncStorage.setItem('shiftSathiUser', JSON.stringify(userData))
       if (data.token) {
-        await AsyncStorage.setItem('meroGharToken', data.token)
+        await AsyncStorage.setItem('shiftSathiToken', data.token)
         setToken(data.token)
       }
       setUser(userData)
@@ -86,8 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await Promise.all([
-      AsyncStorage.removeItem('meroGharUser'),
-      AsyncStorage.removeItem('meroGharToken'),
+      AsyncStorage.removeItem('shiftSathiUser'),
+      AsyncStorage.removeItem('shiftSathiToken'),
     ])
     setUser(null)
     setToken(null)
@@ -102,8 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       branches: u.branches,
       loggedIn: true,
     }
-    await AsyncStorage.setItem('meroGharUser', JSON.stringify(userData))
-    await AsyncStorage.setItem('meroGharToken', newToken)
+    await AsyncStorage.setItem('shiftSathiUser', JSON.stringify(userData))
+    await AsyncStorage.setItem('shiftSathiToken', newToken)
     setUser(userData)
     setToken(newToken)
   }

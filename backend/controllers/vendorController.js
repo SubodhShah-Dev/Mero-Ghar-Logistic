@@ -122,7 +122,7 @@ export const updateMyVendorBranch = asyncHandler(async (req, res) => {
 	const branches = await getUserBranches(userId, 'vendor');
 	const token = jwt.sign(
 		{ id: req.user.id, email: req.user.email, role: 'vendor', branches },
-		process.env.JWT_SECRET || 'meroghar-jwt-secret-change-in-production',
+		process.env.JWT_SECRET || 'shiftsathi-jwt-secret-change-in-production',
 		{ expiresIn: '7d' },
 	);
 
@@ -216,7 +216,7 @@ export const registerVendor = asyncHandler(async (req, res) => {
 	const branches = await getUserBranches(req.user.id, 'vendor');
 	const token = jwt.sign(
 		{ id: req.user.id, email: req.user.email, role: 'vendor', branches },
-		process.env.JWT_SECRET || 'meroghar-jwt-secret-change-in-production',
+		process.env.JWT_SECRET || 'shiftsathi-jwt-secret-change-in-production',
 		{ expiresIn: '7d' },
 	);
 

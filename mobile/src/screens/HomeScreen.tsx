@@ -60,7 +60,7 @@ export default function HomeScreen() {
 
           {user && (
             <View style={styles.quickLinks}>
-              <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate('MeroBot')}>
+              <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate('SathiBot')}>
                 <Text style={styles.linkText}>💬 Chat Assistant</Text>
               </TouchableOpacity>
               {(user.role === 'user') && (
@@ -102,7 +102,7 @@ export default function HomeScreen() {
 
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => navigation.navigate('MeroBot')}
+        onPress={() => navigation.navigate('SathiBot')}
         accessibilityLabel="Open chat assistant">
         <Text style={styles.fabText}>💬</Text>
       </TouchableOpacity>

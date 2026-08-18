@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { roleCan } from '../utils/permissions.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'meroghar-jwt-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'shiftsathi-jwt-secret-change-in-production';
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   console.error('Refusing to start in production without JWT_SECRET set');
   process.exit(1);

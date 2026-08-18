@@ -1,4 +1,4 @@
-# MeroGhar
+# ShiftSathi
 
 **Nepal's home-moving logistics marketplace** — an Android app + Express backend that connects customers who are shifting homes with verified movers (truck/tempo owners) across all 7 provinces and 77 districts of Nepal.
 
@@ -9,7 +9,7 @@
 ## Repo layout
 
 ```
-MeroGhar-React/
+ShiftSathi-React/
 ├── backend/          Express 5 REST API (MySQL via mysql2)
 ├── mobile/           React Native 0.79 (Android) app
 └── .github/          GitHub Actions: builds + releases the APK
@@ -20,7 +20,7 @@ MeroGhar-React/
 | `backend/` | Express 5, mysql2, JWT, bcrypt | Node ≥ 22.13 (ESM) |
 | `mobile/` | React Native 0.79 (New Architecture), React Navigation 7 | TypeScript |
 
-**Database:** MySQL/MariaDB from **XAMPP** (localhost:3306). The database (`meroghar_db`) and all tables are created automatically on first start; demo data is seeded automatically.
+**Database:** MySQL/MariaDB from **XAMPP** (localhost:3306). The database (`shiftsathi_db`) and all tables are created automatically on first start; demo data is seeded automatically.
 
 ---
 
@@ -64,7 +64,7 @@ npm start               # http://localhost:5000
 ```
 
 - Uses XAMPP's MySQL on `127.0.0.1:3306` (user `root`, empty password).
-- Creates `meroghar_db` + all tables and seeds demo accounts on first run (only while `NODE_ENV` is not `production`).
+- Creates `shiftsathi_db` + all tables and seeds demo accounts on first run (only while `NODE_ENV` is not `production`).
 
 ### 3. Mobile (Android)
 
@@ -115,7 +115,7 @@ cd backend
 npm test       # node:test integration suite (auth, booking, payment, lifecycle, IDOR)
 ```
 
-Requires XAMPP MySQL running; the suite uses a disposable `meroghar_test` database that it creates and drops itself.
+Requires XAMPP MySQL running; the suite uses a disposable `shiftsathi_test` database that it creates and drops itself.
 
 ---
 
@@ -127,7 +127,7 @@ Requires XAMPP MySQL running; the suite uses a disposable `meroghar_test` databa
 
 ## Free cloud deploy (no PC needed, anywhere in the world)
 
-The release APK points at `https://meroghar-backend.onrender.com` (`mobile/src/config.ts`:
+The release APK points at `https://shiftsathi-backend.onrender.com` (`mobile/src/config.ts`:
 `PROD_API_URL`). Keeping that URL alive for free requires two free services:
 
 1. **TiDB Cloud Starter** — free, always-on, MySQL-compatible DB (5 GiB row + 50M

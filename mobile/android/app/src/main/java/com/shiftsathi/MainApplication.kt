@@ -1,4 +1,4 @@
-package com.meroghar
+package com.shiftsathi
 
 import android.app.Application
 import com.facebook.react.PackageList

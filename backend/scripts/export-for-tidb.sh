@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MeroGhar helper: export the local XAMPP MySQL database so it can be imported
+# ShiftSathi helper: export the local XAMPP MySQL database so it can be imported
 # into a free, always-on MySQL-compatible cloud DB (TiDB Cloud Starter).
 #
 # Usage:
@@ -16,8 +16,8 @@ set -e
 MYSQLDUMP="${MYSQLDUMP:-/opt/lampp/bin/mysqldump}"
 DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_USER="${DB_USER:-root}"
-DB_NAME="${DB_NAME:-meroghar_db}"
-OUT="${OUT:-backend/meroghar-export.sql}"
+DB_NAME="${DB_NAME:-shiftsathi_db}"
+OUT="${OUT:-backend/shiftsathi-export.sql}"
 
 if [ ! -x "$MYSQLDUMP" ]; then
 	echo "mysqldump not found at $MYSQLDUMP (start XAMPP or set MYSQLDUMP)."
@@ -39,5 +39,5 @@ echo "Exported $DB_NAME -> $OUT"
 echo
 echo "Next step — import into TiDB Cloud Starter:"
 echo "  1. Create a free Starter cluster (5 GiB row + 50M RUs/mo, no credit card)."
-echo "  2. Downloads -> CLI, paste:  mysql -h <HOST> -P 4000 -u <user>.root -p --ssl-mode=REQUIRED meroghar_db < $OUT"
+echo "  2. Downloads -> CLI, paste:  mysql -h <HOST> -P 4000 -u <user>.root -p --ssl-mode=REQUIRED shiftsathi_db < $OUT"
 echo "  3. Then add the TiDB host/port/user/password + DB_SSL=true to Render's env vars."

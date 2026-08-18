@@ -1,4 +1,4 @@
-# MeroGhar-React — Project Audit Report
+# ShiftSathi-React — Project Audit Report
 
 - Audit date: 2026-08-12
 - Scope: `backend/` (Express 5 + MySQL), `mobile/` (React Native 0.79/TS), `.github/`
@@ -21,7 +21,7 @@ The backend roles are `user | vendor | branch_admin | super_admin` (`backend/uti
 Fix applied: use `roles={['super_admin','branch_admin']}` and the existing `isAdminRole()` helper (`mobile/src/utils/roles.ts`). Verified with `tsc --noEmit` (clean) and `eslint` (clean).
 
 **C2 · Default/fallback JWT secret in code — 🔴 FIXED (fail-fast added)**
-`JWT_SECRET` falls back to the hard-coded string `'meroghar-jwt-secret-change-in-production'` in `backend/controllers/authController.js:13` and `backend/middleware/auth.js:4`. Any deployment that forgets `.env` (or where the env key is lost after the now-deleted `render.yaml`) runs with a public, forgeable signing key — full account impersonation.
+`JWT_SECRET` falls back to the hard-coded string `'shiftsathi-jwt-secret-change-in-production'` in `backend/controllers/authController.js:13` and `backend/middleware/auth.js:4`. Any deployment that forgets `.env` (or where the env key is lost after the now-deleted `render.yaml`) runs with a public, forgeable signing key — full account impersonation.
 Fix applied: when `NODE_ENV === 'production'` and `JWT_SECRET` is unset, the process refuses to start (`console.error` + `process.exit(1)`). Dev fallback unchanged. Syntax-checked and backend suite re-run (42/42).
 
 **C3 · Mobile typecheck currently failing — 🔴 RESOLVED (see C1)**

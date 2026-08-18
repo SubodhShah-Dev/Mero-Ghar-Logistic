@@ -26,7 +26,7 @@ const mysqlConfig = (database) => ({
 	ssl: usesTls() ? { rejectUnauthorized: false } : undefined,
 });
 
-const DB_NAME = process.env.MYSQL_DATABASE || process.env.DB_NAME || 'meroghar_db';
+const DB_NAME = process.env.MYSQL_DATABASE || process.env.DB_NAME || 'shiftsathi_db';
 
 let mysqlPool = null;
 let inited = false;

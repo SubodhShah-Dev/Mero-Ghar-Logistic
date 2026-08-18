@@ -13,7 +13,7 @@ import MyBookingsScreen from './screens/MyBookingsScreen'
 import AdminScreen from './screens/AdminScreen'
 import VendorScreen from './screens/VendorScreen'
 import ChatScreen from './screens/ChatScreen'
-import MeroBotScreen from './screens/MeroBotScreen'
+import SathiBotScreen from './screens/SathiBotScreen'
 import { COLORS } from './utils/theme'
 
 export type RootStackParamList = {
@@ -25,7 +25,7 @@ export type RootStackParamList = {
   Admin: undefined
   Vendor: undefined
   Chat: { shipmentId: number; senderRole: 'customer' | 'vendor'; title?: string }
-  MeroBot: undefined
+  SathiBot: undefined
 }
 
 const Stack = createStackNavigator<RootStackParamList>()
@@ -39,7 +39,7 @@ function AppNavigator() {
         headerTitleStyle: { fontWeight: '700' },
         cardStyle: { backgroundColor: COLORS.background },
       }}>
-      <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'MeroGhar', headerShown: false }} />
+      <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'ShiftSathi', headerShown: false }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Log In' }} />
       <Stack.Screen name="Signup" component={SignupScreen} options={{ title: 'Sign Up' }} />
       <Stack.Screen name="Booking" component={BookingScreen} options={{ title: 'Book a Move' }} />
@@ -59,7 +59,7 @@ function AppNavigator() {
         )}
       </Stack.Screen>
       <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'Chat' }} />
-      <Stack.Screen name="MeroBot" component={MeroBotScreen} options={{ title: 'MeroBot' }} />
+      <Stack.Screen name="SathiBot" component={SathiBotScreen} options={{ title: 'SathiBot' }} />
     </Stack.Navigator>
   )
 }

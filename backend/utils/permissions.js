@@ -1,4 +1,4 @@
-// Central capability map for the MeroGhar RBAC v2.
+// Central capability map for the ShiftSathi RBAC v2.
 //
 // Roles (ordered by privilege): super_admin > branch_admin > vendor > user.
 // - super_admin bypasses the map entirely (all capabilities, unlimited scope).

@@ -11,7 +11,7 @@ import mysql from 'mysql2/promise';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND_DIR = path.resolve(__dirname, '..');
 
-const TEST_DB = 'meroghar_test';
+const TEST_DB = 'shiftsathi_test';
 
 // Connection settings for the test database; mirror the XAMPP defaults used by
 // the backend (config/db.js) and override through the process env if set.
@@ -98,7 +98,7 @@ const spawnMatchingPort = async () => {
 };
 
 before(async () => {
-	tmpDir = await mkdtemp(path.join(os.tmpdir(), 'meroghar-test-'));
+	tmpDir = await mkdtemp(path.join(os.tmpdir(), 'shiftsathi-test-'));
 	const port = await freePort();
 	baseUrl = `http://127.0.0.1:${port}`;
 
@@ -394,11 +394,11 @@ test('chatbot exposes a comprehensive grouped question list and answers fixed qu
 		}
 	}
 
-	const answer = await req('POST', '/api/chatbot/message', { message: 'What is MeroGhar Logistics?' });
+	const answer = await req('POST', '/api/chatbot/message', { message: 'What is ShiftSathi Logistics?' });
 	assert.equal(answer.status, 200);
 	assert.ok(typeof answer.body?.response === 'string' && answer.body.response.length > 0);
-	// The canonical question gets its curated answer — it should mention MeroGhar.
-	assert.match(answer.body.response, /MeroGhar/);
+	// The canonical question gets its curated answer — it should mention ShiftSathi.
+	assert.match(answer.body.response, /ShiftSathi/);
 });
 
 test('auth users listing is admin-only', async () => {

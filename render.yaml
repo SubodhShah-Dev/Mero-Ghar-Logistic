@@ -3,8 +3,9 @@ services:
   # MySQL-compatible database (TiDB Cloud Starter) so it survives redeploys —
   # unlike SQLite, which Render's free tier would wipe on every deploy.
   - type: web
-    name: meroghar-backend
+    name: shiftsathi-backend
     runtime: node
+    nodeVersion: 22.13.0
     rootDir: backend
     plan: free
     buildCommand: npm install
@@ -20,7 +21,8 @@ services:
       #    MYSQLPORT=4000
       #    MYSQLUSER=<user>.root
       #    MYSQLPASSWORD=<password>
-      #    MYSQL_DATABASE=meroghar_db
+      - key: MYSQL_DATABASE
+        value: shiftsathi_db
       - key: DB_SSL
         value: "true"
       # Seed demo accounts (admin/vendor/customer @test.com). Keep true for a
@@ -31,7 +33,7 @@ services:
         generateValue: true
       # Public base URL used by the demo payment form's redirect target.
       - key: BACKEND_URL
-        value: https://meroghar-backend.onrender.com
+        value: https://shiftsathi-backend.onrender.com
       # OpenRouteService key for geocoding + distance matrix (free tier).
       - key: ORS_API_KEY
         value: eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjNmOGQwN2E0ODQxMDQ2ODdiMDIzZGYyMTg1M2JjY2IyIiwiaCI6Im11cm11cjY0In0=

@@ -10,7 +10,7 @@ import { API_BASE_URL, PROD_API_URLS } from '../config'
 // AsyncStorage. On a mid-session network failure the next reachable candidate
 // is tried and the request retried once.
 
-const STORAGE_KEY = 'meroGharApiUrl'
+const STORAGE_KEY = 'shiftSathiApiUrl'
 const PROBE_TIMEOUT_MS = 2500
 const MAX_FALLBACKS = PROD_API_URLS.length
 
@@ -65,7 +65,7 @@ api.interceptors.request.use(async (config) => {
     config.baseURL = await ensureBaseUrl()
   } catch {}
   try {
-    const token = await AsyncStorage.getItem('meroGharToken')
+    const token = await AsyncStorage.getItem('shiftSathiToken')
     if (token) config.headers.Authorization = `Bearer ${token}`
   } catch {}
   return config

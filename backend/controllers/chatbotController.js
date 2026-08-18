@@ -5,12 +5,12 @@ const CHATBOT_CATEGORIES = [
     name: 'About',
     questions: [
       {
-        q: 'What is MeroGhar Logistics?',
-        a: "MeroGhar Logistics is Nepal's trusted household moving service. We connect you with verified, rated movers across all 7 provinces and 77 districts of Nepal. Book a truck, track your shipment, and pay via eSewa, Khalti, or cash — we handle everything from narrow Kathmandu lanes to inter-province moves, including packing, furniture disassembly, and auspicious timings. Ask me 'How do I book a move?' to get started!",
+        q: 'What is ShiftSathi Logistics?',
+        a: "ShiftSathi Logistics is Nepal's trusted household moving service. We connect you with verified, rated movers across all 7 provinces and 77 districts of Nepal. Book a truck, track your shipment, and pay via eSewa, Khalti, or cash — we handle everything from narrow Kathmandu lanes to inter-province moves, including packing, furniture disassembly, and auspicious timings. Ask me 'How do I book a move?' to get started!",
       },
       {
-        q: 'What services does MeroGhar offer in Nepal?',
-        a: 'MeroGhar offers these services:\n\n🚛 Full-Service Moving (From NPR 15,000)\n📦 Pack & Load Only (From NPR 7,500)\n🛺 Cargo Tempo / Valley Move (From NPR 2,500)\n🔧 Furniture Disassembly (From NPR 2,500)\n🛡️ Item Insurance (From NPR 1,200)\n\nBook with us and get a free quote within 2 hours!',
+        q: 'What services does ShiftSathi offer in Nepal?',
+        a: 'ShiftSathi offers these services:\n\n🚛 Full-Service Moving (From NPR 15,000)\n📦 Pack & Load Only (From NPR 7,500)\n🛺 Cargo Tempo / Valley Move (From NPR 2,500)\n🔧 Furniture Disassembly (From NPR 2,500)\n🛡️ Item Insurance (From NPR 1,200)\n\nBook with us and get a free quote within 2 hours!',
       },
     ],
   },
@@ -19,7 +19,7 @@ const CHATBOT_CATEGORIES = [
     questions: [
       {
         q: 'How do I book a move?',
-        a: 'To book a move with MeroGhar:\n1. Fill in pickup/drop locations\n2. Select your home size and items\n3. Choose a vehicle\n4. Pick a mover or use auto-match\n5. Pick your move date and time\n6. Enter contact details and payment method\n\nOur coordinator will call within 2 hours with your NPR quote!',
+        a: 'To book a move with ShiftSathi:\n1. Fill in pickup/drop locations\n2. Select your home size and items\n3. Choose a vehicle\n4. Pick a mover or use auto-match\n5. Pick your move date and time\n6. Enter contact details and payment method\n\nOur coordinator will call within 2 hours with your NPR quote!',
       },
       {
         q: 'Do I need an account to book?',
@@ -61,11 +61,11 @@ const CHATBOT_CATEGORIES = [
     questions: [
       {
         q: 'What vehicle options do you have?',
-        a: 'MeroGhar offers these vehicle options:\n\n🛺 Cargo Tempo (NPR 400–500) — Best for narrow lanes, 1–2 rooms\n🚐 Tata Ace / Small Truck (NPR 800–1200) — Best for 2 BHK\n🚚 Mini Truck 407 (NPR 1500–2000) — Most popular, best for 3 BHK\n🛻 Large Truck + Helpers (NPR 2000+) — Best for large houses\n\nChoose during Step 3 of the booking form.',
+        a: 'ShiftSathi offers these vehicle options:\n\n🛺 Cargo Tempo (NPR 400–500) — Best for narrow lanes, 1–2 rooms\n🚐 Tata Ace / Small Truck (NPR 800–1200) — Best for 2 BHK\n🚚 Mini Truck 407 (NPR 1500–2000) — Most popular, best for 3 BHK\n🛻 Large Truck + Helpers (NPR 2000+) — Best for large houses\n\nChoose during Step 3 of the booking form.',
       },
       {
         q: 'How do I choose the right vehicle for my home size?',
-        a: 'General guide: Cargo Tempo — narrow lanes, 1–2 rooms; Tata Ace / Small Truck — 2 BHK; Mini Truck 407 — most popular, best for 3 BHK; Large Truck + Helpers — large houses. You can also let MeroGhar recommend the best fit in Step 3.',
+        a: 'General guide: Cargo Tempo — narrow lanes, 1–2 rooms; Tata Ace / Small Truck — 2 BHK; Mini Truck 407 — most popular, best for 3 BHK; Large Truck + Helpers — large houses. You can also let ShiftSathi recommend the best fit in Step 3.',
       },
       {
         q: 'Are a driver and helpers included?',
@@ -78,7 +78,7 @@ const CHATBOT_CATEGORIES = [
     questions: [
       {
         q: 'Which provinces and districts do you cover?',
-        a: 'MeroGhar covers ALL 7 provinces and 77 districts of Nepal!\n\n🏔️ Koshi — 14 districts (Biratnagar, Dharan, Ilam)\n🌾 Madhesh — 8 districts (Janakpur, Birgunj)\n🏙️ Bagmati — 13 districts (Kathmandu, Lalitpur, Bhaktapur) Most Active\n🏞️ Gandaki — 11 districts (Pokhara, Gorkha)\n🌳 Lumbini — 12 districts (Butwal, Rupandehi)\n🏔️ Karnali — 10 districts (Surkhet, Jumla)\n🌄 Sudurpashchim — 9 districts (Dhangadhi, Mahendranagar)',
+        a: 'ShiftSathi covers ALL 7 provinces and 77 districts of Nepal!\n\n🏔️ Koshi — 14 districts (Biratnagar, Dharan, Ilam)\n🌾 Madhesh — 8 districts (Janakpur, Birgunj)\n🏙️ Bagmati — 13 districts (Kathmandu, Lalitpur, Bhaktapur) Most Active\n🏞️ Gandaki — 11 districts (Pokhara, Gorkha)\n🌳 Lumbini — 12 districts (Butwal, Rupandehi)\n🏔️ Karnali — 10 districts (Surkhet, Jumla)\n🌄 Sudurpashchim — 9 districts (Dhangadhi, Mahendranagar)',
       },
       {
         q: 'Do you move within Kathmandu Valley?',
@@ -179,11 +179,11 @@ const CHATBOT_CATEGORIES = [
     questions: [
       {
         q: 'How can I contact support?',
-        a: 'Contact MeroGhar:\n📞 Phone: +977 980-000-000\n💬 Viber: +977 980-000-000\n📧 Email: info@meroghar.com.np\n\nOr use the Help & Support section in the app.',
+        a: 'Contact ShiftSathi:\n📞 Phone: +977 980-000-000\n💬 Viber: +977 980-000-000\n📧 Email: info@shiftsathi.com.np\n\nOr use the Help & Support section in the app.',
       },
       {
         q: 'Are the movers verified and reliable?',
-        a: 'MeroGhar has 250+ verified providers across Nepal. Each mover is rated after every job, so you can pick a trusted mover — check ratings when choosing in the booking form.',
+        a: 'ShiftSathi has 250+ verified providers across Nepal. Each mover is rated after every job, so you can pick a trusted mover — check ratings when choosing in the booking form.',
       },
     ],
   },
@@ -292,12 +292,12 @@ function generateKnowledgeResponse(message, context, faq) {
   }
 
   if (msg.includes('thank') || msg.includes('thanks')) {
-    return "You're welcome! 😊 Happy moving with MeroGhar!";
+    return "You're welcome! 😊 Happy moving with ShiftSathi!";
   }
 
   if (msg === 'help' || msg.includes('commands') || msg.includes('what can you do') || msg.includes('menu') || msg.includes('what can i ask') || msg.includes('all questions') || msg.includes('show questions')) {
     var helpText = "Here are all the questions I can answer — type any of them!\n\n";
-    helpText += "📖 ABOUT: \"What is MeroGhar?\", \"Purpose of this site?\"\n";
+    helpText += "📖 ABOUT: \"What is ShiftSathi?\", \"Purpose of this site?\"\n";
     helpText += "📦 BOOKING: \"How to book?\", \"Schedule my move\"\n";
     helpText += "💰 PRICING: \"What are the prices?\", \"How much does it cost?\"\n";
     helpText += "🚚 VEHICLES: \"What trucks do you have?\", \"Which vehicle to choose?\"\n";
@@ -314,12 +314,12 @@ function generateKnowledgeResponse(message, context, faq) {
     return helpText;
   }
 
-  if (msg.includes('purpose') || msg.includes('what is this') || msg.includes('what is mero') || msg.includes('describe') || msg.includes('about this') || msg.includes('what does this') || msg.includes('tell me about') || msg.includes('what kind of')) {
-    return 'MeroGhar Logistics is Nepal\'s trusted household moving service. We connect you with verified movers across all 7 provinces and 77 districts of Nepal. Book a truck, track your shipment, and pay via eSewa, Khalti, or cash. We handle everything from narrow Kathmandu lanes to inter-province moves, including furniture disassembly, packing, and auspicious timing. Ask me "How to book?" to get started!';
+  if (msg.includes('purpose') || msg.includes('what is this') || msg.includes('what is mero') || msg.includes('what is shift') || msg.includes('describe') || msg.includes('about this') || msg.includes('what does this') || msg.includes('tell me about') || msg.includes('what kind of')) {
+    return 'ShiftSathi Logistics is Nepal\'s trusted household moving service. We connect you with verified movers across all 7 provinces and 77 districts of Nepal. Book a truck, track your shipment, and pay via eSewa, Khalti, or cash. We handle everything from narrow Kathmandu lanes to inter-province moves, including furniture disassembly, packing, and auspicious timing. Ask me "How to book?" to get started!';
   }
 
   if (msg.includes('book') || msg.includes('order') || msg.includes('shift') || msg.includes('schedule') || (msg.includes('how') && msg.includes('move'))) {
-    return 'To book a move with MeroGhar:\n1. Fill in pickup/drop locations (Step 1)\n2. Select your items (Step 2)\n3. Choose a vehicle (Step 3)\n4. Pick a mover or use auto-match (Step 4)\n5. Choose your move date (Step 5)\n6. Enter contact details and payment method (Step 6)\n\nYour chosen mover (or the best auto-matched mover) is assigned instantly — no admin approval needed. Our coordinator will call within 2 hours with your NPR quote!';
+    return 'To book a move with ShiftSathi:\n1. Fill in pickup/drop locations (Step 1)\n2. Select your items (Step 2)\n3. Choose a vehicle (Step 3)\n4. Pick a mover or use auto-match (Step 4)\n5. Choose your move date (Step 5)\n6. Enter contact details and payment method (Step 6)\n\nYour chosen mover (or the best auto-matched mover) is assigned instantly — no admin approval needed. Our coordinator will call within 2 hours with your NPR quote!';
   }
 
   if (msg.includes('price') || msg.includes('cost') || msg.includes('rate') || msg.includes('how much') || msg.includes('quote')) {
@@ -327,7 +327,7 @@ function generateKnowledgeResponse(message, context, faq) {
   }
 
   if (msg.includes('vehicle') || msg.includes('truck') || msg.includes('tempo') || msg.includes('transport')) {
-    return 'MeroGhar offers these vehicle options:\n\n🛺 Cargo Tempo (NPR 400-500) — Best for narrow lanes, 1-2 rooms\n🚐 Tata Ace / Small Truck (NPR 800-1200) — Best for 2 BHK\n🚚 Mini Truck 407 (NPR 1500-2000) — Most popular, best for 3 BHK\n🛻 Large Truck + Helpers (NPR 2000+) — Best for large houses\n🤔 Let MeroGhar Recommend — We pick the right vehicle for you\n\nChoose during Step 3 of the booking form.';
+    return 'ShiftSathi offers these vehicle options:\n\n🛺 Cargo Tempo (NPR 400-500) — Best for narrow lanes, 1-2 rooms\n🚐 Tata Ace / Small Truck (NPR 800-1200) — Best for 2 BHK\n🚚 Mini Truck 407 (NPR 1500-2000) — Most popular, best for 3 BHK\n🛻 Large Truck + Helpers (NPR 2000+) — Best for large houses\n🤔 Let ShiftSathi Recommend — We pick the right vehicle for you\n\nChoose during Step 3 of the booking form.';
   }
 
   if (msg.includes('addon') || msg.includes('pack') || msg.includes('disassembly') || msg.includes('porter') || msg.includes('insurance') || msg.includes('protect') || msg.includes('extra') || msg.includes('coverage') || msg.includes('damage')) {
@@ -335,11 +335,11 @@ function generateKnowledgeResponse(message, context, faq) {
   }
 
   if (msg.includes('service') || msg.includes('offer') || msg.includes('provide')) {
-    return 'MeroGhar offers these services:\n\n🚛 Full-Service Moving (From NPR 15,000)\n📦 Pack & Load Only (From NPR 7,500)\n🛺 Cargo Tempo / Valley Move (From NPR 2,500)\n🔧 Furniture Disassembly (From NPR 2,500)\n🛡️ Item Insurance (From NPR 1,200)\n\nBook now and get a free quote within 2 hours!';
+    return 'ShiftSathi offers these services:\n\n🚛 Full-Service Moving (From NPR 15,000)\n📦 Pack & Load Only (From NPR 7,500)\n🛺 Cargo Tempo / Valley Move (From NPR 2,500)\n🔧 Furniture Disassembly (From NPR 2,500)\n🛡️ Item Insurance (From NPR 1,200)\n\nBook now and get a free quote within 2 hours!';
   }
 
   if (msg.includes('province') || msg.includes('district') || msg.includes('cover') || msg.includes('area') || msg.includes('nepal') || msg.includes('location')) {
-    return 'MeroGhar covers ALL 7 provinces and 77 districts of Nepal!\n\n🏔️ Koshi — 14 districts (Biratnagar, Dharan, Ilam)\n🌾 Madhesh — 8 districts (Janakpur, Birgunj)\n🏙️ Bagmati — 13 districts (Kathmandu, Lalitpur, Bhaktapur) Most Active\n🏞️ Gandaki — 11 districts (Pokhara, Gorkha)\n🌳 Lumbini — 12 districts (Butwal, Rupandehi)\n🏔️ Karnali — 10 districts (Surkhet, Jumla)\n🌄 Sudurpashchim — 9 districts (Dhangadhi, Mahendranagar)\n\nEnter your pickup and drop locations in the booking form!';
+    return 'ShiftSathi covers ALL 7 provinces and 77 districts of Nepal!\n\n🏔️ Koshi — 14 districts (Biratnagar, Dharan, Ilam)\n🌾 Madhesh — 8 districts (Janakpur, Birgunj)\n🏙️ Bagmati — 13 districts (Kathmandu, Lalitpur, Bhaktapur) Most Active\n🏞️ Gandaki — 11 districts (Pokhara, Gorkha)\n🌳 Lumbini — 12 districts (Butwal, Rupandehi)\n🏔️ Karnali — 10 districts (Surkhet, Jumla)\n🌄 Sudurpashchim — 9 districts (Dhangadhi, Mahendranagar)\n\nEnter your pickup and drop locations in the booking form!';
   }
 
   if (msg.includes('payment') || msg.includes('pay') || msg.includes('esewa') || msg.includes('khalti') || msg.includes('cash')) {
@@ -359,15 +359,15 @@ function generateKnowledgeResponse(message, context, faq) {
   }
 
   if (msg.includes('contact') || msg.includes('support') || msg.includes('phone') || msg.includes('viber') || msg.includes('email')) {
-    return 'Contact MeroGhar:\n📞 Phone: +977 980-000-000\n💬 Viber: +977 980-000-000\n📧 Email: info@meroghar.com.np\n\nOr use the Help & Support section in the app.';
+    return 'Contact ShiftSathi:\n📞 Phone: +977 980-000-000\n💬 Viber: +977 980-000-000\n📧 Email: info@shiftsathi.com.np\n\nOr use the Help & Support section in the app.';
   }
 
   if (msg.includes('review') || msg.includes('rating') || msg.includes('trust') || msg.includes('reliable') || msg.includes('say') || msg.includes('customer')) {
-    return 'MeroGhar has 250+ verified providers across Nepal. Each vendor is rated after every job, so you can pick a trusted mover. Check vendor ratings when choosing in the booking form.';
+    return 'ShiftSathi has 250+ verified providers across Nepal. Each vendor is rated after every job, so you can pick a trusted mover. Check vendor ratings when choosing in the booking form.';
   }
 
   if (msg.includes('step') || msg.includes('how it works') || msg.includes('process')) {
-    return 'Moving with MeroGhar is easy:\n\nStep 1: Fill the Form — 5-step form takes under 3 minutes\nStep 2: Get Matched — We match you with a verified mover within 2 hours\nStep 3: Confirm & Pay — Review quote, pay token via eSewa/Khalti/cash\nStep 4: Move Day! — Crew arrives on time, even for early auspicious timings\n\nStart by typing "Book a move" to begin!';
+    return 'Moving with ShiftSathi is easy:\n\nStep 1: Fill the Form — 5-step form takes under 3 minutes\nStep 2: Get Matched — We match you with a verified mover within 2 hours\nStep 3: Confirm & Pay — Review quote, pay token via eSewa/Khalti/cash\nStep 4: Move Day! — Crew arrives on time, even for early auspicious timings\n\nStart by typing "Book a move" to begin!';
   }
 
   var faqAnswer = matchFAQ(msg, faq);
@@ -382,5 +382,5 @@ function generateKnowledgeResponse(message, context, faq) {
     }
   }
 
-  return "I'm here to help with MeroGhar Logistics — bookings, tracking, pricing, and more. I can answer from our website knowledge. Try asking \"How to book?\" or \"What are the prices?\" Or type \"help\" to see all options.";
+  return "I'm here to help with ShiftSathi Logistics — bookings, tracking, pricing, and more. I can answer from our website knowledge. Try asking \"How to book?\" or \"What are the prices?\" Or type \"help\" to see all options.";
 }

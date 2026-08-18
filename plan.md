@@ -11,9 +11,9 @@ Super Admin and a Customer — instead of only a Bagmati-only pair.
 
 ## Background / root cause (already audited)
 
-- The live `meroghar_db` was imported from the old pre-RBAC dump
-  (`backend/meroghar-export.sql`): 3 legacy accounts
-  (`subodh@meroghar.com`/user, `admin@meroghar.com`/role `admin`, `vendor@meroghar.com`/vendor),
+- The live `shiftsathi_db` was imported from the old pre-RBAC dump
+  (`backend/shiftsathi-export.sql`): 3 legacy accounts
+  (`subodh@shiftsathi.com`/user, `admin@shiftsathi.com`/role `admin`, `vendor@shiftsathi.com`/vendor),
   **old** `users.role enum('user','vendor','admin')`, and a `vendors` table without
   `branch_id`.
 - `backend/config/db.js` `ensureSchema()` uses `CREATE TABLE IF NOT EXISTS`, so stale
@@ -88,11 +88,11 @@ regional vendor would be picked and rejected on route coverage.
 ## Execution steps (planned)
 
 1. Start XAMPP MySQL and drop the stale DB:
-   `sudo /opt/lampp/lampp startmysql && /opt/lampp/bin/mysql -u root -e "DROP DATABASE IF EXISTS meroghar_db;"`
+   `sudo /opt/lampp/lampp startmysql && /opt/lampp/bin/mysql -u root -e "DROP DATABASE IF EXISTS shiftsathi_db;"`
 2. Start backend (`cd backend && npm start`) → `init()` recreates schema (12 tables,
    new 4-role enum) and `seed()` runs on the empty `users` table.
 3. Verify:
-   - `cd backend && npm test` — full suite (uses disposable `meroghar_test`).
+   - `cd backend && npm test` — full suite (uses disposable `shiftsathi_test`).
    - Manual logins + scope: `ba.gandaki@test.com`, `vendor.lumbini@test.com`,
      `admin@test.com`; check `GET /api/admin/branches` and `GET /api/vendor/profile`.
 4. If the deployed Render/TiDB instance needs parity: re-run
@@ -141,8 +141,8 @@ The real XAMPP MariaDB (data dir `/opt/lampp/var/mysql`, root-owned) was confirm
 on 127.0.0.1:3306 as the `mysql` user (it required root to start, which was provided
 outside this session). Steps taken on the real server:
 
-1. `DROP DATABASE IF EXISTS meroghar_db;` (old schema + 3 legacy accounts removed).
-2. Ran backend `init()` → recreated `meroghar_db` with the new 12-table schema and ran the
+1. `DROP DATABASE IF EXISTS shiftsathi_db;` (old schema + 3 legacy accounts removed).
+2. Ran backend `init()` → recreated `shiftsathi_db` with the new 12-table schema and ran the
    new `seed()`.
 
 ### 5. Verification on the real XAMPP DB
@@ -185,7 +185,7 @@ Date: 2026-08-12 · **Status: ✅ repo changes done & committed (localhost) — 
 
 ## Context (verified against the deployed backend)
 
-- Release APKs point at `https://meroghar-backend.onrender.com` (`mobile/src/config.ts:20`),
+- Release APKs point at `https://shiftsathi-backend.onrender.com` (`mobile/src/config.ts:20`),
   so a GitHub-built APK talks to Render + TiDB Cloud, **not** the local XAMPP DB.
 - Probing the live Render backend (health + `/api/auth/login`):
   - `admin@test.com` logs in but the JWT carries **`role:"admin"`** (old pre-RBAC role) →
@@ -203,13 +203,13 @@ Date: 2026-08-12 · **Status: ✅ repo changes done & committed (localhost) — 
    (`DELETE FROM shipments; DELETE FROM user_branches; DELETE FROM vendors; DELETE FROM users;`)
    and let Render reseed on next boot, **or** import a fresh `export-for-tidb.sh` dump.
 3. **Version tag → GitHub Release** — `git tag v3.4.2 && git push origin v3.4.2`; the
-   `build-apk.yml` workflow attaches `MeroGhar-v3.4.2.apk` to a Release on tags.
+   `build-apk.yml` workflow attaches `ShiftSathi-v3.4.2.apk` to a Release on tags.
 4. **Install** — download the APK, allow "install from unknown sources". Render free tier
    sleeps ~15 min idle; first open wakes it in ~1 min.
 
 ## Execution now (build mode)
 
-- [x] Regenerate `backend/meroghar-export.sql` from the live XAMPP seed (fresh 16-account
+- [x] Regenerate `backend/shiftsathi-export.sql` from the live XAMPP seed (fresh 16-account
       schema/data) so it can be imported into TiDB.
 - [x] Re-verify the dump: restored the new 4-role enum; imported test into a scratch
       database confirmed 16 users / 7 branches / 7 vendors / 14 routes / 7 user_branches.
@@ -217,7 +217,7 @@ Date: 2026-08-12 · **Status: ✅ repo changes done & committed (localhost) — 
 - [ ] **User action (needs GitHub/Render credentials):**
       `git push origin main` → Render redeploys the new seed; refresh TiDB
       (`DELETE FROM shipments; DELETE FROM user_branches; DELETE FROM vendors; DELETE FROM users;`
-      or import `backend/meroghar-export.sql`); then
+      or import `backend/shiftsathi-export.sql`); then
       `git tag v3.4.2 && git push origin v3.4.2` → GitHub Release APK → install on phone.
 
 ---
@@ -248,7 +248,7 @@ Verified constraints that make it safe:
 
 ## Design — API base candidates, tried in order, cached in AsyncStorage
 
-1. `https://meroghar-backend.onrender.com` — cloud; works anywhere with internet.
+1. `https://shiftsathi-backend.onrender.com` — cloud; works anywhere with internet.
 2. `http://127.0.0.1:5000` — USB + `adb reverse tcp:5000 tcp:5000`.
 3. `http://<PC-LAN-IP>:5000` — same WiFi (keep current `192.168.1.76`).
 
@@ -269,7 +269,7 @@ On a network error mid-session: cycle to the next candidate and retry once.
 ## One-time setup
 
 1. Cloud: deploy backend to Render via the blueprint, point env vars at a TiDB Starter
-   cluster (`DB_SSL=true`, `SEED_DEMO_DATA=true`); verify `https://meroghar-backend.onrender.com`.
+   cluster (`DB_SSL=true`, `SEED_DEMO_DATA=true`); verify `https://shiftsathi-backend.onrender.com`.
 2. Rebuild APK once: `cd mobile/android && ./gradlew assembleRelease` (or push `main` → CI).
 3. Verify: `npm run typecheck` + `npm run lint` in `mobile/`; `npm test` in `backend/`;
    device test with internet (Render) and without (USB `adb reverse`).
@@ -324,12 +324,12 @@ and auto-matched bookings assign & approve with **zero admin involvement**)
   (`authController.js:77-83`), so a branch change must return a refreshed token.
 - Backend admin support already exists (`/api/org/users` create admin,
   `/api/org/analytics` scoped) — missing mobile UI in `AdminScreen.tsx`.
-- TiDB `meroghar_db` is already seeded → drop & re-seed to apply the new setup.
+- TiDB `shiftsathi_db` is already seeded → drop & re-seed to apply the new setup.
 
 ## Changes
 
 ### Phase 0 — Reset TiDB data
-- Drop `meroghar_db` on TiDB Cloud; restart backend → recreate schema + seed (7 regional
+- Drop `shiftsathi_db` on TiDB Cloud; restart backend → recreate schema + seed (7 regional
   vendors already carry per-province branches, `db.js:79-138`).
 
 ### Phase 1 — Booking-by-branch (backend)
@@ -385,8 +385,8 @@ and auto-matched bookings assign & approve with **zero admin involvement**)
 
 ### Test-suite isolation fix (important)
 - The backend test harness spawns a child `server.js` that loads `backend/.env`. With TiDB
-  credentials in `.env`, the suite silently ran against the **live `meroghar_db`** on TiDB
-  instead of the local `meroghar_test` the harness drops/recreates, causing non-deterministic
+  credentials in `.env`, the suite silently ran against the **live `shiftsathi_db`** on TiDB
+  instead of the local `shiftsathi_test` the harness drops/recreates, causing non-deterministic
   failures (stale data → "mover busy"). Fix in `backend/test/api.test.js`: `spawnBackend`
   pins `MYSQL_DATABASE`/`DB_NAME`/`MYSQLHOST`/`MYSQLPORT`/`MYSQLUSER`/`MYSQLPASSWORD`/`DB_SSL`
   so the child always uses the local test DB (dotenv never overrides set env vars).
@@ -439,7 +439,7 @@ Improve the booking form UX per the customer flow:
   `quoteFor` when `distance_km` is present; stores the normalized distance.
 
 ### `render.yaml`
-- Added `ORS_API_KEY` (free-tier key) and `BACKEND_URL=https://meroghar-backend.onrender.com`
+- Added `ORS_API_KEY` (free-tier key) and `BACKEND_URL=https://shiftsathi-backend.onrender.com`
   (previously unset → demo payment form would post to `localhost`). DB creds remain
   dashboard-only secrets.
 
@@ -482,13 +482,13 @@ Improve the booking form UX per the customer flow:
 # Release: v3.4.3 APK (booking-form UX round) via GitHub Actions
 
 Date: 2026-08-13 · **Status: ✅ released** (tag `v3.4.3`, GitHub Release with
-`MeroGhar-v3.4.3.apk`)
+`ShiftSathi-v3.4.3.apk`)
 
 ## Local build (verified before/alongside CI)
 
 - `cd mobile/android && ./gradlew assembleRelease` → **BUILD SUCCESSFUL**
   (`mobile/android/app/build/outputs/apk/release/app-release.apk`, ~60 MB,
-  `aapt2` confirms `package=com.meroghar`, `versionCode=12`, `versionName=3.4.3`).
+  `aapt2` confirms `package=com.shiftsathi`, `versionCode=12`, `versionName=3.4.3`).
 - Same SDK versions as CI (NDK 27.1.12297006, platform android-35, build-tools 35.0.0,
   Gradle 8.11.1 wrapper, JDK 21); release signed with the local `debug.keystore` fallback.
 
@@ -511,14 +511,14 @@ Date: 2026-08-13 · **Status: ✅ released** (tag `v3.4.3`, GitHub Release with
   versionCode 12).
 - CI workflow `.github/workflows/build-apk.yml` (build on `main` pushes; build + GitHub
   Release on `v*` tags) produced the release: `assembleRelease` signed with the CI-generated
-  `debug.keystore`, APK uploaded as `MeroGhar-v3.4.3.apk`.
+  `debug.keystore`, APK uploaded as `ShiftSathi-v3.4.3.apk`.
 - `git push origin main` (commit `bafde1e` + version bump), then `git tag v3.4.3` + push.
 
 ## Verification
 
-- APK config points at `https://meroghar-backend.onrender.com` (first `PROD_API_URLS` entry),
+- APK config points at `https://shiftsathi-backend.onrender.com` (first `PROD_API_URLS` entry),
   now live with fresh seed + ORS key (geocode/matrix returns real distances).
-- Release page confirmed the `MeroGhar-v3.4.3.apk` asset is public.
+- Release page confirmed the `ShiftSathi-v3.4.3.apk` asset is public.
 
 ## Files changed
 
@@ -568,7 +568,7 @@ mobile typecheck + lint clean; live TiDB + Render E2E verified — every vendor 
 - Tab pills: `AdminScreen.tsx:184` `tabRow` is a plain row View (not scrollable) → cut off on
   narrow Android screens; filter chips below already use the horizontal ScrollView pattern.
 - All shipment SELECTs use `s.*` → a new `commission_amount` column flows to every API
-  automatically. Tests drop/recreate `meroghar_test` each run → schema changes are free there.
+  automatically. Tests drop/recreate `shiftsathi_test` each run → schema changes are free there.
 
 ## Phase 1 — Seed: all 3 vehicles, no routes (`backend/config/db.js`)
 
@@ -608,7 +608,7 @@ mobile typecheck + lint clean; live TiDB + Render E2E verified — every vendor 
 ## Phase 4 — Verify + deploy
 
 1. Backend `npm test` (43 pass with updates + new test); mobile `npx tsc --noEmit` + lint.
-2. Commit + push; drop `meroghar_db`, restart local backend (reseeds 21 vehicles / 0 routes /
+2. Commit + push; drop `shiftsathi_db`, restart local backend (reseeds 21 vehicles / 0 routes /
    new column).
 3. Live smoke: 3 vehicles/vendor; Mini Truck auto-assigns; `commission_amount` = 10%;
    `/api/admin/analytics` shows earnings; branch scoping intact.

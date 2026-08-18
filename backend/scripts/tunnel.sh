@@ -1,4 +1,4 @@
-# MeroGhar helper: start the backend and expose it on a free public URL.
+# ShiftSathi helper: start the backend and expose it on a free public URL.
 #
 # Why: release APKs installed on a phone need to reach the backend even when the
 # phone is NOT on the same WiFi as this PC. A Cloudflare quick tunnel creates a
@@ -22,7 +22,7 @@ if ! command -v cloudflared >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Starting MeroGhar backend on :$PORT ..."
+echo "Starting ShiftSathi backend on :$PORT ..."
 (cd "$(dirname "$0")/.." && npm start) &
 BACKEND_PID=$!
 

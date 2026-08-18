@@ -25,7 +25,7 @@ const DEFAULT_PORT = 5000
 // keep a run of backend/scripts/tunnel.sh alive and add its printed
 // https://<random>.trycloudflare.com URL here, then rebuild the APK once.
 const PROD_API_URLS: string[] = [
-  'https://meroghar-backend.onrender.com',
+  'https://shiftsathi-backend.onrender.com',
   'http://127.0.0.1:5000',
   'http://192.168.1.76:5000',
 ]
