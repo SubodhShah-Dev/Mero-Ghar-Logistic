@@ -185,7 +185,7 @@ Date: 2026-08-12 · **Status: ✅ repo changes done & committed (localhost) — 
 
 ## Context (verified against the deployed backend)
 
-- Release APKs point at `https://shiftsathi-backend.onrender.com` (`mobile/src/config.ts:20`),
+- Release APKs point at `https://meroghar-backend.onrender.com` (`mobile/src/config.ts:20`),
   so a GitHub-built APK talks to Render + TiDB Cloud, **not** the local XAMPP DB.
 - Probing the live Render backend (health + `/api/auth/login`):
   - `admin@test.com` logs in but the JWT carries **`role:"admin"`** (old pre-RBAC role) →
@@ -248,7 +248,7 @@ Verified constraints that make it safe:
 
 ## Design — API base candidates, tried in order, cached in AsyncStorage
 
-1. `https://shiftsathi-backend.onrender.com` — cloud; works anywhere with internet.
+1. `https://meroghar-backend.onrender.com` — cloud; works anywhere with internet.
 2. `http://127.0.0.1:5000` — USB + `adb reverse tcp:5000 tcp:5000`.
 3. `http://<PC-LAN-IP>:5000` — same WiFi (keep current `192.168.1.76`).
 
@@ -269,7 +269,7 @@ On a network error mid-session: cycle to the next candidate and retry once.
 ## One-time setup
 
 1. Cloud: deploy backend to Render via the blueprint, point env vars at a TiDB Starter
-   cluster (`DB_SSL=true`, `SEED_DEMO_DATA=true`); verify `https://shiftsathi-backend.onrender.com`.
+   cluster (`DB_SSL=true`, `SEED_DEMO_DATA=true`); verify `https://meroghar-backend.onrender.com`.
 2. Rebuild APK once: `cd mobile/android && ./gradlew assembleRelease` (or push `main` → CI).
 3. Verify: `npm run typecheck` + `npm run lint` in `mobile/`; `npm test` in `backend/`;
    device test with internet (Render) and without (USB `adb reverse`).
@@ -439,7 +439,7 @@ Improve the booking form UX per the customer flow:
   `quoteFor` when `distance_km` is present; stores the normalized distance.
 
 ### `render.yaml`
-- Added `ORS_API_KEY` (free-tier key) and `BACKEND_URL=https://shiftsathi-backend.onrender.com`
+- Added `ORS_API_KEY` (free-tier key) and `BACKEND_URL=https://meroghar-backend.onrender.com`
   (previously unset → demo payment form would post to `localhost`). DB creds remain
   dashboard-only secrets.
 
@@ -516,7 +516,7 @@ Date: 2026-08-13 · **Status: ✅ released** (tag `v3.4.3`, GitHub Release with
 
 ## Verification
 
-- APK config points at `https://shiftsathi-backend.onrender.com` (first `PROD_API_URLS` entry),
+- APK config points at `https://meroghar-backend.onrender.com` (first `PROD_API_URLS` entry),
   now live with fresh seed + ORS key (geocode/matrix returns real distances).
 - Release page confirmed the `ShiftSathi-v3.4.3.apk` asset is public.
 

@@ -127,7 +127,7 @@ Requires XAMPP MySQL running; the suite uses a disposable `shiftsathi_test` data
 
 ## Free cloud deploy (no PC needed, anywhere in the world)
 
-The release APK points at `https://shiftsathi-backend.onrender.com` (`mobile/src/config.ts`:
+The release APK points at `https://meroghar-backend.onrender.com` (`mobile/src/config.ts`:
 `PROD_API_URL`). Keeping that URL alive for free requires two free services:
 
 1. **TiDB Cloud Starter** — free, always-on, MySQL-compatible DB (5 GiB row + 50M
